@@ -1,0 +1,16 @@
+{
+  "year": 2026,
+  "currency": "USD",
+  "base_fees": {
+    "zoning_verification": 450,
+    "building_permit_base": 8500,
+    "building_permit_per_unit": 78,
+    "site_development": 3200,
+    "fire_review": 1800,
+    "utility_coordination": 950,
+    "plan_review_per_sqft": 0.12
+  },
+  "formulas": {
+    "building_permit": "base + (units * per_unit) + (gross_sqft * plan_review_per_sqft)"
+  }
+}

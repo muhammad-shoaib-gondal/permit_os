@@ -1,0 +1,30 @@
+[
+  {
+    "id": "egress",
+    "title": "Means of Egress — Multifamily",
+    "excerpt": "Every dwelling unit shall have access to not less than two remote exits where building exceeds 3 stories or 16 dwelling units.",
+    "citation": "IBC 2021 Section 1006.3.1",
+    "tags": ["egress", "multifamily", "fire"]
+  },
+  {
+    "id": "sprinkler_multifamily",
+    "title": "Automatic Sprinkler Systems",
+    "excerpt": "An automatic sprinkler system shall be installed throughout all Group R occupancies where building is four stories or more in height.",
+    "citation": "IBC 2021 Section 903.2.8",
+    "tags": ["sprinkler", "multifamily", "fire"]
+  },
+  {
+    "id": "accessible_units",
+    "title": "Type B Dwelling Units",
+    "excerpt": "At least 5 percent but not less than one unit of the total units shall be Type B dwelling units.",
+    "citation": "ICC A117.1 / FHA Design Requirements",
+    "tags": ["accessibility", "ada", "multifamily"]
+  },
+  {
+    "id": "austin_fire_lane",
+    "title": "Fire Apparatus Access",
+    "excerpt": "Fire apparatus access roads shall extend to within 150 feet of all portions of the building exterior.",
+    "citation": "Austin Fire Code 503.1.1",
+    "tags": ["fire", "site", "access"]
+  }
+]

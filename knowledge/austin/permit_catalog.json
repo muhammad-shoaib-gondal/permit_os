@@ -1,0 +1,52 @@
+{
+  "permits": [
+    {
+      "id": "zoning_verification",
+      "agency": "City of Austin DSD",
+      "permit_name": "Zoning Verification Letter",
+      "form_id": "ZV-2026",
+      "fee_usd": 450,
+      "timeline_days": 10,
+      "dependencies": []
+    },
+    {
+      "id": "building_permit",
+      "agency": "City of Austin DSD",
+      "permit_name": "Building Permit",
+      "form_id": "BP-2026",
+      "fee_usd": 12400,
+      "timeline_days": 30,
+      "dependencies": ["zoning_verification"]
+    },
+    {
+      "id": "site_development",
+      "agency": "City of Austin Watershed Protection",
+      "permit_name": "Site Development Permit",
+      "form_id": "SDP-2026",
+      "fee_usd": 3200,
+      "timeline_days": 21,
+      "dependencies": ["zoning_verification"]
+    },
+    {
+      "id": "fire_review",
+      "agency": "Austin Fire Department",
+      "permit_name": "Fire Protection Plan Review",
+      "form_id": "FP-2026",
+      "fee_usd": 1800,
+      "timeline_days": 14,
+      "dependencies": ["building_permit"]
+    },
+    {
+      "id": "utility_coordination",
+      "agency": "Austin Water / Austin Energy",
+      "permit_name": "Utility Coordination",
+      "form_id": "UC-2026",
+      "fee_usd": 950,
+      "timeline_days": 15,
+      "dependencies": ["building_permit"]
+    }
+  ],
+  "base_count_multifamily_50_units": 23,
+  "demo_total_fees_usd": 47200,
+  "demo_timeline_days": 45
+}

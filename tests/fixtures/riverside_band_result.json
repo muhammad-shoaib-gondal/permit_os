@@ -1,0 +1,157 @@
+{
+  "brief": {
+    "case_id": "5cdf1764-0181-4d9a-bf8b-3fde3e1325dd",
+    "project_name": "Riverside Residences",
+    "address": "1200 Riverside Dr, Austin, TX 78704",
+    "project_type": "multifamily_residential",
+    "units": 50,
+    "stories": 4,
+    "gross_sqft": 52000,
+    "lot_sqft": 85000,
+    "parking_spaces": 75,
+    "plan_pdf_url": null,
+    "notes": "Block B east wall at 8ft side setback (10ft required per Austin LDC 25-2-491)",
+    "blocks": [
+      {
+        "block_id": "Block B",
+        "side": "east",
+        "required_ft": 10.0,
+        "actual_ft": 8.0
+      }
+    ]
+  },
+  "jurisdiction_report": {
+    "agent": "jurisdiction",
+    "case_id": "5cdf1764-0181-4d9a-bf8b-3fde3e1325dd",
+    "summary": "MF-3 zoning OK; setback FAIL on Block B",
+    "readiness_impact": "needs_changes",
+    "jurisdictions": [],
+    "zoning": {
+      "district": "MF-3",
+      "permitted_use": "multifamily_residential",
+      "by_right": false
+    },
+    "checks": [
+      {
+        "rule": "Side setback minimum 10ft",
+        "status": "fail",
+        "citation": "Austin LDC 25-2-491",
+        "detail": "Block B east 8ft vs 10ft required",
+        "category": "zoning"
+      }
+    ],
+    "blockers": [
+      "Setback non-compliance Block B"
+    ],
+    "data_gaps": []
+  },
+  "building_report": {
+    "agent": "building",
+    "case_id": "5cdf1764-0181-4d9a-bf8b-3fde3e1325dd",
+    "summary": "Egress PASS; sprinklers REQUIRED",
+    "readiness_impact": "ready",
+    "checks": [
+      {
+        "rule": "Egress",
+        "status": "pass",
+        "citation": "IBC 1006",
+        "detail": "ok",
+        "category": "fire"
+      }
+    ],
+    "blockers": [],
+    "recommendations": []
+  },
+  "site_report": {
+    "agent": "site",
+    "case_id": "5cdf1764-0181-4d9a-bf8b-3fde3e1325dd",
+    "summary": "Flood zone X",
+    "readiness_impact": "ready",
+    "environmental_checks": [
+      {
+        "rule": "Flood",
+        "status": "pass",
+        "citation": "FEMA",
+        "detail": "Zone X",
+        "category": "flood"
+      }
+    ],
+    "utility_checks": [],
+    "additional_permits": [],
+    "blockers": []
+  },
+  "case_summary": {
+    "case_id": "5cdf1764-0181-4d9a-bf8b-3fde3e1325dd",
+    "project_name": "Riverside Residences",
+    "status": "AWAITING_APPROVAL",
+    "readiness_score": "NEEDS_CHANGES",
+    "conflicts": [
+      {
+        "agents": [
+          "jurisdiction",
+          "conductor"
+        ],
+        "issue": "Setback violation blocks by-right approval",
+        "severity": "high",
+        "suggested_fix": "Reduce Block B east footprint by 2ft or apply for variance (Austin LDC 25-2-491)"
+      }
+    ],
+    "human_actions_required": [
+      {
+        "action": "review_setback",
+        "description": "Review Block B setback violation and approve variance path or design change",
+        "priority": "high"
+      },
+      {
+        "action": "final_approval",
+        "description": "Approve permit analysis package before filing",
+        "priority": "normal"
+      }
+    ],
+    "audit_events": [
+      {
+        "timestamp": "2026-06-15T23:00:30.222901+00:00",
+        "agent_id": "conductor",
+        "event_type": "merge_complete",
+        "message_id": null,
+        "payload_hash": null,
+        "human_id": null,
+        "detail": "Project Riverside Residences: NEEDS_CHANGES. Jurisdiction: MF-3 zoning OK; setback FAIL on Block B. Building: Egress PASS; sprinklers REQUIRED. Site: Flood zone X."
+      }
+    ],
+    "executive_summary": "Project Riverside Residences: NEEDS_CHANGES. Jurisdiction: MF-3 zoning OK; setback FAIL on Block B. Building: Egress PASS; sprinklers REQUIRED. Site: Flood zone X.",
+    "band_room_id": "test-room"
+  },
+  "permit_package": {
+    "case_id": "5cdf1764-0181-4d9a-bf8b-3fde3e1325dd",
+    "permits_required": [
+      {
+        "agency": "COA",
+        "permit_name": "Building Permit",
+        "form_id": "BP-2026",
+        "fee_usd": 35000.0,
+        "timeline_days": 30,
+        "dependencies": []
+      }
+    ],
+    "documents_required": [
+      {
+        "name": "Site plan",
+        "source_agent": "jurisdiction",
+        "status": "required"
+      }
+    ],
+    "total_fees_estimate_usd": 47200.0,
+    "estimated_timeline_days": 45,
+    "filing_sequence": [
+      "Step 1: Zoning verification",
+      "Step 2: Building permit"
+    ],
+    "audit_hash": "sha256:415045ea638082e1163af423c3267dd6760c7dd84d8aa1eaa16439d14063770f",
+    "rfi_draft": null
+  },
+  "band_room_id": "test-room-fixture",
+  "agent_driven": true,
+  "band_orchestrated": true,
+  "activity": []
+}

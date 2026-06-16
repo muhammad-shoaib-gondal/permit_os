@@ -1,0 +1,15 @@
+{
+  "water_sewer": {
+    "threshold_units": 10,
+    "capacity_review_threshold_units": 40,
+    "citation": "Austin Water Utility Development Criteria 3.1"
+  },
+  "electrical": {
+    "multifamily_min_service_amps": 400,
+    "citation": "Austin Energy Design Criteria AE-1"
+  },
+  "traffic": {
+    "trip_threshold_daily": 100,
+    "citation": "City of Austin Transportation Criteria Manual 2.4"
+  }
+}

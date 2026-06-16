@@ -1,0 +1,36 @@
+{
+  "city": "Austin",
+  "state": "TX",
+  "county": "Travis",
+  "districts": {
+    "MF-3": {
+      "name": "Multifamily - Moderate Density",
+      "permitted_uses": ["multifamily_residential", "mixed_use"],
+      "max_height_ft": 60,
+      "max_far": 2.5,
+      "max_lot_coverage": 0.65,
+      "setbacks_ft": {
+        "front": 25,
+        "side": 10,
+        "rear": 15
+      },
+      "parking_ratio": {
+        "multifamily_residential": 1.5
+      },
+      "max_units_per_acre": 36
+    }
+  },
+  "demo_addresses": {
+    "1200 Riverside Dr, Austin, TX 78704": {
+      "district": "MF-3",
+      "lat": 30.2451,
+      "lng": -97.7431
+    }
+  },
+  "citations": {
+    "side_setback": "Austin LDC 25-2-491",
+    "height": "Austin LDC 25-2-492",
+    "parking": "Austin LDC 25-2-1010",
+    "far": "Austin LDC 25-2-493"
+  }
+}

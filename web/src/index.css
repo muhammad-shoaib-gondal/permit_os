@@ -1,0 +1,48 @@
+:root {
+  --bg: #0c0f14;
+  --surface: #141a22;
+  --surface2: #1c2430;
+  --border: #2a3544;
+  --text: #e8edf4;
+  --muted: #8b9cb3;
+  --accent: #3d9cf5;
+  --accent-dim: #2563a8;
+  --pass: #34d399;
+  --fail: #f87171;
+  --warn: #fbbf24;
+  --ready: #a78bfa;
+  font-family: "DM Sans", system-ui, sans-serif;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--bg);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: radial-gradient(ellipse 80% 50% at 50% -20%, #1a2840 0%, var(--bg) 60%);
+}
+
+#root {
+  min-height: 100vh;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+.mono {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.85em;
+}

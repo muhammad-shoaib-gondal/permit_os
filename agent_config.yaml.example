@@ -1,0 +1,22 @@
+# Copy to agent_config.yaml and fill in credentials from https://band.ai
+# Create 5 External Agents on the Band platform first.
+
+conductor:
+  agent_id: "your-conductor-agent-uuid"
+  api_key: "your-conductor-api-key"
+
+jurisdiction:
+  agent_id: "your-jurisdiction-agent-uuid"
+  api_key: "your-jurisdiction-api-key"
+
+building:
+  agent_id: "your-building-agent-uuid"
+  api_key: "your-building-api-key"
+
+site:
+  agent_id: "your-site-agent-uuid"
+  api_key: "your-site-api-key"
+
+packager:
+  agent_id: "your-packager-agent-uuid"
+  api_key: "your-packager-api-key"

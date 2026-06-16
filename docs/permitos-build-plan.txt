@@ -1,0 +1,547 @@
+================================================================================
+PERMITOS — FULL BUILD PLAN
+Band of Agents Hackathon | Track 3: Regulated & High-Stakes Workflows
+================================================================================
+
+Product:  PermitOS — Developer-side autonomous permitting across jurisdictions
+Track:    3 (Regulated & High-Stakes Workflows)
+Agents:   5 (consolidated from 8)
+Timeline: June 12–19, 2026 (7 days)
+Demo:     One jurisdiction deep (Austin, TX residential) + architecture ready to scale
+
+
+================================================================================
+1. WHAT WE ARE BUILDING (HACKATHON SCOPE)
+================================================================================
+
+PermitOS is a multi-agent permitting command center for real estate developers.
+
+A developer uploads:
+  - Project address
+  - Project type (e.g. 50-unit residential)
+  - Plans / PDFs or structured project brief (sq ft, stories, units, parking)
+
+Five specialized agents analyze the project in parallel, coordinate through Band,
+merge findings, resolve conflicts, assemble a permit package, and produce an
+audit-ready trail. A human approves before anything is marked "ready to file."
+
+WHAT WE SHIP FOR THE HACKATHON
+------------------------------
+[+] Web UI: upload project + live agent activity feed (Band-backed)
+[+] 5 Band-connected agents with distinct roles and (ideally) different frameworks
+[+] One polished demo jurisdiction: Austin, TX (city + Travis County + key state triggers)
+[+] Structured outputs: compliance report, conflict list, permit checklist, fee estimate
+[+] Human approval gate with audit log
+[+] 3–5 minute demo video + GitHub repo
+
+WHAT WE DO NOT NEED FOR THE HACKATHON
+-------------------------------------
+[-] Live integration with every city permit portal API
+[-] All 50 US states
+[-] Auto-submit to government systems
+[-] CAD/plan parsing perfection — structured brief + optional PDF text extract is enough
+
+
+================================================================================
+2. THE 5 AGENTS (FINAL ROSTER)
+================================================================================
+
+We merged 8 agents into 5 by combining related domains. Each agent is a separate
+Band participant with its own system prompt, tools, and (preferably) framework.
+
+--------------------------------------------------------------------------------
+AGENT 1: CONDUCTOR (Orchestrator + Conflict Resolver + Human Gate)
+--------------------------------------------------------------------------------
+Role:       Project intake, task dispatch, merge results, resolve conflicts, escalate
+Framework:  LangGraph or PydanticAI (recommended — good for structured orchestration)
+Model:      Strong reasoning model (Claude / GPT-4 class)
+
+Responsibilities:
+  - Receives project from UI, creates/opens Band chatroom for the permit case
+  - Parses intake into structured ProjectBrief JSON
+  - @mentions specialist agents with scoped tasks (not the whole blob)
+  - Waits for specialist agents to post structured findings
+  - Detects conflicts between agents (e.g. zoning OK but fire egress fails)
+  - Proposes resolution paths or design modifications
+  - Computes overall readiness score (Ready / Needs Changes / Blocked)
+  - Escalates to human when: critical conflict, missing data, or final approval
+  - Writes final PermitCaseSummary for the dashboard
+
+Outputs (structured JSON):
+  - case_id, status, readiness_score
+  - conflicts[]: { agents, issue, severity, suggested_fix }
+  - human_actions_required[]
+  - audit_events[]
+
+Band tools used:
+  - thenvoi_create_chatroom (new case)
+  - thenvoi_add_participant (invite specialists)
+  - thenvoi_send_message (@mention agents)
+  - thenvoi_send_event (progress: planning, waiting, merging, escalated)
+  - thenvoi_get_participants / thenvoi_lookup_peers
+
+--------------------------------------------------------------------------------
+AGENT 2: JURISDICTION & ZONING AGENT
+--------------------------------------------------------------------------------
+Role:       Which rules apply + land use / zoning compliance
+Framework:  CrewAI or Anthropic adapter (different from Conductor if possible)
+Model:      Same or different vendor than Conductor (cross-model = judge bonus)
+
+Responsibilities:
+  - Resolve address → city, county, state, special districts
+  - Load jurisdiction rule pack from knowledge base (Austin MVP)
+  - Check: zoning district, permitted use, setbacks, FAR, height, lot coverage,
+    parking ratios, density limits
+  - Flag if project type is allowed by-right vs requires variance/CUP
+  - Cite specific code sections in every finding
+
+Inputs:     address, project type, lot size, unit count, stories
+Outputs:     JurisdictionReport JSON
+
+  jurisdictions: [{ name, type, codes_applicable[] }]
+  zoning: { district, permitted_use, by_right: bool }
+  checks: [{ rule, status: pass|fail|warn, citation, detail }]
+  blockers: []
+  data_gaps: []
+
+Tools:
+  - lookup_jurisdiction(address)        → mock DB or geocoding + rules index
+  - get_zoning_rules(city, district)    → RAG over Austin code snippets
+  - calculate_setbacks(project, lot)      → deterministic helper
+
+--------------------------------------------------------------------------------
+AGENT 3: BUILDING & SAFETY AGENT
+--------------------------------------------------------------------------------
+Role:       Building code, fire, egress, accessibility pre-screen
+Framework:  LangGraph or OpenAI adapter
+Model:      Different from Agent 2 if possible
+
+Responsibilities:
+  - Pre-screen against IBC/IRC (residential), local amendments
+  - Fire: egress paths, sprinkler triggers by occupancy/size, fire lane access
+  - Accessibility: ADA / FHA accessible unit %, route requirements
+  - Structural red flags from brief (stories, construction type) — not full PE stamp
+  - Every finding tagged pass/fail/warn + code citation
+
+Inputs:     ProjectBrief + unit mix, stories, sq ft, parking structure
+Outputs:     BuildingSafetyReport JSON (same schema pattern as Agent 2)
+
+Tools:
+  - get_building_code_rules(city, project_type)
+  - check_egress_requirements(units, stories, corridors)
+  - check_accessibility_requirements(unit_count, building_type)
+
+--------------------------------------------------------------------------------
+AGENT 4: SITE, ENVIRONMENTAL & UTILITIES AGENT
+--------------------------------------------------------------------------------
+Role:       Environmental triggers + site infrastructure / utilities
+Framework:  PydanticAI or Gemini adapter (third framework = differentiation)
+Model:      Third vendor if budget allows
+
+Responsibilities:
+  - Environmental: wetlands, floodplain (FEMA zone from address), endangered species
+    triggers, stormwater, noise — CEQA/NEPA screening level (not full EIS)
+  - Utilities: water/sewer capacity flags, electrical service size, gas,
+    storm drain, traffic impact screening
+  - Identifies which separate permits/approvals are needed beyond building permit
+
+Inputs:     address, site acreage, unit count, impervious surface estimate
+Outputs:     SiteEnvironmentalReport JSON
+
+Tools:
+  - lookup_flood_zone(address)            → FEMA mock/API
+  - get_environmental_triggers(city, site)
+  - get_utility_requirements(project_size, city)
+
+--------------------------------------------------------------------------------
+AGENT 5: PERMIT PACKAGER & TRACKER AGENT
+--------------------------------------------------------------------------------
+Role:       Assemble submission package + track status + draft RFI responses
+Framework:  Claude SDK or Codex adapter
+Model:      Strong at document generation
+
+Responsibilities:
+  - Consumes all specialist reports + Conductor's merged state
+  - Generates permit checklist: every form, document, fee, agency, timeline
+  - Calculates fee estimates from jurisdiction fee schedule (MVP: Austin table)
+  - Produces filing order (what to submit first, dependencies)
+  - Simulates post-submission: status states (Submitted → In Review → RFI → Approved)
+  - Drafts RFI response when city asks for clarification (demo scenario)
+
+Inputs:     Merged PermitCaseSummary + all specialist reports
+Outputs:     PermitPackage JSON
+
+  permits_required: [{ agency, permit_name, form_id, fee, timeline_days, deps[] }]
+  documents_required: [{ name, source_agent, status }]
+  total_fees_estimate: number
+  estimated_timeline_days: number
+  filing_sequence: []
+  rfi_draft: optional (for demo act 2)
+
+Tools:
+  - get_permit_templates(city, project_type)
+  - get_fee_schedule(city)
+  - generate_checklist(reports[])
+  - draft_rfi_response(rfi_text, case_context)
+
+
+================================================================================
+3. HOW BAND IS USED (NOT A THIN WRAPPER)
+================================================================================
+
+Band is the ACTIVE coordination layer. The UI talks to Conductor; Conductor and
+specialists coordinate in Band chatrooms. State changes happen via Band messages
+and events — not just a log dump at the end.
+
+ARCHITECTURE
+------------
+
+  [Developer UI]
+        |
+        v
+  [API / Backend]  ---- creates case, stores reports
+        |
+        v
+  [Conductor Agent]  <======= Band Chatroom (per permit case) =======>
+        |                    |         |         |         |
+        @mentions            |         |         |         |
+        v                    v         v         v         v
+   [Zoning]            [Building]  [Site/Env]  [Packager]
+   Agent               Agent       Agent       Agent
+
+BAND SDK INTEGRATION CHECKLIST (JUDGES CARE ABOUT THIS)
+-------------------------------------------------------
+[1] Each of the 5 agents registered as separate Band remote agents
+[2] Each uses official Band Agent API / SDK adapter
+[3] Agents discover each other via thenvoi_lookup_peers or room participants
+[4] Task handoffs via thenvoi_send_message with @mentions
+[5] Progress via thenvoi_send_event (thoughts, errors, task progress)
+[6] Conductor creates room per case via thenvoi_create_chatroom
+[7] Structured payloads in messages (JSON blocks, not just prose)
+[8] Human added to room for approval step via thenvoi_add_participant
+
+MESSAGE PROTOCOL (KEEP AGENTS ALIGNED)
+--------------------------------------
+Every agent message includes a JSON block:
+
+  {
+    "type": "finding" | "complete" | "question" | "conflict",
+    "case_id": "uuid",
+    "agent": "jurisdiction" | "building" | "site" | "packager" | "conductor",
+    "payload": { ... report or partial ... },
+    "citations": [{ "source": "Austin LDC 25-2-491", "url": "..." }]
+  }
+
+Conductor only merges on type=complete messages from specialists.
+
+HUMAN-IN-THE-LOOP (TRACK 3 REQUIREMENT)
+---------------------------------------
+  - Conductor posts PermitPackage + Compliance Summary to room
+  - @mentions human user
+  - Human replies APPROVE or REQUEST_CHANGES in Band (or via UI that posts to Band)
+  - Packager updates status; Audit log records human decision + timestamp
+  - No "ready to file" without human APPROVE
+
+AUDIT TRAIL
+-----------
+  Store locally + surface in UI:
+  - Every Band message ID, agent ID, timestamp
+  - Every rule checked, pass/fail, citation
+  - Human approval record
+  - Hash of final package (demo: SHA-256 of JSON) — "provable permit decision"
+
+
+================================================================================
+4. TECH STACK (RECOMMENDED)
+================================================================================
+
+Layer              Choice                          Why
+-----------------  ------------------------------  ---------------------------
+Orchestration      Python 3.11+                    Band SDK is Python-first
+Band SDK           band / thenvoi SDK              Hackathon requirement
+Agent frameworks   LangGraph, PydanticAI, CrewAI   Cross-framework bonus
+LLM APIs           Anthropic + OpenAI (+ optional  Cross-model agents
+                   Google for Agent 4)
+Backend API        FastAPI                         Fast, async, WebSocket friendly
+Frontend           Next.js or simple React/Vite    Upload + live feed + reports
+Database           SQLite or Postgres              Cases, reports, audit log
+Vector / RAG       Chroma or local JSON + embed    Austin code snippets
+File storage       Local / S3                      Uploaded PDFs
+Geocoding          Google Maps / OpenStreetMap     Address → jurisdiction
+Deploy demo        Docker Compose                  Band agents + API + UI
+
+REPO STRUCTURE
+--------------
+permitos/
+  agents/
+    conductor/          # Agent 1
+    jurisdiction/       # Agent 2
+    building/           # Agent 3
+    site_environmental/ # Agent 4
+    packager/           # Agent 5
+  shared/
+    schemas/            # Pydantic models: ProjectBrief, reports, PermitPackage
+    band_client/        # Shared Band connection helpers
+    knowledge/          # Austin rule packs, fee tables, form lists
+  api/                  # FastAPI: cases, upload, webhook from Band
+  web/                  # Frontend dashboard
+  docker-compose.yml
+  README.md
+
+
+================================================================================
+5. DATA & KNOWLEDGE BASE (MVP = AUSTIN, TX)
+================================================================================
+
+Do NOT try to scrape all US codes. Curate a Austin MVP knowledge pack:
+
+  knowledge/austin/
+    zoning_rules.json         # districts, setbacks, FAR, height (simplified)
+    building_code_snippets/   # 20-30 curated excerpts with citations
+    environmental_triggers.json
+    utility_requirements.json
+    permit_catalog.json       # permit types, agencies, forms, deps
+    fee_schedule.json         # 2026 fee estimates (approximate OK for demo)
+
+Optional: 1-2 PDF plan uploads → extract text via pymupdf → pass to agents
+
+Geocoding mock: if address contains "Austin, TX" → load Austin pack; else warn
+"demo jurisdiction only" but still run agents with generic IBC checks.
+
+
+================================================================================
+6. END-TO-END FLOW (SYSTEM BEHAVIOR)
+================================================================================
+
+STEP 1 — INTAKE
+  Developer submits form in UI
+  API creates case_id, stores ProjectBrief
+  Conductor agent starts, creates Band room "permit-case-{id}"
+  Conductor adds 4 specialist agents to room
+  Conductor posts task message with scoped brief to each agent (@mention)
+
+STEP 2 — PARALLEL ANALYSIS (Band)
+  Agents 2, 3, 4 run in parallel (Packager waits)
+  Each posts thenvoi_send_event("analyzing...")
+  Each posts type=complete with structured report JSON
+  Typical time: 30-90 seconds per agent in demo
+
+STEP 3 — MERGE & CONFLICT (Conductor)
+  Conductor ingests 3 reports
+  Runs conflict rules:
+    - zoning fail + anything else = BLOCKED
+    - building fail + site pass = NEEDS CHANGES
+    - conflicting citations → conflict object
+  Posts merged summary to room
+
+STEP 4 — PACKAGE (Agent 5)
+  Conductor @mentions Packager with merged context
+  Packager generates PermitPackage + checklist + fees
+  Posts type=complete
+
+STEP 5 — HUMAN GATE
+  Conductor posts executive summary + blockers + fees + timeline
+  @mentions human
+  UI shows approval card; human clicks Approve (posts to Band)
+  Audit hash generated
+
+STEP 6 — DEMO ACT 2 (OPTIONAL WOW)
+  Simulate RFI from city: "Clarify fire access route on Block B"
+  Packager drafts response using case context
+  Conductor shows before/after timeline improvement
+
+
+================================================================================
+7. TEAM DISTRIBUTION (SUGGESTED ROLES)
+================================================================================
+
+Adjust to your actual team size. Example for 4-6 people:
+
+ROLE A — TECH LEAD / CONDUCTOR + BAND
+  - Band SDK setup, agent registration, room lifecycle
+  - Conductor agent implementation
+  - Message protocol + shared schemas
+  - Docker compose, agent_config.yaml for all 5 agents
+  - Ensures "deep Band integration" for judging
+
+ROLE B — SPECIALIST AGENTS (2 people)
+  Person B1: Jurisdiction + Zoning agent (Agent 2)
+  Person B2: Building + Safety agent (Agent 3)
+  - Prompts, tools, RAG queries, report JSON output
+  - Austin knowledge pack curation (with Role E)
+
+ROLE C — SPECIALIST AGENTS (1 person)
+  - Site, Environmental & Utilities agent (Agent 4)
+  - Different LLM/framework from B for cross-framework story
+
+ROLE D — PACKAGER + AUDIT
+  - Permit Packager agent (Agent 5)
+  - Checklist templates, fee calculation, RFI draft demo
+  - Audit log + decision hash
+
+ROLE E — KNOWLEDGE + DOMAIN
+  - Austin permit catalog, fee schedule, code citations
+  - Demo scenario script (the 50-unit Austin project with intentional setback fail)
+  - Validation that citations look real
+
+ROLE F — FRONTEND + API
+  - FastAPI endpoints: create case, get status, get reports
+  - UI: upload form, agent activity feed (poll Band events or API)
+  - Approval button, final report PDF/HTML export
+
+ROLE G — DEMO + SUBMISSION (everyone helps day 6-7)
+  - 3-5 min video, README, architecture diagram
+  - lablab.ai submission text
+
+
+================================================================================
+8. 7-DAY TIMELINE
+================================================================================
+
+DAY 1 (June 12) — FOUNDATION
+  [ ] Register all 5 agents on Band platform, save API keys
+  [ ] Repo scaffold, Docker compose skeleton
+  [ ] Shared Pydantic schemas (ProjectBrief, reports, PermitPackage)
+  [ ] Band message protocol agreed
+  [ ] Austin knowledge pack v0 (10 rules minimum)
+  [ ] ONE agent (Conductor) sends/receives message in Band room — prove plumbing
+
+DAY 2 — AGENT SKELETONS
+  [ ] All 5 agents connect to Band, join test room
+  [ ] Conductor can @mention each agent
+  [ ] Agents return mock JSON reports (hardcoded OK)
+  [ ] FastAPI: POST /cases, GET /cases/{id}
+
+DAY 3 — SPECIALIST LOGIC
+  [ ] Agents 2, 3, 4: real prompts + RAG over Austin pack
+  [ ] Tools implemented (lookup_jurisdiction, flood_zone, etc.)
+  [ ] Parallel run: all 3 complete → Conductor merge
+
+DAY 4 — CONDUCTOR + PACKAGER
+  [ ] Conflict detection rules in Conductor
+  [ ] Packager generates real checklist from reports
+  [ ] Fee + timeline estimates
+  [ ] Human approval flow end-to-end
+
+DAY 5 — UI + POLISH
+  [ ] Frontend: upload + live status + final report view
+  [ ] Agent activity feed visible to judges
+  [ ] Audit trail page
+  [ ] Fix Band handoff bugs (the "seams" — auth, timeouts, message format)
+
+DAY 6 — DEMO HARDENING
+  [ ] Rehearse demo scenario 10x
+  [ ] Act 2: RFI simulation
+  [ ] Architecture diagram
+  [ ] Record demo video
+  [ ] README: setup instructions for judges
+
+DAY 7 (June 19) — SUBMIT
+  [ ] Final submission on lablab.ai
+  [ ] GitHub clean, LICENSE, env example
+  [ ] Buffer for last-minute Band platform issues
+
+
+================================================================================
+9. DEMO SCRIPT (3–5 MINUTES)
+================================================================================
+
+SCENARIO: "Riverside Residences" — 50-unit multifamily, Austin, TX
+          Intentional flaw: Block B violates side setback by 2 feet (fixable)
+
+MINUTE 0:00 — Problem
+  "Permitting takes 2-12 months. 200+ laws. Developers pay $50-150K per project.
+   PermitOS is a multi-agent permitting team coordinated through Band."
+
+MINUTE 0:30 — Upload
+  Show UI: address, 50 units, 4 stories, upload site plan PDF
+  Click "Start Permit Analysis"
+  Band room created — show agent avatars joining
+
+MINUTE 1:00 — Parallel agents
+  Split screen: Band chat + compliance dashboard
+  Jurisdiction agent: zoning MF-3, setback FAIL Block B (cite Austin LDC)
+  Building agent: egress PASS, sprinklers REQUIRED
+  Site agent: flood zone X, no wetland trigger, sewer capacity WARN
+
+MINUTE 2:00 — Conductor merge
+  Conductor posts conflict: "Setback violation blocks by-right approval"
+  Suggested fix: "Reduce Block B footprint 2ft or apply for variance"
+  Readiness: NEEDS CHANGES (not blocked)
+
+MINUTE 2:30 — Packager
+  23 permits identified, $47,200 fees, 45-day estimate
+  Checklist downloadable
+  Filing sequence shown
+
+MINUTE 3:00 — Human gate
+  Human reviews summary, clicks Approve for "analysis complete"
+  Audit hash displayed — "every decision traceable for regulators"
+
+MINUTE 3:30 — Act 2 (RFI)
+  Simulate city RFI: "Provide fire apparatus access diagram"
+  Packager drafts response in 10 seconds
+  Show audit log entry
+
+MINUTE 4:00 — Architecture
+  "5 agents, 3 frameworks, Band as coordination bus — not a chatbot wrapper"
+  Mention post-hackathon: multi-city expansion, live portal integrations
+
+
+================================================================================
+10. JUDGING CRITERIA — HOW WE WIN
+================================================================================
+
+Criterion                          Our answer
+---------------------------------  ------------------------------------------
+3+ specialized agents                5 agents, clear roles
+Deep Band SDK                        Rooms, @mentions, events, peer discovery
+Cross-framework                      LangGraph + PydanticAI + CrewAI (mix 3)
+Track 3 fit                          Citations, audit trail, human gate, regulated
+Not a thin wrapper                   Band IS the workflow bus
+Demo impact                          Live setback fail → fix → package → approve
+Business value                       $10-30K/month carrying cost per delay
+
+
+================================================================================
+11. RISKS & MITIGATIONS
+================================================================================
+
+Risk                               Mitigation
+---------------------------------  ------------------------------------------
+Band SDK learning curve            Day 1: one message round-trip before features
+Agents return prose not JSON       Strict output schema in prompts; parse/retry
+Too slow for live demo             Pre-warm agents; cache Austin RAG; shorten brief
+Wrong legal advice                 Label "pre-screen only, not legal advice"; cite sources
+One agent framework only           Assign different adapters per agent early
+Team blocked on Austin data        Ship with 15 good rules > 100 bad rules
+Submission day Band outage         Record demo video Day 6; submit early June 19 AM
+
+
+================================================================================
+12. POST-HACKATHON ROADMAP (PITCH SLIDE)
+================================================================================
+
+Phase 1: Austin + Dallas + Houston (Texas triangle)
+Phase 2: Live integrations with Accela / OpenCounter style portals
+Phase 3: Architect + GC white-label; charge per project ($5-15K)
+Phase 4: Multiplayer mode — city reviewer agent + developer agent in same Band room
+
+
+================================================================================
+13. QUICK REFERENCE — 5 AGENTS AT A GLANCE
+================================================================================
+
+#  Agent                         Does                          Waits for
+-  ---------------------------   ---------------------------   -----------------
+1  Conductor                     Orchestrate, merge, conflict  All specialists
+                                                               then Packager
+2  Jurisdiction & Zoning         Where + zoning + setbacks     Conductor task
+3  Building & Safety             Codes, fire, ADA              Conductor task
+4  Site, Environmental & Util  Env triggers, utilities       Conductor task
+5  Permit Packager & Tracker     Forms, fees, checklist, RFI   Conductor merge
+
+
+================================================================================
+END OF DOCUMENT — PERMITOS BUILD PLAN
+================================================================================
