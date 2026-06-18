@@ -31,7 +31,7 @@ Merge to `master` when ready, or deploy from the feature branch.
 
 ### 2. Build the UI into the API image
 
-The production `Dockerfile` builds `web/dist` and FastAPI serves it at `/`.
+The production `Dockerfile` builds **API + UI only** (no Band SDK). Band agents run on your laptop or via `Dockerfile.agents`.
 
 ### 3. Create a Render Web Service
 
