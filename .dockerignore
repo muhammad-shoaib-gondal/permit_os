@@ -1,0 +1,15 @@
+.env
+agent_config.yaml
+.git
+__pycache__
+*.pyc
+.venv
+venv
+logs
+*.db
+web/node_modules
+web/dist
+_vendor
+_llm_out.txt
+.pytest_cache
+.ruff_cache

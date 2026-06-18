@@ -12,7 +12,9 @@ services:
       - DATABASE_URL=sqlite+aiosqlite:///./data/permitos.db
 
   conductor:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile.agents
     command: python -m agents.conductor.agent
     env_file:
       - .env
@@ -22,7 +24,9 @@ services:
       - agents
 
   jurisdiction:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile.agents
     command: python -m agents.jurisdiction.agent
     env_file:
       - .env
@@ -32,7 +36,9 @@ services:
       - agents
 
   building:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile.agents
     command: python -m agents.building.agent
     env_file:
       - .env
@@ -42,7 +48,9 @@ services:
       - agents
 
   site:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile.agents
     command: python -m agents.site_environmental.agent
     env_file:
       - .env
@@ -52,7 +60,9 @@ services:
       - agents
 
   packager:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile.agents
     command: python -m agents.packager.agent
     env_file:
       - .env
