@@ -47,6 +47,7 @@ export default function App() {
   const [auditHash, setAuditHash] = useState<string | null>(null);
   const [rfiDraft, setRfiDraft] = useState<string | null>(null);
   const [disclaimer, setDisclaimer] = useState("");
+  const [progress, setProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -58,10 +59,17 @@ export default function App() {
     setError(null);
     setApproved(false);
     setRfiDraft(null);
+    setData(null);
+    setProgress("Starting Band agents…");
     try {
-      const result = await runDemo();
+      const result = await runDemo((partial) => {
+        setData(partial as CaseResults);
+        const done = partial.completed_agents?.join(", ") ?? "agents";
+        setProgress(`Band analysis in progress — completed: ${done}`);
+      });
       setData(result);
       setAuditHash(result.permit_package.audit_hash ?? null);
+      setProgress(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to start analysis");
     } finally {
@@ -92,10 +100,10 @@ export default function App() {
 
   const allChecks: Check[] = data
     ? [
-        ...data.jurisdiction_report.checks,
-        ...data.building_report.checks,
-        ...data.site_report.environmental_checks,
-        ...data.site_report.utility_checks,
+        ...(data.jurisdiction_report?.checks ?? []),
+        ...(data.building_report?.checks ?? []),
+        ...(data.site_report?.environmental_checks ?? []),
+        ...(data.site_report?.utility_checks ?? []),
       ]
     : [];
 
@@ -116,6 +124,7 @@ export default function App() {
       </header>
 
       {error && <div className="error-banner">{error}</div>}
+      {loading && progress && <div className="panel">{progress}</div>}
 
       {!data && !loading && (
         <section className="hero">
@@ -148,120 +157,130 @@ export default function App() {
       {loading && (
         <section className="loading-panel">
           <div className="spinner" />
-          <p>Analyzing Riverside Residences — zoning, building, environmental, and permit assembly…</p>
+          <p>Analyzing Riverside Residences — Band agents run one at a time (about 3–10 minutes on free LLM tiers)…</p>
         </section>
       )}
 
       {data && (
         <div className="results">
-          <section className="panel summary-panel">
-            <div className="summary-top">
-              <div>
-                <p className="project-label">Project</p>
-                <h2>{data.brief.project_name as string}</h2>
-                <p className="address">{data.brief.address as string}</p>
+          {data.brief && (
+            <section className="panel summary-panel">
+              <div className="summary-top">
+                <div>
+                  <p className="project-label">Project</p>
+                  <h2>{data.brief.project_name as string}</h2>
+                  <p className="address">{data.brief.address as string}</p>
+                </div>
+                {data.case_summary?.readiness_score && (
+                  <div className="readiness-block">
+                    <span className="label">Readiness</span>
+                    <StatusBadge status={data.case_summary.readiness_score} />
+                  </div>
+                )}
               </div>
-              <div className="readiness-block">
-                <span className="label">Readiness</span>
-                <StatusBadge status={data.case_summary.readiness_score} />
-              </div>
-            </div>
 
-            {data.case_summary.executive_summary && (
-              <p className="executive-summary">{data.case_summary.executive_summary}</p>
-            )}
+              {data.case_summary?.executive_summary && (
+                <p className="executive-summary">{data.case_summary.executive_summary}</p>
+              )}
 
-            <div className="stats">
-              <div>
-                <span className="label">Est. fees</span>
-                <strong>${data.permit_package.total_fees_estimate_usd.toLocaleString()}</strong>
-              </div>
-              <div>
-                <span className="label">Timeline</span>
-                <strong>{data.permit_package.estimated_timeline_days} days</strong>
-              </div>
-              <div>
-                <span className="label">Permits</span>
-                <strong>{permits.length}</strong>
-              </div>
-              <div>
-                <span className="label">Case ID</span>
-                <span className="mono case-id">{data.case_id.slice(0, 8)}…</span>
-              </div>
-            </div>
+              {data.permit_package && (
+                <div className="stats">
+                  <div>
+                    <span className="label">Est. fees</span>
+                    <strong>${data.permit_package.total_fees_estimate_usd.toLocaleString()}</strong>
+                  </div>
+                  <div>
+                    <span className="label">Timeline</span>
+                    <strong>{data.permit_package.estimated_timeline_days} days</strong>
+                  </div>
+                  <div>
+                    <span className="label">Permits</span>
+                    <strong>{permits.length}</strong>
+                  </div>
+                  <div>
+                    <span className="label">Case ID</span>
+                    <span className="mono case-id">{data.case_id.slice(0, 8)}…</span>
+                  </div>
+                </div>
+              )}
 
-            {data.case_summary.conflicts.map((c, i) => (
-              <div key={i} className="conflict">
-                <strong>{c.issue}</strong>
-                <p>{c.suggested_fix}</p>
-              </div>
-            ))}
+              {data.case_summary?.conflicts?.map((c, i) => (
+                <div key={i} className="conflict">
+                  <strong>{c.issue}</strong>
+                  <p>{c.suggested_fix}</p>
+                </div>
+              ))}
 
-            <div className="actions">
-              <button className="btn primary" onClick={handleApprove} disabled={approved}>
-                {approved ? "Approved for Filing" : "Approve for Filing"}
-              </button>
-              <button className="btn secondary" onClick={handleRfi}>
-                Simulate City RFI
-              </button>
-            </div>
+              {data.case_summary && (
+                <div className="actions">
+                  <button className="btn primary" onClick={handleApprove} disabled={approved}>
+                    {approved ? "Approved for Filing" : "Approve for Filing"}
+                  </button>
+                  <button className="btn secondary" onClick={handleRfi}>
+                    Simulate City RFI
+                  </button>
+                </div>
+              )}
 
-            {approved && (
-              <p className="approval-note">
-                Status updated to <strong>APPROVED_FOR_FILING</strong>. Package locked with audit hash below.
-              </p>
-            )}
+              {approved && (
+                <p className="approval-note">
+                  Status updated to <strong>APPROVED_FOR_FILING</strong>. Package locked with audit hash below.
+                </p>
+              )}
 
-            {auditHash && (
-              <p className="audit-hash mono">
-                Audit hash: <code>{auditHash}</code>
-              </p>
-            )}
-          </section>
+              {auditHash && (
+                <p className="audit-hash mono">
+                  Audit hash: <code>{auditHash}</code>
+                </p>
+              )}
+            </section>
+          )}
 
           <div className="two-col">
             <CheckList checks={allChecks} title="Compliance findings" />
 
-            <section className="panel">
-              <h3>Permit package</h3>
-              {permits.length === 0 ? (
-                <p className="empty-note">No permits listed — re-run analysis or check API logs.</p>
-              ) : (
-                <ul className="permit-list">
-                  {permits.map((p, i) => (
-                    <li key={i}>
-                      <strong>{p.permit_name}</strong>
-                      <span>{p.agency}</span>
-                      <span className="mono">
-                        ${p.fee_usd.toLocaleString()} · {p.timeline_days}d
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-
-              {documents.length > 0 && (
-                <>
-                  <h4>Required documents</h4>
-                  <ul className="doc-list">
-                    {documents.map((d, i) => (
-                      <li key={i}>{d.name}</li>
+            {data.permit_package && (
+              <section className="panel">
+                <h3>Permit package</h3>
+                {permits.length === 0 ? (
+                  <p className="empty-note">No permits listed — re-run analysis or check API logs.</p>
+                ) : (
+                  <ul className="permit-list">
+                    {permits.map((p, i) => (
+                      <li key={i}>
+                        <strong>{p.permit_name}</strong>
+                        <span>{p.agency}</span>
+                        <span className="mono">
+                          ${p.fee_usd.toLocaleString()} · {p.timeline_days}d
+                        </span>
+                      </li>
                     ))}
                   </ul>
-                </>
-              )}
+                )}
 
-              <h4>Filing sequence</h4>
-              {filingSequence.length === 0 ? (
-                <p className="empty-note">Filing sequence not generated.</p>
-              ) : (
-                <ol className="filing-sequence">
-                  {filingSequence.map((s, i) => (
-                    <li key={i}>{s}</li>
-                  ))}
-                </ol>
-              )}
-            </section>
+                {documents.length > 0 && (
+                  <>
+                    <h4>Required documents</h4>
+                    <ul className="doc-list">
+                      {documents.map((d, i) => (
+                        <li key={i}>{d.name}</li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+
+                <h4>Filing sequence</h4>
+                {filingSequence.length === 0 ? (
+                  <p className="empty-note">Filing sequence not generated.</p>
+                ) : (
+                  <ol className="filing-sequence">
+                    {filingSequence.map((s, i) => (
+                      <li key={i}>{s}</li>
+                    ))}
+                  </ol>
+                )}
+              </section>
+            )}
           </div>
 
           {rfiDraft && (

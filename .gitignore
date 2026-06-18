@@ -11,6 +11,7 @@ build/
 .pytest_cache/
 .ruff_cache/
 *.db
+.ollamafreeapi_cache.json
 uploads/
 chroma_db/
 .DS_Store

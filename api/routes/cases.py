@@ -7,7 +7,7 @@ from uuid import UUID
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from api.services.case_service import approve_case, create_case, get_case
+from api.services.case_service import approve_case, create_case, get_case, start_case_async
 from shared.agent_logic.errors import AgentPipelineError, AgentQuotaError
 from shared.band_client.orchestrator import BandOrchestrationError
 from shared.schemas.project_brief import ProjectBrief, ProjectType
@@ -68,8 +68,16 @@ async def post_case(body: CreateCaseRequest):
     return {"case_id": str(brief.case_id), "band_room_id": results["case_summary"].get("band_room_id"), **results}
 
 
+@router.post("/demo/riverside")
+async def demo_riverside_start():
+    """Start Riverside demo — returns immediately; poll GET /cases/{case_id} for results."""
+    brief = ProjectBrief.riverside_residences_demo()
+    return await start_case_async(brief)
+
+
 @router.get("/demo/riverside")
 async def demo_riverside():
+    """Legacy sync demo (may timeout). Prefer POST /demo/riverside."""
     brief = ProjectBrief.riverside_residences_demo()
     try:
         results = await create_case(brief, demo=True)
@@ -92,6 +100,7 @@ async def get_case_by_id(case_id: UUID):
         "approved_by": case.approved_by,
         "approved_at": case.approved_at.isoformat() if case.approved_at else None,
         "results": case.results,
+        "error": (case.results or {}).get("error") if case.status == "FAILED" else None,
     }
 
 

@@ -7,13 +7,14 @@ import json
 import logging
 import os
 import time
+from collections.abc import Awaitable, Callable
 from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
 from shared.band_client.config import AgentRole, band_urls, get_agent_credentials
 from shared.band_client.factory import AGENT_HANDLES
-from shared.band_client.messaging import parse_band_message
+from shared.band_client.messaging import iter_json_blobs, parse_band_message, unwrap_band_payload
 from shared.schemas.band_message import MessageType
 from shared.schemas.package import PermitPackage
 from shared.schemas.project_brief import ProjectBrief
@@ -22,6 +23,8 @@ from shared.schemas.reports import (
     JurisdictionReport,
     SiteEnvironmentalReport,
 )
+from shared.band_client.report_normalize import normalize_for_agent
+from shared.llm.backends import orchestration_hint
 from shared.tools.conductor import compute_audit_hash, merge_reports
 
 logger = logging.getLogger(__name__)
@@ -29,6 +32,13 @@ logger = logging.getLogger(__name__)
 SPECIALIST_ROLES = (AgentRole.JURISDICTION, AgentRole.BUILDING, AgentRole.SITE)
 POLL_INTERVAL_SEC = 3.0
 JOIN_WAIT_SEC = 4.0
+SPECIALIST_STAGGER_SEC = 5.0
+
+SPECIALIST_CHAIN: tuple[tuple[AgentRole, str, type], ...] = (
+    (AgentRole.JURISDICTION, "jurisdiction", JurisdictionReport),
+    (AgentRole.BUILDING, "building", BuildingSafetyReport),
+    (AgentRole.SITE, "site", SiteEnvironmentalReport),
+)
 
 
 class BandOrchestrationError(RuntimeError):
@@ -36,7 +46,11 @@ class BandOrchestrationError(RuntimeError):
 
 
 def _timeout_sec() -> float:
-    return float(os.getenv("BAND_ORCHESTRATION_TIMEOUT", "300"))
+    return float(os.getenv("BAND_ORCHESTRATION_TIMEOUT", "600"))
+
+
+def _orchestration_hint() -> str:
+    return orchestration_hint()
 
 
 def _rest_client(api_key: str):
@@ -52,6 +66,41 @@ def _mention_item(role: AgentRole):
     return ChatMessageRequestMentionsItem(id=agent_id, handle=AGENT_HANDLES[role])
 
 
+async def _ensure_participants(conductor_key: str, room_id: str) -> None:
+    """Add specialists to an existing room (idempotent)."""
+    from thenvoi_rest import ParticipantRequest
+
+    client = _rest_client(conductor_key)
+    try:
+        for role in (
+            AgentRole.JURISDICTION,
+            AgentRole.BUILDING,
+            AgentRole.SITE,
+            AgentRole.PACKAGER,
+        ):
+            agent_id, _ = get_agent_credentials(role)
+            try:
+                await client.agent_api_participants.add_agent_chat_participant(
+                    chat_id=room_id,
+                    participant=ParticipantRequest(participant_id=agent_id),
+                )
+            except Exception as exc:
+                logger.debug("Participant %s may already be in room %s: %s", role.value, room_id, exc)
+        await asyncio.sleep(JOIN_WAIT_SEC)
+    finally:
+        await client._client_wrapper.httpx_client.httpx_client.aclose()
+
+
+async def _get_or_create_room(
+    conductor_key: str, brief: ProjectBrief, existing_room_id: str | None
+) -> str:
+    if existing_room_id and not existing_room_id.startswith("local-"):
+        logger.info("Reusing Band room %s for case %s", existing_room_id, brief.case_id)
+        await _ensure_participants(conductor_key, existing_room_id)
+        return existing_room_id
+    return await _create_room_and_add_agents(conductor_key, brief)
+
+
 async def _create_room_and_add_agents(conductor_key: str, brief: ProjectBrief) -> str:
     from thenvoi_rest import ChatRoomRequest, ParticipantRequest
 
@@ -59,7 +108,7 @@ async def _create_room_and_add_agents(conductor_key: str, brief: ProjectBrief) -
     try:
         room_resp = await client.agent_api_chats.create_agent_chat(chat=ChatRoomRequest())
         room_id = room_resp.data.id
-        logger.info("Band room created: %s", room_id)
+        logger.info("Band room created: %s for case %s", room_id, brief.case_id)
 
         for role in (
             AgentRole.JURISDICTION,
@@ -96,50 +145,51 @@ async def _send_message(api_key: str, room_id: str, content: str, roles: list[Ag
         await client._client_wrapper.httpx_client.httpx_client.aclose()
 
 
-def _extract_report(content: str | None, agent_name: str, model_cls: type):
+def _validate_report(agent_name: str, data: dict[str, Any], model_cls: type, case_id: UUID | None):
+    data = unwrap_band_payload(data)
+    data = normalize_for_agent(agent_name, data, case_id)
+    return model_cls.model_validate(data)
+
+
+def _extract_report(
+    content: str | None, agent_name: str, model_cls: type, case_id: UUID | None = None
+):
     if not content:
         return None
     band_msg = parse_band_message(content)
-    if band_msg and band_msg.agent == agent_name:
-        if band_msg.type == MessageType.COMPLETE and band_msg.payload:
-            data = dict(band_msg.payload)
-            data.setdefault("case_id", str(band_msg.case_id))
-            data.setdefault("agent", agent_name)
+    if band_msg and band_msg.payload:
+        cid = case_id or band_msg.case_id
+        if not case_id or str(band_msg.case_id) in (str(case_id), "<uuid>", "<case_id>"):
             try:
-                return model_cls.model_validate(data)
+                wrapped = {
+                    "type": band_msg.type.value,
+                    "case_id": str(band_msg.case_id),
+                    "agent": band_msg.agent,
+                    "payload": band_msg.payload,
+                }
+                return _validate_report(agent_name, wrapped, model_cls, cid)
             except Exception as exc:
                 logger.debug("Band payload validate failed for %s: %s", agent_name, exc)
-    # Direct report JSON (agent field matches)
-    for match in _json_blobs(content):
+    for match in iter_json_blobs(content):
+        if case_id and match.get("case_id") and str(match.get("case_id")) not in (
+            str(case_id),
+            "<uuid>",
+            "<case_id>",
+        ):
+            continue
+        candidates: list[dict] = []
+        if isinstance(match.get("payload"), dict):
+            candidates.append(match)
         if match.get("agent") == agent_name or agent_name in str(match.get("agent", "")):
-            try:
-                return model_cls.model_validate(match)
-            except Exception:
-                pass
+            candidates.append(match)
         if "checks" in match or "environmental_checks" in match or "permits_required" in match:
+            candidates.append(match)
+        for raw in candidates:
             try:
-                match.setdefault("agent", agent_name)
-                return model_cls.model_validate(match)
+                return _validate_report(agent_name, dict(raw), model_cls, case_id)
             except Exception:
                 continue
     return None
-
-
-def _json_blobs(text: str):
-    import re
-
-    fenced = re.findall(r"```json\s*(\{.*?\})\s*```", text, re.DOTALL)
-    for raw in fenced:
-        try:
-            yield json.loads(raw)
-        except json.JSONDecodeError:
-            continue
-    try:
-        start = text.index("{")
-        end = text.rindex("}") + 1
-        yield json.loads(text[start:end])
-    except (ValueError, json.JSONDecodeError):
-        return
 
 
 async def _list_messages(api_key: str, room_id: str) -> list[Any]:
@@ -151,44 +201,72 @@ async def _list_messages(api_key: str, room_id: str) -> list[Any]:
         await client._client_wrapper.httpx_client.httpx_client.aclose()
 
 
-async def _poll_specialists(
-    api_key: str, room_id: str, case_id: UUID, deadline: float
-) -> tuple[JurisdictionReport, BuildingSafetyReport, SiteEnvironmentalReport]:
-    seen: set[str] = set()
-    reports: dict[str, Any] = {}
-
-    models = {
-        "jurisdiction": JurisdictionReport,
-        "building": BuildingSafetyReport,
-        "site": SiteEnvironmentalReport,
-    }
-
-    while time.monotonic() < deadline and len(reports) < 3:
+async def _poll_single_report(
+    api_key: str,
+    room_id: str,
+    agent_name: str,
+    model_cls: type,
+    deadline: float,
+    seen: set[str],
+    case_id: UUID,
+) -> Any:
+    while time.monotonic() < deadline:
         for msg in await _list_messages(api_key, room_id):
             msg_id = getattr(msg, "id", None) or str(msg)
             if msg_id in seen:
                 continue
             seen.add(msg_id)
-            sender = (getattr(msg, "sender_name", "") or "").lower()
             content = msg.content or ""
-            for agent_name, model_cls in models.items():
-                if agent_name in reports:
-                    continue
-                if agent_name in sender or f"permitos-{agent_name}" in sender:
-                    report = _extract_report(content, agent_name, model_cls)
-                    if report:
-                        reports[agent_name] = report
-                        logger.info("Received %s report from Band", agent_name)
-        if len(reports) >= 3:
-            break
+            report = _extract_report(content, agent_name, model_cls, case_id)
+            if report:
+                logger.info("Received %s report from Band room %s", agent_name, room_id)
+                return report
         await asyncio.sleep(POLL_INTERVAL_SEC)
 
-    missing = [k for k in models if k not in reports]
-    if missing:
-        raise BandOrchestrationError(
-            f"Timed out waiting for Band agents: {', '.join(missing)}. "
-            "Ensure all 5 agents are running (scripts/start_all_agents.ps1)."
+    raise BandOrchestrationError(
+        f"Timed out waiting for Band agent: {agent_name}. {_orchestration_hint()}"
+    )
+
+
+async def _dispatch_specialists_sequential(
+    conductor_key: str,
+    room_id: str,
+    brief: ProjectBrief,
+    deadline: float,
+    on_progress: Callable[[dict[str, Any]], Awaitable[None]] | None = None,
+) -> tuple[JurisdictionReport, BuildingSafetyReport, SiteEnvironmentalReport]:
+    """Dispatch one specialist at a time to avoid LLM rate limits (e.g. Cerebras 429)."""
+    brief_json = brief.model_dump_json(indent=2)
+    seen: set[str] = set()
+    for msg in await _list_messages(conductor_key, room_id):
+        seen.add(getattr(msg, "id", None) or str(msg))
+
+    reports: dict[str, Any] = {}
+    for role, agent_name, model_cls in SPECIALIST_CHAIN:
+        dispatch = (
+            f"PermitOS case intake — analyze with your Austin tools.\n\n"
+            f"ProjectBrief:\n```json\n{brief_json}\n```\n\n"
+            f"Reply via band_send_message with ```json containing "
+            f'"type":"complete", "case_id":"{brief.case_id}", "agent":"{agent_name}", '
+            f'"payload": {{<full report object>}}`.'
         )
+        await _send_message(conductor_key, room_id, dispatch, [role])
+        logger.info("Dispatched %s agent on Band (sequential)", agent_name)
+        await asyncio.sleep(SPECIALIST_STAGGER_SEC)
+        reports[agent_name] = await _poll_single_report(
+            conductor_key, room_id, agent_name, model_cls, deadline, seen, brief.case_id
+        )
+        if on_progress:
+            await on_progress(
+                {
+                    "status": "ANALYZING",
+                    "brief": brief.model_dump(mode="json"),
+                    "band_room_id": room_id,
+                    f"{agent_name}_report": reports[agent_name].model_dump(mode="json"),
+                    "completed_agents": list(reports.keys()),
+                }
+            )
+
     return reports["jurisdiction"], reports["building"], reports["site"]
 
 
@@ -217,7 +295,7 @@ async def _poll_packager(
                         return pkg
                 except Exception:
                     pass
-            for blob in _json_blobs(content):
+            for blob in iter_json_blobs(content):
                 if "permits_required" in blob:
                     blob.setdefault("case_id", str(case_id))
                     try:
@@ -230,7 +308,7 @@ async def _poll_packager(
         await asyncio.sleep(POLL_INTERVAL_SEC)
 
     raise BandOrchestrationError(
-        "Timed out waiting for Packager agent on Band. Check agent logs and HF/LLM credits."
+        f"Timed out waiting for Packager agent on Band. {_orchestration_hint()}"
     )
 
 
@@ -264,30 +342,21 @@ def _activity_from_band(
     ]
 
 
-async def run_band_case(brief: ProjectBrief) -> dict[str, Any]:
-    """Create Band room, dispatch live agents, poll structured responses."""
+async def run_band_case(
+    brief: ProjectBrief,
+    existing_room_id: str | None = None,
+    on_progress: Callable[[dict[str, Any]], Awaitable[None]] | None = None,
+) -> dict[str, Any]:
+    """Create or reuse Band room, dispatch live agents, poll structured responses."""
     _, conductor_key = get_agent_credentials(AgentRole.CONDUCTOR)
     deadline = time.monotonic() + _timeout_sec()
 
-    room_id = await _create_room_and_add_agents(conductor_key, brief)
+    room_id = await _get_or_create_room(conductor_key, brief, existing_room_id)
+    if on_progress:
+        await on_progress({"status": "ANALYZING", "band_room_id": room_id, "phase": "room_ready"})
 
-    brief_json = brief.model_dump_json(indent=2)
-    dispatch_specialists = (
-        f"PermitOS case intake — analyze with your Austin tools.\n\n"
-        f"ProjectBrief:\n```json\n{brief_json}\n```\n\n"
-        f"Reply via band_send_message with ```json containing "
-        f'"type":"complete", "case_id":"{brief.case_id}", "agent":"<your_role>", '
-        f'"payload": {{<full report object>}}`.'
-    )
-    await _send_message(
-        conductor_key,
-        room_id,
-        dispatch_specialists,
-        list(SPECIALIST_ROLES),
-    )
-
-    jurisdiction, building, site = await _poll_specialists(
-        conductor_key, room_id, brief.case_id, deadline
+    jurisdiction, building, site = await _dispatch_specialists_sequential(
+        conductor_key, room_id, brief, deadline, on_progress=on_progress
     )
     summary = merge_reports(brief, jurisdiction, building, site, room_id)
 

@@ -4,7 +4,10 @@ Set-Location $root
 
 Write-Host "Starting 5 PermitOS agents in separate windows..."
 Write-Host "Repo: $root"
-Write-Host "Requires: .env with LLM_BACKEND + HF_TOKEN, agent_config.yaml"
+Write-Host "Requires: .env with LLM_BACKEND + API key, agent_config.yaml"
+if ((Get-Content (Join-Path $root ".env") -ErrorAction SilentlyContinue) -match 'LLM_BACKEND=cursor') {
+    Write-Host "Cursor mode: run scripts/start_cursor_proxy.ps1 first (separate window)."
+}
 
 $agents = @(
     "agents.conductor.agent",
