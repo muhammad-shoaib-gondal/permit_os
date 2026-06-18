@@ -6,9 +6,19 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      "/cases": "http://localhost:8000",
-      "/health": "http://localhost:8000",
-      "/disclaimer": "http://localhost:8000",
+      "/cases": {
+        target: "http://127.0.0.1:8000",
+        changeOrigin: true,
+        timeout: 600_000,
+        proxyTimeout: 600_000,
+      },
+      "/health": "http://127.0.0.1:8000",
+      "/disclaimer": "http://127.0.0.1:8000",
+      "/audit": {
+        target: "http://127.0.0.1:8000",
+        changeOrigin: true,
+        timeout: 120_000,
+      },
     },
   },
   build: {

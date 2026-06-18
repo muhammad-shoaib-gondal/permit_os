@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 from typing import Any
 
@@ -8,8 +9,11 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from api.models import AuditLogEntry, Base, PermitCase
 from shared.band_client.config import load_settings
+from shared.llm.backends import orchestration_hint
 from shared.schemas.project_brief import ProjectBrief
 from shared.tools.workflow import run_workflow_with_activity_async
+
+logger = logging.getLogger(__name__)
 
 settings = load_settings()
 engine = create_async_engine(settings.database_url, echo=False)
@@ -24,22 +28,109 @@ async def init_db() -> None:
 async def create_case(brief: ProjectBrief, demo: bool = False) -> dict[str, Any]:
     band_room_id = f"permit-case-{brief.case_id}"
     results = await run_workflow_with_activity_async(brief, band_room_id=band_room_id)
+    await _save_case_results(brief, results)
+    return results
 
+
+async def start_case_async(brief: ProjectBrief) -> dict[str, Any]:
+    """Create case row and run Band pipeline in background (avoids HTTP timeout)."""
+    import asyncio
+
+    case_id = str(brief.case_id)
     async with SessionLocal() as session:
-        case = PermitCase(
-            case_id=str(brief.case_id),
-            project_name=brief.project_name,
-            status=results["case_summary"]["status"],
-            brief=brief.model_dump(mode="json"),
-            results=results,
-            band_room_id=band_room_id,
-            audit_hash=results["permit_package"].get("audit_hash"),
+        session.add(
+            PermitCase(
+                case_id=case_id,
+                project_name=brief.project_name,
+                status="ANALYZING",
+                brief=brief.model_dump(mode="json"),
+                results=None,
+                band_room_id=None,
+            )
         )
-        session.add(case)
+        await session.commit()
+
+    asyncio.create_task(_run_case_background(brief))
+    return {
+        "case_id": case_id,
+        "status": "ANALYZING",
+        "message": "Band agents are analyzing. Poll GET /cases/{case_id} for results.",
+    }
+
+
+async def _update_case_progress(case_id: str, partial: dict[str, Any]) -> None:
+    partial = {
+        **partial,
+        "last_progress_at": datetime.now(timezone.utc).isoformat(),
+    }
+    async with SessionLocal() as session:
+        result = await session.execute(select(PermitCase).where(PermitCase.case_id == case_id))
+        case = result.scalar_one_or_none()
+        if not case:
+            return
+        merged = dict(case.results or {})
+        merged.update(partial)
+        case.results = merged
+        case.band_room_id = partial.get("band_room_id") or case.band_room_id
+        await session.commit()
+
+
+async def _run_case_background(brief: ProjectBrief) -> None:
+    case_id = str(brief.case_id)
+    existing_room: str | None = None
+    try:
+        case = await get_case(case_id)
+        if case and case.band_room_id and not case.band_room_id.startswith("local-"):
+            existing_room = case.band_room_id
+
+        async def on_progress(partial: dict[str, Any]) -> None:
+            await _update_case_progress(case_id, partial)
+
+        results = await run_workflow_with_activity_async(
+            brief, band_room_id=existing_room, on_progress=on_progress
+        )
+        await _save_case_results(brief, results)
+    except Exception as exc:
+        logger.exception("Band pipeline failed for case %s", case_id)
+        async with SessionLocal() as session:
+            result = await session.execute(select(PermitCase).where(PermitCase.case_id == case_id))
+            case = result.scalar_one_or_none()
+            if case:
+                merged = dict(case.results or {})
+                merged.update(
+                    {
+                        "error": orchestration_hint(),
+                        "stalled": True,
+                        "stall_reason": orchestration_hint(),
+                        "last_progress_at": datetime.now(timezone.utc).isoformat(),
+                    }
+                )
+                case.status = "FAILED"
+                case.results = merged
+                await session.commit()
+
+
+async def _save_case_results(brief: ProjectBrief, results: dict[str, Any]) -> None:
+    case_id = str(brief.case_id)
+    async with SessionLocal() as session:
+        result = await session.execute(select(PermitCase).where(PermitCase.case_id == case_id))
+        case = result.scalar_one_or_none()
+        if not case:
+            case = PermitCase(
+                case_id=case_id,
+                project_name=brief.project_name,
+                brief=brief.model_dump(mode="json"),
+            )
+            session.add(case)
+        case.status = results["case_summary"]["status"]
+        case.results = results
+        case.band_room_id = results.get("band_room_id") or case.band_room_id
+        pkg = results.get("permit_package") or {}
+        case.audit_hash = pkg.get("audit_hash")
         for evt in results.get("activity", []):
             session.add(
                 AuditLogEntry(
-                    case_id=str(brief.case_id),
+                    case_id=case_id,
                     agent_id=evt["agent"],
                     event_type=evt["event_type"],
                     detail=evt.get("detail"),
@@ -47,8 +138,6 @@ async def create_case(brief: ProjectBrief, demo: bool = False) -> dict[str, Any]
                 )
             )
         await session.commit()
-
-    return results
 
 
 async def get_case(case_id: str) -> PermitCase | None:

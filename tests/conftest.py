@@ -13,9 +13,10 @@ FIXTURE = Path(__file__).parent / "fixtures" / "riverside_band_result.json"
 
 @pytest.fixture(autouse=True)
 def mock_band_orchestration(monkeypatch):
-    """Unit tests never hit Band REST or hard-coded rule engine."""
+    """Unit tests never hit Band REST or live LLM."""
+    monkeypatch.setenv("PERMITOS_ORCHESTRATION", "band")
 
-    async def _fake_band_case(brief):
+    async def _fake_band_case(brief, existing_room_id=None, on_progress=None):
         if FIXTURE.exists():
             data = json.loads(FIXTURE.read_text(encoding="utf-8"))
             data["brief"] = brief.model_dump(mode="json")

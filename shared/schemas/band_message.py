@@ -23,7 +23,7 @@ class BandMessage(BaseModel):
     type: MessageType
     case_id: UUID
     agent: str
-    timestamp: str
+    timestamp: str = ""
     payload: dict[str, Any] = Field(default_factory=dict)
     citations: list[Citation] = Field(default_factory=list)
 
