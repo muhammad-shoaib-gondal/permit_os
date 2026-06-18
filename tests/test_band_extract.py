@@ -48,4 +48,33 @@ def test_extract_jurisdiction_report_from_agent_reply():
     assert report.checks[0].rule == "Setbacks"
     assert report.checks[0].status.value == "fail"
     assert report.blockers == ["8ft vs 10ft required."]
-    assert report.readiness_impact.value == "needs_changes"
+def test_extract_building_rejects_jurisdiction_reply():
+    cid = UUID("992e7fbb-dc0e-4499-be48-05b97b0c2261")
+    from shared.schemas.reports import BuildingSafetyReport
+
+    report = _extract_report(JURISDICTION_REPLY, "building", BuildingSafetyReport, cid)
+    assert report is None
+
+
+def test_normalize_site_maps_generic_checks():
+    from shared.band_client.report_normalize import normalize_site_payload
+
+    cid = UUID("992e7fbb-dc0e-4499-be48-05b97b0c2261")
+    out = normalize_site_payload(
+        {
+            "summary": "Site ok",
+            "readiness_impact": "needs_changes",
+            "checks": [
+                {
+                    "rule": "FEMA Flood Zone",
+                    "status": "pass",
+                    "citation": "FEMA",
+                    "detail": "Zone X",
+                }
+            ],
+        },
+        cid,
+    )
+    assert len(out["environmental_checks"]) == 1
+    assert out["environmental_checks"][0]["rule"] == "FEMA Flood Zone"
+

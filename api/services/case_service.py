@@ -59,6 +59,10 @@ async def start_case_async(brief: ProjectBrief) -> dict[str, Any]:
 
 
 async def _update_case_progress(case_id: str, partial: dict[str, Any]) -> None:
+    partial = {
+        **partial,
+        "last_progress_at": datetime.now(timezone.utc).isoformat(),
+    }
     async with SessionLocal() as session:
         result = await session.execute(select(PermitCase).where(PermitCase.case_id == case_id))
         case = result.scalar_one_or_none()
@@ -92,11 +96,17 @@ async def _run_case_background(brief: ProjectBrief) -> None:
             result = await session.execute(select(PermitCase).where(PermitCase.case_id == case_id))
             case = result.scalar_one_or_none()
             if case:
+                merged = dict(case.results or {})
+                merged.update(
+                    {
+                        "error": orchestration_hint(),
+                        "stalled": True,
+                        "stall_reason": orchestration_hint(),
+                        "last_progress_at": datetime.now(timezone.utc).isoformat(),
+                    }
+                )
                 case.status = "FAILED"
-                case.results = {
-                    "error": str(exc),
-                    "hint": orchestration_hint(),
-                }
+                case.results = merged
                 await session.commit()
 
 
@@ -115,7 +125,8 @@ async def _save_case_results(brief: ProjectBrief, results: dict[str, Any]) -> No
         case.status = results["case_summary"]["status"]
         case.results = results
         case.band_room_id = results.get("band_room_id") or case.band_room_id
-        case.audit_hash = results["permit_package"].get("audit_hash")
+        pkg = results.get("permit_package") or {}
+        case.audit_hash = pkg.get("audit_hash")
         for evt in results.get("activity", []):
             session.add(
                 AuditLogEntry(

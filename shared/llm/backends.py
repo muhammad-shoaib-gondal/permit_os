@@ -17,6 +17,7 @@ class LLMBackend(str, Enum):
     FEATHERLESS = "featherless"
     HUGGINGFACE = "huggingface"
     CEREBRAS = "cerebras"
+    BASETEN = "baseten"
     GROQ = "groq"
     CURSOR = "cursor"
     OPENAI = "openai"
@@ -48,6 +49,11 @@ BACKEND_DEFAULTS: dict[LLMBackend, dict[str, str]] = {
         "base_url": "https://api.cerebras.ai/v1",
         "api_key": "",  # from CEREBRAS_API_KEY
         "model": "gpt-oss-120b",
+    },
+    LLMBackend.BASETEN: {
+        "base_url": "https://inference.baseten.co/v1",
+        "api_key": "",  # from BASETEN_API_KEY
+        "model": "openai/gpt-oss-120b",
     },
     LLMBackend.GROQ: {
         "base_url": "https://api.groq.com/openai/v1",
@@ -101,6 +107,8 @@ def resolve_llm_config() -> tuple[str, str, str]:
         )
     elif backend == LLMBackend.CEREBRAS:
         api_key = os.getenv("CEREBRAS_API_KEY") or api_key
+    elif backend == LLMBackend.BASETEN:
+        api_key = os.getenv("BASETEN_API_KEY") or api_key
     elif backend == LLMBackend.GROQ:
         api_key = os.getenv("GROQ_API_KEY") or api_key
     elif backend == LLMBackend.OLLAMAFREEAPI:
@@ -140,35 +148,8 @@ def resolve_llm_config() -> tuple[str, str, str]:
 
 
 def orchestration_hint() -> str:
-    """User-facing hint when Band orchestration times out."""
-    from shared.llm.backends import LLMBackend, get_backend
-
-    backend = get_backend()
-    if backend == LLMBackend.CEREBRAS:
-        return (
-            "Cerebras free tier rate-limits requests (429 in agent logs). "
-            "Wait 1–2 minutes and retry, or set LLM_BACKEND=groq in .env."
-        )
-    if backend == LLMBackend.GROQ:
-        return (
-            "Groq rate limits (429) or key issue. Check GROQ_API_KEY and agent logs."
-        )
-    if backend == LLMBackend.OLLAMAFREEAPI:
-        return (
-            "OllamaFreeAPI community server unreachable. Set OLLAMAFREEAPI_BASE_URL in .env "
-            "or run: python scripts/verify_ollamafreeapi_llm.py"
-        )
-    if backend == LLMBackend.CURSOR:
-        return (
-            "Cursor Composer proxy not responding. Run scripts/start_cursor_proxy.ps1 "
-            "and ensure CURSOR_API_KEY is set in .env."
-        )
-    if backend == LLMBackend.HUGGINGFACE:
-        return (
-            "Hugging Face credits may be depleted (402). "
-            "Switch LLM_BACKEND=cerebras or ollama in .env."
-        )
-    return "Ensure all 5 agents are running: scripts/start_all_agents.ps1"
+    """Short user-facing message when analysis does not complete."""
+    return "Something went wrong — we couldn't complete the analysis."
 
 
 def create_langgraph_adapter(
@@ -184,9 +165,10 @@ def create_langgraph_adapter(
         "temperature": 0.2,
     }
     # gpt-oss-120b emits reasoning tokens; needs headroom for actual content.
-    if get_backend() in {LLMBackend.CEREBRAS, LLMBackend.OLLAMAFREEAPI}:
+    if get_backend() in {LLMBackend.CEREBRAS, LLMBackend.BASETEN, LLMBackend.OLLAMAFREEAPI}:
         llm_kwargs["max_tokens"] = int(os.getenv("LLM_MAX_TOKENS", "4096"))
-        llm_kwargs["max_retries"] = int(os.getenv("LLM_MAX_RETRIES", "4"))
+        default_retries = "8" if get_backend() == LLMBackend.BASETEN else "4"
+        llm_kwargs["max_retries"] = int(os.getenv("LLM_MAX_RETRIES", default_retries))
     if get_backend() == LLMBackend.OLLAMAFREEAPI:
         llm_kwargs["request_timeout"] = float(os.getenv("OLLAMAFREEAPI_REQUEST_TIMEOUT_SEC", "120"))
     if get_backend() == LLMBackend.OLLAMA and "localhost" not in base_url and "127.0.0.1" not in base_url:

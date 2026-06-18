@@ -1,10 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
+  analyzeProject,
   approveCase,
   CaseResults,
   Check,
   getDisclaimer,
-  runDemo,
+  JURISDICTIONS,
+  PROJECT_TYPES,
+  ProjectTypeValue,
   simulateRfi,
 } from "./api";
 import "./App.css";
@@ -19,10 +22,28 @@ function StatusBadge({ status }: { status: string }) {
   return <span className={cls}>{status}</span>;
 }
 
-function CheckList({ checks, title }: { checks: Check[]; title: string }) {
-  if (!checks.length) return null;
+function CheckList({
+  checks,
+  title,
+  pending,
+  visible,
+}: {
+  checks: Check[];
+  title: string;
+  pending?: boolean;
+  visible?: boolean;
+}) {
+  if (!visible && !checks.length) return null;
+  if (!checks.length) {
+    return (
+      <div className="panel agent-panel panel-pending">
+        <h3>{title}</h3>
+        <p className="pending-note">{pending ? "Waiting for agent…" : "—"}</p>
+      </div>
+    );
+  }
   return (
-    <div className="panel">
+    <div className="panel agent-panel">
       <h3>{title}</h3>
       <ul className="check-list">
         {checks.map((c, i) => (
@@ -40,6 +61,23 @@ function CheckList({ checks, title }: { checks: Check[]; title: string }) {
   );
 }
 
+const SEC_PER_AGENT = 120;
+const TOTAL_AGENTS = 4;
+
+function formatDuration(totalSec: number): string {
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+function estimateRemainingSec(elapsed: number, completedCount: number): number {
+  const agentsLeft = Math.max(0, TOTAL_AGENTS - completedCount);
+  if (agentsLeft === 0) return 0;
+  const budget = agentsLeft * SEC_PER_AGENT;
+  const spentOnCurrent = elapsed - completedCount * SEC_PER_AGENT;
+  return Math.max(30, budget - Math.max(0, spentOnCurrent));
+}
+
 export default function App() {
   const [data, setData] = useState<CaseResults | null>(null);
   const [loading, setLoading] = useState(false);
@@ -50,31 +88,88 @@ export default function App() {
   const [progress, setProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const [stallReason, setStallReason] = useState<string | null>(null);
+  const [elapsedSec, setElapsedSec] = useState(0);
+  const [projectFile, setProjectFile] = useState<File | null>(null);
+  const [projectType, setProjectType] = useState<ProjectTypeValue>("multifamily_residential");
+  const [jurisdiction, setJurisdiction] = useState("austin_tx");
+  const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const completedCount = data?.completed_agents?.length ?? 0;
+
   useEffect(() => {
     getDisclaimer().then(setDisclaimer).catch(() => {});
   }, []);
 
-  async function handleStart() {
+  useEffect(() => {
+    if (!loading) {
+      setElapsedSec(0);
+      return;
+    }
+    const started = Date.now();
+    const tick = () => setElapsedSec(Math.floor((Date.now() - started) / 1000));
+    tick();
+    const id = window.setInterval(tick, 1000);
+    return () => window.clearInterval(id);
+  }, [loading]);
+
+  function acceptFile(file: File | null) {
+    if (!file) return;
+    const name = file.name.toLowerCase();
+    if (!name.endsWith(".json") && !name.endsWith(".zip")) {
+      setError("Upload a .json project brief or a .zip package.");
+      return;
+    }
+    setError(null);
+    setProjectFile(file);
+  }
+
+  async function handleAnalyze() {
+    if (!projectFile) {
+      setError("Select or drop a project brief (.json) or package (.zip).");
+      return;
+    }
     setLoading(true);
     setError(null);
     setApproved(false);
     setRfiDraft(null);
     setData(null);
-    setProgress("Starting Band agents…");
+    setStallReason(null);
+    setProgress("Agents are analyzing your project…");
     try {
-      const result = await runDemo((partial) => {
+      const result = await analyzeProject(projectFile, projectType, jurisdiction, (partial) => {
         setData(partial as CaseResults);
-        const done = partial.completed_agents?.join(", ") ?? "agents";
-        setProgress(`Band analysis in progress — completed: ${done}`);
+        const n = partial.completed_agents?.length ?? 0;
+        if (n === 0) {
+          setProgress("Agents are analyzing your project…");
+        } else if (n >= 3) {
+          setProgress("Agents are assembling the permit package…");
+        } else {
+          setProgress(`Agent analysis in progress — ${n} of 3 reviews complete`);
+        }
       });
       setData(result);
-      setAuditHash(result.permit_package.audit_hash ?? null);
+      setAuditHash(result.permit_package?.audit_hash ?? null);
+      if (result.stalled) {
+        setStallReason(result.stall_reason || "Something went wrong — we couldn't complete the analysis.");
+      }
       setProgress(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to start analysis");
     } finally {
       setLoading(false);
     }
+  }
+
+  function handleNewAnalysis() {
+    setData(null);
+    setProjectFile(null);
+    setError(null);
+    setStallReason(null);
+    setProgress(null);
+    setApproved(false);
+    setRfiDraft(null);
+    setAuditHash(null);
   }
 
   async function handleApprove() {
@@ -98,18 +193,45 @@ export default function App() {
     }
   }
 
-  const allChecks: Check[] = data
-    ? [
-        ...(data.jurisdiction_report?.checks ?? []),
-        ...(data.building_report?.checks ?? []),
-        ...(data.site_report?.environmental_checks ?? []),
-        ...(data.site_report?.utility_checks ?? []),
-      ]
-    : [];
+  const permits = data?.permit_package?.permits_required ?? [];
+  const filingSequence = data?.permit_package?.filing_sequence ?? [];
+  const documents = data?.permit_package?.documents_required ?? [];
+  const remainingSec = estimateRemainingSec(elapsedSec, completedCount);
+  const analyzing = loading && !stallReason;
+  const jurisdictionChecks = data?.jurisdiction_report?.checks ?? [];
+  const buildingChecks = data?.building_report?.checks ?? [];
+  const siteChecks = [
+    ...(data?.site_report?.environmental_checks ?? []),
+    ...(data?.site_report?.utility_checks ?? []),
+  ];
+  const showAgentPanels = analyzing || !!data;
 
-  const permits = data?.permit_package.permits_required ?? [];
-  const filingSequence = data?.permit_package.filing_sequence ?? [];
-  const documents = data?.permit_package.documents_required ?? [];
+  function renderAgentPanels() {
+    return (
+      <div className="findings-layout">
+        <div className="findings-row findings-row-top">
+          <CheckList
+            checks={jurisdictionChecks}
+            title="Jurisdiction & zoning"
+            pending={analyzing && jurisdictionChecks.length === 0}
+            visible={showAgentPanels}
+          />
+          <CheckList
+            checks={buildingChecks}
+            title="Building & safety"
+            pending={analyzing && buildingChecks.length === 0}
+            visible={showAgentPanels}
+          />
+        </div>
+        <CheckList
+          checks={siteChecks}
+          title="Site & environmental"
+          pending={analyzing && siteChecks.length === 0}
+          visible={showAgentPanels}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="app">
@@ -118,13 +240,124 @@ export default function App() {
           <h1>PermitOS</h1>
           <p className="tagline">AI-powered permitting intelligence for real estate development</p>
         </div>
-        <button className="btn primary" onClick={handleStart} disabled={loading}>
-          {loading ? "Running analysis…" : "Run Riverside Residences Demo"}
-        </button>
+        {data && !loading && (
+          <button className="btn secondary" type="button" onClick={handleNewAnalysis}>
+            New analysis
+          </button>
+        )}
       </header>
 
+      {!data && !loading && (
+        <section className="panel intake-panel">
+          <h2>Project intake</h2>
+
+          <div className="intake-controls">
+            <label className="intake-field">
+              <span>Jurisdiction</span>
+              <select
+                value={jurisdiction}
+                onChange={(e) => setJurisdiction(e.target.value)}
+                disabled={loading}
+              >
+                {JURISDICTIONS.map((j) => (
+                  <option key={j.value} value={j.value}>
+                    {j.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="intake-field">
+              <span>Project type</span>
+              <select
+                value={projectType}
+                onChange={(e) => setProjectType(e.target.value as ProjectTypeValue)}
+                disabled={loading}
+              >
+                {PROJECT_TYPES.map((t) => (
+                  <option key={t.value} value={t.value}>
+                    {t.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <div
+            className={`drop-zone ${dragOver ? "drag-over" : ""} ${projectFile ? "has-file" : ""}`}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragOver(true);
+            }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragOver(false);
+              acceptFile(e.dataTransfer.files[0] ?? null);
+            }}
+            onClick={() => fileInputRef.current?.click()}
+            onKeyDown={(e) => e.key === "Enter" && fileInputRef.current?.click()}
+            role="button"
+            tabIndex={0}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".json,.zip,application/json,application/zip"
+              className="file-input-hidden"
+              onChange={(e) => acceptFile(e.target.files?.[0] ?? null)}
+            />
+            {projectFile ? (
+              <>
+                <strong>{projectFile.name}</strong>
+                <span>{(projectFile.size / 1024).toFixed(1)} KB</span>
+              </>
+            ) : (
+              <>
+                <strong>Drop file here</strong>
+                <span>or click to browse — .json or .zip</span>
+              </>
+            )}
+          </div>
+
+          <div className="intake-actions">
+            <button
+              className="btn primary"
+              type="button"
+              onClick={handleAnalyze}
+              disabled={loading || !projectFile}
+            >
+              {loading ? "Analyzing…" : "Analyze"}
+            </button>
+            {!projectFile && (
+              <a className="sample-link" href="/sample-project-brief.json" download>
+                Download sample brief
+              </a>
+            )}
+          </div>
+        </section>
+      )}
+
+      {stallReason && <div className="stall-banner">{stallReason}</div>}
       {error && <div className="error-banner">{error}</div>}
-      {loading && progress && <div className="panel">{progress}</div>}
+      {loading && progress && (
+        <div className="panel progress-panel">
+          <div className="progress-row">
+            <span>{progress}</span>
+            <span className="timer mono">
+              {formatDuration(elapsedSec)} elapsed
+              {remainingSec > 0 && ` · ~${formatDuration(remainingSec)} left`}
+            </span>
+          </div>
+          <div className="progress-bar-track">
+            <div
+              className="progress-bar-fill"
+              style={{
+                width: `${Math.min(100, ((completedCount / TOTAL_AGENTS) * 100 + (elapsedSec % SEC_PER_AGENT) / SEC_PER_AGENT / TOTAL_AGENTS * 100))}%`,
+              }}
+            />
+          </div>
+        </div>
+      )}
 
       {!data && !loading && (
         <section className="hero">
@@ -154,12 +387,17 @@ export default function App() {
         </section>
       )}
 
-      {loading && (
-        <section className="loading-panel">
+      {loading && !data && (
+        <section className="loading-panel loading-panel-compact">
           <div className="spinner" />
-          <p>Analyzing Riverside Residences — Band agents run one at a time (about 3–10 minutes on free LLM tiers)…</p>
+          <p className="timer mono">
+            {formatDuration(elapsedSec)} elapsed
+            {remainingSec > 0 && ` · ~${formatDuration(remainingSec)} remaining`}
+          </p>
         </section>
       )}
+
+      {showAgentPanels && !data && renderAgentPanels()}
 
       {data && (
         <div className="results">
@@ -197,10 +435,12 @@ export default function App() {
                     <span className="label">Permits</span>
                     <strong>{permits.length}</strong>
                   </div>
-                  <div>
-                    <span className="label">Case ID</span>
-                    <span className="mono case-id">{data.case_id.slice(0, 8)}…</span>
-                  </div>
+                  {data.case_id && (
+                    <div>
+                      <span className="label">Case ID</span>
+                      <span className="mono case-id">{data.case_id.slice(0, 8)}…</span>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -236,11 +476,10 @@ export default function App() {
             </section>
           )}
 
-          <div className="two-col">
-            <CheckList checks={allChecks} title="Compliance findings" />
+          {renderAgentPanels()}
 
-            {data.permit_package && (
-              <section className="panel">
+          {data.permit_package && (
+            <section className="panel permit-package-panel">
                 <h3>Permit package</h3>
                 {permits.length === 0 ? (
                   <p className="empty-note">No permits listed — re-run analysis or check API logs.</p>
@@ -280,8 +519,14 @@ export default function App() {
                   </ol>
                 )}
               </section>
-            )}
-          </div>
+          )}
+
+          {analyzing && !data.permit_package && (
+            <section className="panel panel-pending permit-package-panel">
+              <h3>Permit package</h3>
+              <p className="pending-note">Waiting for agent…</p>
+            </section>
+          )}
 
           {rfiDraft && (
             <section className="panel rfi-panel">

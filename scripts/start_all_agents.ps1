@@ -1,14 +1,13 @@
-# Start all 5 PermitOS Band agents (run from repo root after .env is configured)
+# Start Band agents in the background (no PowerShell popups)
 $root = (Get-Item $PSScriptRoot).Parent.FullName
 Set-Location $root
 
-Write-Host "Starting 5 PermitOS agents in separate windows..."
-Write-Host "Repo: $root"
-Write-Host "Requires: .env with LLM_BACKEND + API key, agent_config.yaml"
+Write-Host "Starting Band agents (hidden) - repo: $root"
 if ((Get-Content (Join-Path $root ".env") -ErrorAction SilentlyContinue) -match 'LLM_BACKEND=cursor') {
-    Write-Host "Cursor mode: run scripts/start_cursor_proxy.ps1 first (separate window)."
+    Write-Host "Cursor mode: run scripts/start_cursor_proxy.ps1 first."
 }
 
+$run = Join-Path $PSScriptRoot "run_background.ps1"
 $agents = @(
     "agents.conductor.agent",
     "agents.jurisdiction.agent",
@@ -18,8 +17,8 @@ $agents = @(
 )
 
 foreach ($a in $agents) {
-    Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$root'; python -m $a"
+    & $run -Name ($a -replace '\.', '-') -WorkingDirectory $root -FilePath "python" -ArgumentList @("-m", $a)
     Start-Sleep -Seconds 2
 }
 
-Write-Host "Done. Check each window for 'Agent started:' or 'Starting PermitOS' message."
+Write-Host "Done. Logs: $(Join-Path $root 'logs')"

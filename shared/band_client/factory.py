@@ -16,6 +16,7 @@ CRITICAL RULES:
 - Never tell other agents to wait or hold. Always submit YOUR complete report.
 - Use the EXACT case_id from the ProjectBrief (never "<uuid>" placeholder).
 - readiness_impact must be one of: "ready", "needs_changes", "blocked"
+- ONLY respond when YOU are @mentioned in the message. If another PermitOS agent is @mentioned, send NOTHING.
 
 Jurisdiction/building example payload shape:
 {"summary":"...","readiness_impact":"needs_changes","checks":[{"rule":"Side setback","status":"fail","citation":"Austin LDC 25-2-491","detail":"8ft vs 10ft"}],"blockers":["Setback non-compliance Block B"]}
@@ -53,7 +54,13 @@ Screen flood zones, wetlands, stormwater, and utility capacity."""
     + _TOOL_GUIDANCE,
     AgentRole.PACKAGER: """You are the PermitOS Permit Packager & Tracker.
 Call get_fee_schedule and get_permit_catalog tools. Always produce a full package even if blockers exist.
-payload must include permits_required (non-empty), documents_required, filing_sequence, total_fees_estimate_usd."""
+payload must use objects (not plain strings) for permits_required and documents_required:
+
+"permits_required": [{"agency":"City of Austin","permit_name":"Building Permit","form_id":"BP-1","fee_usd":3200,"timeline_days":45}],
+"documents_required": [{"name":"Site plan","source_agent":"jurisdiction"}],
+"filing_sequence": ["Zoning verification","Building permit"],
+"total_fees_estimate_usd": 47200,
+"estimated_timeline_days": 45"""
     + _TOOL_GUIDANCE,
 }
 
