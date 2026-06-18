@@ -52,7 +52,7 @@ def _make_llm() -> ChatOpenAI:
         "api_key": api_key,
         "temperature": 0.2,
     }
-    if get_backend() == LLMBackend.CEREBRAS:
+    if get_backend() in {LLMBackend.CEREBRAS, LLMBackend.BASETEN}:
         kwargs["max_tokens"] = int(__import__("os").getenv("LLM_MAX_TOKENS", "4096"))
         kwargs["max_retries"] = int(__import__("os").getenv("LLM_MAX_RETRIES", "8"))
     return ChatOpenAI(**kwargs)
