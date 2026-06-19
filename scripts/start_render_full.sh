@@ -5,6 +5,8 @@ cd "$(dirname "$0")/.."
 
 bash scripts/ensure_agent_config.sh || true
 
+python scripts/print_deploy_config.py
+
 echo "Starting PermitOS (API + 4 Band agents)..."
 
 bash scripts/agent_supervisor.sh agents.jurisdiction.agent &

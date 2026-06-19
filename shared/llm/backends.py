@@ -170,8 +170,7 @@ def create_langgraph_adapter(
     # gpt-oss-120b emits reasoning tokens; needs headroom for actual content.
     if get_backend() in {LLMBackend.CEREBRAS, LLMBackend.BASETEN, LLMBackend.OLLAMAFREEAPI}:
         llm_kwargs["max_tokens"] = int(os.getenv("LLM_MAX_TOKENS", "4096"))
-        # Baseten free tier: fewer retries avoids 429 storms that crash agents.
-        default_retries = "2" if get_backend() == LLMBackend.BASETEN else "4"
+        default_retries = "8" if get_backend() == LLMBackend.BASETEN else "4"
         llm_kwargs["max_retries"] = int(os.getenv("LLM_MAX_RETRIES", default_retries))
     if get_backend() == LLMBackend.OLLAMAFREEAPI:
         llm_kwargs["request_timeout"] = float(os.getenv("OLLAMAFREEAPI_REQUEST_TIMEOUT_SEC", "120"))

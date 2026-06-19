@@ -32,7 +32,19 @@ RUN mkdir -p /app/data && chmod +x scripts/start_render_full.sh scripts/ensure_a
 
 EXPOSE 8000
 
+# Non-secret defaults — match local .env (secrets go in Render Environment)
 ENV DATABASE_URL=sqlite+aiosqlite:///./data/permitos.db
 ENV PERMITOS_ORCHESTRATION=band
+ENV LLM_BACKEND=baseten
+ENV OPENAI_API_BASE=https://inference.baseten.co/v1
+ENV LLM_MODEL=openai/gpt-oss-120b
+ENV LLM_MAX_TOKENS=4096
+ENV LLM_MAX_RETRIES=8
+ENV SPECIALIST_STAGGER_SEC=90
+ENV SPECIALIST_COMPLETE_COOLDOWN_SEC=30
+ENV BAND_ORCHESTRATION_TIMEOUT=600
+ENV BAND_WS_URL=wss://app.band.ai/api/v1/socket/websocket
+ENV BAND_REST_URL=https://app.band.ai
+ENV BAND_AGENT_SILENCE_SEC=240
 
 CMD ["bash", "scripts/start_render_full.sh"]
