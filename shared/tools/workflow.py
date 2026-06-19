@@ -43,9 +43,15 @@ async def run_workflow_with_activity_async(
         return await run_local_case(brief)
 
     logger.info("Running Band orchestration for case %s (room=%s)", brief.case_id, band_room_id)
-    return await band_orchestrator.run_band_case(
-        brief, existing_room_id=band_room_id, on_progress=on_progress
-    )
+    try:
+        return await band_orchestrator.run_band_case(
+            brief, existing_room_id=band_room_id, on_progress=on_progress
+        )
+    except FileNotFoundError as exc:
+        logger.warning("Band credentials unavailable (%s) — falling back to local orchestration", exc)
+        from shared.agent_logic.local_runner import run_local_case
+
+        return await run_local_case(brief)
 
 
 def run_workflow_with_activity(brief: ProjectBrief, band_room_id: str | None = None) -> dict:
