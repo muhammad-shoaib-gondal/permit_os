@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import logging
 import os
+import shutil
 from enum import Enum
 from pathlib import Path
 from typing import Optional
 
 import yaml
+
+logger = logging.getLogger(__name__)
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -125,6 +129,58 @@ def agent_config_available() -> bool:
     agent_id = entry.get("agent_id", "")
     api_key = entry.get("api_key", "")
     return bool(agent_id and api_key and "your-" not in str(agent_id))
+
+
+def _project_root() -> Path:
+    return Path(__file__).resolve().parents[2]
+
+
+def materialize_agent_config_file(target: Path | None = None) -> Path | None:
+    """Ensure agent_config.yaml exists on disk for the Band SDK.
+
+    Render secret files live at /etc/secrets/<filename>; the Band SDK only reads
+    ./agent_config.yaml in the working directory. Copy or synthesize that file
+    from secret files, inline YAML, or per-agent env vars when missing.
+    """
+    root = _project_root()
+    target = target or (root / "agent_config.yaml")
+    if target.is_file():
+        logger.info("Band credentials file already present at %s", target)
+        return target
+
+    source = resolve_agent_config_path()
+    if source and source.resolve() != target.resolve():
+        shutil.copy2(source, target)
+        logger.info("Copied Band credentials %s -> %s", source, target)
+        return target
+
+    data = _load_config_data()
+    if not data:
+        secrets_dir = Path("/etc/secrets")
+        if secrets_dir.is_dir():
+            listing = ", ".join(p.name for p in sorted(secrets_dir.iterdir()))
+            logger.warning("No Band credentials found. /etc/secrets contains: %s", listing or "(empty)")
+        else:
+            logger.warning("No Band credentials file or env configuration found")
+        return None
+
+    out: dict = {}
+    for role in AgentRole:
+        entry = data.get(role.value)
+        if not entry:
+            continue
+        agent_id = entry.get("agent_id", "")
+        api_key = entry.get("api_key", "")
+        if agent_id and api_key and "your-" not in str(agent_id):
+            out[role.value] = {"agent_id": agent_id, "api_key": api_key}
+
+    if not out:
+        return None
+
+    with target.open("w", encoding="utf-8") as f:
+        yaml.dump(out, f, default_flow_style=False, sort_keys=False)
+    logger.info("Wrote Band credentials to %s (%d agents)", target, len(out))
+    return target
 
 
 def get_agent_credentials(role: AgentRole) -> tuple[str, str]:

@@ -3,7 +3,10 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-bash scripts/ensure_agent_config.sh
+if ! bash scripts/ensure_agent_config.sh; then
+  echo "FATAL: Band agents cannot start without credentials. Fix Render Secret File and redeploy."
+  exit 1
+fi
 
 echo "Starting PermitOS (API + 4 Band agents)..."
 

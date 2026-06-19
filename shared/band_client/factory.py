@@ -4,7 +4,12 @@ import logging
 import os
 from pathlib import Path
 
-from shared.band_client.config import AgentRole, band_urls, get_agent_credentials
+from shared.band_client.config import (
+    AgentRole,
+    band_urls,
+    get_agent_credentials,
+    materialize_agent_config_file,
+)
 from shared.llm.backends import LLMBackend, create_langgraph_adapter, get_backend
 from shared.tools.langchain_tools import TOOLS_BY_ROLE
 
@@ -130,6 +135,13 @@ async def run_agent(role: AgentRole, extra_instructions: str = "") -> None:
     root = Path(__file__).resolve().parents[2]
     os.chdir(root)
     load_dotenv(root / ".env")
+
+    if not materialize_agent_config_file(root / "agent_config.yaml"):
+        raise FileNotFoundError(
+            "Missing Band agent credentials on server. On Render: add a Secret File "
+            "named agent_config.yaml (or agents_config.yaml) with all 5 agents, "
+            "or set AGENT_CONFIG_YAML / CONDUCTOR_AGENT_ID + CONDUCTOR_API_KEY env vars."
+        )
 
     agent = create_band_agent(role, extra_instructions)
     logger.info("Starting PermitOS %s agent (%s)", role.value, agent.agent_name)
