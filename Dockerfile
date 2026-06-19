@@ -28,7 +28,7 @@ RUN pip install --no-cache-dir langchain-openai langgraph anthropic \
 
 COPY --from=web /web/dist ./web/dist
 
-RUN mkdir -p /app/data && chmod +x scripts/start_render_full.sh
+RUN mkdir -p /app/data && chmod +x scripts/start_render_full.sh scripts/ensure_agent_config.sh scripts/start_agents_docker.sh
 
 EXPOSE 8000
 

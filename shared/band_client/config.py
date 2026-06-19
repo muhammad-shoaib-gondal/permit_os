@@ -47,6 +47,8 @@ def _config_candidates() -> list[Path]:
         "agent_config.yml",
         "agents_config.yaml",
         "agents_config.yml",
+        "config.yaml",
+        "config.yml",
     )
     candidates: list[Path] = []
 
@@ -66,11 +68,20 @@ def _config_candidates() -> list[Path]:
     return candidates
 
 
-def _config_path() -> Path:
+def resolve_agent_config_path() -> Path | None:
+    """First existing Band credentials file, or None if only env/inline config is set."""
+    if os.getenv("AGENT_CONFIG_YAML") or os.getenv("AGENTS_CONFIG_YAML"):
+        return None
     for path in _config_candidates():
         if path.exists():
             return path
-    return Path(__file__).resolve().parents[2] / "agent_config.yaml"
+    return None
+
+
+def _config_path() -> Path:
+    return resolve_agent_config_path() or (
+        Path(__file__).resolve().parents[2] / "agent_config.yaml"
+    )
 
 
 def _load_config_from_file() -> dict:

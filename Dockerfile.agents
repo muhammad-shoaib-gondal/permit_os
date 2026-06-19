@@ -24,7 +24,7 @@ RUN mkdir -p /app/data
 
 ENV DATABASE_URL=sqlite+aiosqlite:///./data/permitos.db
 
-RUN chmod +x scripts/start_agents_docker.sh
+RUN chmod +x scripts/start_agents_docker.sh scripts/ensure_agent_config.sh
 
 # Render Background Worker: set start command to bash scripts/start_agents_docker.sh
 CMD ["bash", "scripts/start_agents_docker.sh"]

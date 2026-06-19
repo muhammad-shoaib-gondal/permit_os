@@ -3,8 +3,11 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-if [[ ! -f agent_config.yaml ]]; then
-  echo "ERROR: agent_config.yaml missing. Add it as a Render Secret File at /app/agent_config.yaml"
+bash scripts/ensure_agent_config.sh
+
+if [[ ! -f agent_config.yaml && -z "${AGENT_CONFIG_YAML:-}" && -z "${AGENTS_CONFIG_YAML:-}" && -z "${CONDUCTOR_AGENT_ID:-}" ]]; then
+  echo "ERROR: No Band credentials. Add a Render Secret File (agent_config.yaml or config.yml),"
+  echo "       set AGENT_CONFIG_PATH, AGENT_CONFIG_YAML, or per-agent env vars."
   exit 1
 fi
 

@@ -4,7 +4,7 @@ import logging
 import os
 from pathlib import Path
 
-from shared.band_client.config import AgentRole, band_urls
+from shared.band_client.config import AgentRole, band_urls, get_agent_credentials
 from shared.llm.backends import LLMBackend, create_langgraph_adapter, get_backend
 from shared.tools.langchain_tools import TOOLS_BY_ROLE
 
@@ -114,9 +114,11 @@ def create_band_agent(role: AgentRole, extra_instructions: str = ""):
             f"{exc}\n\nSet LLM_BACKEND and API keys in .env (see .env.example)."
         ) from exc
 
-    return Agent.from_config(
-        role.value,
+    agent_id, api_key = get_agent_credentials(role)
+    return Agent.create(
         adapter=adapter,
+        agent_id=agent_id,
+        api_key=api_key,
         ws_url=urls["ws_url"],
         rest_url=urls["rest_url"],
     )

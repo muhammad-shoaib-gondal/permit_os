@@ -3,6 +3,8 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+bash scripts/ensure_agent_config.sh
+
 echo "Starting PermitOS (API + 4 Band agents)..."
 
 python -m uvicorn api.main:app --host 0.0.0.0 --port 8000 &
