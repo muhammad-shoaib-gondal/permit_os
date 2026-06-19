@@ -4,11 +4,10 @@ from __future__ import annotations
 
 import os
 from enum import Enum
+from typing import TYPE_CHECKING
 
-from langchain_openai import ChatOpenAI
-from langgraph.checkpoint.memory import InMemorySaver
-
-from band.adapters import LangGraphAdapter
+if TYPE_CHECKING:
+    from band.adapters import LangGraphAdapter
 
 
 class LLMBackend(str, Enum):
@@ -157,6 +156,10 @@ def create_langgraph_adapter(
     additional_tools: list | None = None,
 ) -> LangGraphAdapter:
     """LangGraph adapter using any OpenAI-compatible endpoint (OSS-friendly)."""
+    from band.adapters import LangGraphAdapter
+    from langchain_openai import ChatOpenAI
+    from langgraph.checkpoint.memory import InMemorySaver
+
     base_url, api_key, model = resolve_llm_config()
     llm_kwargs: dict = {
         "model": model,
