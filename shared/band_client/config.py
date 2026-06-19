@@ -39,18 +39,46 @@ def load_settings() -> Settings:
     return Settings()
 
 
-def _config_path() -> Path:
+def _config_candidates() -> list[Path]:
+    """Paths where Band credentials may live (local dev + Render /etc/secrets)."""
     root = Path(__file__).resolve().parents[2]
-    for name in (
+    names = (
         "agent_config.yaml",
         "agent_config.yml",
         "agents_config.yaml",
         "agents_config.yml",
-    ):
-        path = root / name
+    )
+    candidates: list[Path] = []
+
+    custom = os.getenv("AGENT_CONFIG_PATH")
+    if custom:
+        candidates.append(Path(custom))
+
+    for name in names:
+        candidates.append(root / name)
+
+    # Render Secret Files: /etc/secrets/<filename>
+    secrets_root = Path("/etc/secrets")
+    if secrets_root.is_dir():
+        for name in names:
+            candidates.append(secrets_root / name)
+
+    return candidates
+
+
+def _config_path() -> Path:
+    for path in _config_candidates():
         if path.exists():
             return path
-    return root / "agent_config.yaml"
+    return Path(__file__).resolve().parents[2] / "agent_config.yaml"
+
+
+def _load_config_from_file() -> dict:
+    for path in _config_candidates():
+        if path.exists():
+            with path.open(encoding="utf-8") as f:
+                return yaml.safe_load(f) or {}
+    return {}
 
 
 def _load_config_data() -> dict:
@@ -61,10 +89,9 @@ def _load_config_data() -> dict:
         if data:
             return data
 
-    path = _config_path()
-    if path.exists():
-        with path.open(encoding="utf-8") as f:
-            return yaml.safe_load(f) or {}
+    data = _load_config_from_file()
+    if data:
+        return data
 
     data: dict = {}
     for role in AgentRole:
