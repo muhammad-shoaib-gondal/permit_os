@@ -6,10 +6,12 @@ RUN npm ci
 COPY web ./
 RUN npm run build
 
-# --- API runtime (no Band SDK — orchestrator uses httpx only) ---
+# --- API runtime ---
 FROM python:3.11-slim
 
 WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
 
 COPY pyproject.toml README.md ./
 COPY shared ./shared
@@ -17,7 +19,11 @@ COPY knowledge ./knowledge
 COPY api ./api
 COPY fixtures ./fixtures
 
-RUN pip install --no-cache-dir -e .
+# Band REST client for orchestrator (clone without git submodules — Render-safe)
+RUN pip install --no-cache-dir -e . \
+    && git clone --depth 1 https://github.com/thenvoi/thenvoi-sdk-python.git /tmp/thenvoi-sdk \
+    && pip install --no-cache-dir /tmp/thenvoi-sdk \
+    && rm -rf /tmp/thenvoi-sdk
 
 COPY --from=web /web/dist ./web/dist
 

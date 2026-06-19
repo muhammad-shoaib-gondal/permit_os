@@ -47,8 +47,8 @@ async def run_workflow_with_activity_async(
         return await band_orchestrator.run_band_case(
             brief, existing_room_id=band_room_id, on_progress=on_progress
         )
-    except FileNotFoundError as exc:
-        logger.warning("Band credentials unavailable (%s) — falling back to local orchestration", exc)
+    except (FileNotFoundError, ModuleNotFoundError, ImportError) as exc:
+        logger.warning("Band orchestration unavailable (%s) — falling back to local", exc)
         from shared.agent_logic.local_runner import run_local_case
 
         return await run_local_case(brief)
