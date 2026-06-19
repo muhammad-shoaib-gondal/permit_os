@@ -151,13 +151,36 @@ def orchestration_hint() -> str:
     return "Something went wrong — we couldn't complete the analysis."
 
 
+def _build_chat_openai(**llm_kwargs):
+    """ChatOpenAI with optional cross-process rate limiting for strict providers."""
+    from langchain_openai import ChatOpenAI
+
+    from shared.llm.rate_limit import cross_process_llm_lock_enabled, llm_request_slot
+
+    backend = get_backend()
+    if backend not in {LLMBackend.BASETEN, LLMBackend.CEREBRAS} or not cross_process_llm_lock_enabled():
+        return ChatOpenAI(**llm_kwargs)
+
+    class RateLimitedChatOpenAI(ChatOpenAI):
+        def _generate(self, messages, stop=None, run_manager=None, **kwargs):
+            with llm_request_slot():
+                return super()._generate(messages, stop=stop, run_manager=run_manager, **kwargs)
+
+        async def _agenerate(self, messages, stop=None, run_manager=None, **kwargs):
+            with llm_request_slot():
+                return await super()._agenerate(
+                    messages, stop=stop, run_manager=run_manager, **kwargs
+                )
+
+    return RateLimitedChatOpenAI(**llm_kwargs)
+
+
 def create_langgraph_adapter(
     custom_instructions: str,
     additional_tools: list | None = None,
 ) -> LangGraphAdapter:
     """LangGraph adapter using any OpenAI-compatible endpoint (OSS-friendly)."""
     from band.adapters import LangGraphAdapter
-    from langchain_openai import ChatOpenAI
     from langgraph.checkpoint.memory import InMemorySaver
 
     base_url, api_key, model = resolve_llm_config()
@@ -177,7 +200,7 @@ def create_langgraph_adapter(
     if get_backend() == LLMBackend.OLLAMA and "localhost" not in base_url and "127.0.0.1" not in base_url:
         llm_kwargs["request_timeout"] = float(os.getenv("OLLAMA_REQUEST_TIMEOUT_SEC", "180"))
         llm_kwargs["max_retries"] = int(os.getenv("LLM_MAX_RETRIES", "3"))
-    llm = ChatOpenAI(**llm_kwargs)
+    llm = _build_chat_openai(**llm_kwargs)
     kwargs: dict = {
         "llm": llm,
         "checkpointer": InMemorySaver(),

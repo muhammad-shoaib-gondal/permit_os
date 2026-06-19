@@ -462,6 +462,11 @@ async def run_band_case(
         },
         indent=2,
     )
+    logger.info(
+        "Cooldown %.0fs before packager dispatch",
+        _specialist_complete_cooldown_sec(),
+    )
+    await asyncio.sleep(_specialist_complete_cooldown_sec())
     dispatch_packager = (
         f"Assemble permit package from specialist reports. Case {brief.case_id}.\n\n"
         f"```json\n{merge_json}\n```\n\n"

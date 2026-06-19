@@ -12,14 +12,20 @@ logger = logging.getLogger(__name__)
 
 
 def _orchestration_mode() -> str:
+    """Resolve orchestration mode without silently doubling LLM calls in band mode."""
     explicit = os.getenv("PERMITOS_ORCHESTRATION")
-    if explicit:
+    if explicit and explicit.lower() not in ("auto", ""):
         return explicit.lower()
-    from shared.band_client.config import _config_path
 
-    if _config_path().exists():
+    from shared.band_client.config import agent_config_available
+
+    if agent_config_available():
         return "band"
     return "local"
+
+
+def _band_explicitly_requested() -> bool:
+    return os.getenv("PERMITOS_ORCHESTRATION", "").lower() == "band"
 
 
 async def run_workflow_with_activity_async(
@@ -29,29 +35,32 @@ async def run_workflow_with_activity_async(
 ) -> dict:
     mode = _orchestration_mode()
 
-    if mode == "band":
-        from shared.band_client.config import agent_config_available
-
-        if not agent_config_available():
-            logger.warning("Band credentials not configured — falling back to local orchestration")
-            mode = "local"
-
     if mode == "local":
         from shared.agent_logic.local_runner import run_local_case
 
         logger.info("PERMITOS_ORCHESTRATION=local for case %s", brief.case_id)
         return await run_local_case(brief)
 
-    logger.info("Running Band orchestration for case %s (room=%s)", brief.case_id, band_room_id)
-    try:
-        return await band_orchestrator.run_band_case(
-            brief, existing_room_id=band_room_id, on_progress=on_progress
+    from shared.band_client.config import agent_config_available
+
+    if not agent_config_available():
+        msg = (
+            "Band credentials not configured. Add agent_config.yaml (or Render secret file) "
+            "before running PERMITOS_ORCHESTRATION=band."
         )
-    except (FileNotFoundError, ModuleNotFoundError, ImportError) as exc:
-        logger.warning("Band orchestration unavailable (%s) — falling back to local", exc)
+        if _band_explicitly_requested():
+            raise FileNotFoundError(msg)
+        logger.warning("%s — falling back to local orchestration", msg)
         from shared.agent_logic.local_runner import run_local_case
 
         return await run_local_case(brief)
+
+    logger.info("Running Band orchestration for case %s (room=%s)", brief.case_id, band_room_id)
+    # Never fall back to local when band mode is active: local_runner would call the
+    # same LLM while Band agent processes are also running (Render all-in-one → 429s).
+    return await band_orchestrator.run_band_case(
+        brief, existing_room_id=band_room_id, on_progress=on_progress
+    )
 
 
 def run_workflow_with_activity(brief: ProjectBrief, band_room_id: str | None = None) -> dict:

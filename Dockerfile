@@ -46,5 +46,7 @@ ENV BAND_ORCHESTRATION_TIMEOUT=600
 ENV BAND_WS_URL=wss://app.band.ai/api/v1/socket/websocket
 ENV BAND_REST_URL=https://app.band.ai
 ENV BAND_AGENT_SILENCE_SEC=240
+ENV LLM_CROSS_PROCESS_LOCK=1
+ENV LLM_MIN_INTERVAL_SEC=4
 
 CMD ["bash", "scripts/start_render_full.sh"]
