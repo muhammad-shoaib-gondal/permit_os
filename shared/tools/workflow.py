@@ -30,10 +30,10 @@ async def run_workflow_with_activity_async(
     mode = _orchestration_mode()
 
     if mode == "band":
-        from shared.band_client.config import _config_path
+        from shared.band_client.config import agent_config_available
 
-        if not _config_path().exists():
-            logger.warning("agent_config.yaml missing on server — falling back to local orchestration")
+        if not agent_config_available():
+            logger.warning("Band credentials not configured — falling back to local orchestration")
             mode = "local"
 
     if mode == "local":

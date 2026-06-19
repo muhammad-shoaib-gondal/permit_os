@@ -41,29 +41,69 @@ def load_settings() -> Settings:
 
 def _config_path() -> Path:
     root = Path(__file__).resolve().parents[2]
-    for name in ("agent_config.yaml", "agent_config.yml"):
+    for name in (
+        "agent_config.yaml",
+        "agent_config.yml",
+        "agents_config.yaml",
+        "agents_config.yml",
+    ):
         path = root / name
         if path.exists():
             return path
     return root / "agent_config.yaml"
 
 
-def get_agent_credentials(role: AgentRole) -> tuple[str, str]:
+def _load_config_data() -> dict:
+    """Load Band credentials from env vars, inline YAML, or config file."""
+    inline = os.getenv("AGENT_CONFIG_YAML") or os.getenv("AGENTS_CONFIG_YAML")
+    if inline:
+        data = yaml.safe_load(inline) or {}
+        if data:
+            return data
+
     path = _config_path()
-    if not path.exists():
-        raise FileNotFoundError(
-            f"Missing {path.name}. Copy agent_config.yaml.example and add Band credentials."
+    if path.exists():
+        with path.open(encoding="utf-8") as f:
+            return yaml.safe_load(f) or {}
+
+    data: dict = {}
+    for role in AgentRole:
+        prefix = role.value.upper()
+        agent_id = os.getenv(f"{prefix}_AGENT_ID") or os.getenv(f"BAND_{prefix}_AGENT_ID")
+        api_key = (
+            os.getenv(f"{prefix}_API_KEY")
+            or os.getenv(f"{prefix}_BAND_API_KEY")
+            or os.getenv(f"BAND_{prefix}_API_KEY")
         )
-    with path.open(encoding="utf-8") as f:
-        data = yaml.safe_load(f) or {}
+        if agent_id and api_key:
+            data[role.value] = {"agent_id": agent_id, "api_key": api_key}
+    return data
+
+
+def agent_config_available() -> bool:
+    """True when conductor credentials are configured (file, env YAML, or env vars)."""
+    data = _load_config_data()
+    entry = data.get(AgentRole.CONDUCTOR.value) or {}
+    agent_id = entry.get("agent_id", "")
+    api_key = entry.get("api_key", "")
+    return bool(agent_id and api_key and "your-" not in str(agent_id))
+
+
+def get_agent_credentials(role: AgentRole) -> tuple[str, str]:
+    data = _load_config_data()
+    if not data:
+        raise FileNotFoundError(
+            "Missing Band agent credentials. Add agent_config.yaml, set AGENT_CONFIG_YAML, "
+            "or set CONDUCTOR_AGENT_ID + CONDUCTOR_API_KEY (and other agents) in environment."
+        )
     entry = data.get(role.value)
     if not entry:
-        raise KeyError(f"No credentials for agent role '{role.value}' in {path.name}")
+        raise KeyError(f"No credentials for agent role '{role.value}'")
     agent_id = entry.get("agent_id", "")
     api_key = entry.get("api_key", "")
     if not agent_id or not api_key or "your-" in str(agent_id):
         raise ValueError(
-            f"Invalid credentials for '{role.value}'. Register agent on Band and update {path.name}."
+            f"Invalid credentials for '{role.value}'. Register agent on Band and update config."
         )
     return agent_id, api_key
 
