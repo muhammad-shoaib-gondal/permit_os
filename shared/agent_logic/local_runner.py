@@ -294,9 +294,25 @@ def _assemble(role: AgentRole, brief: ProjectBrief, ctx: dict[str, Any], **kwarg
     raise ValueError(role)
 
 
+def _skip_llm() -> bool:
+    import os
+
+    if os.getenv("PERMITOS_VIDEO_MODE", "").lower() in ("1", "true", "yes"):
+        return True
+    return os.getenv("LOCAL_SKIP_LLM", "0").lower() in ("1", "true", "yes")
+
+
+def _agent_stagger_sec() -> float:
+    import os
+
+    if os.getenv("PERMITOS_VIDEO_MODE", "").lower() in ("1", "true", "yes"):
+        return float(os.getenv("VIDEO_AGENT_STAGGER_SEC", "2"))
+    return float(os.getenv("LOCAL_AGENT_STAGGER_SEC", "1"))
+
+
 async def _maybe_enrich_summary(role: AgentRole, report: Any, ctx: dict[str, Any]) -> Any:
     """Optional one-line LLM polish; skipped on rate limits."""
-    if __import__("os").getenv("LOCAL_SKIP_LLM", "0") in ("1", "true"):
+    if _skip_llm():
         return report
     try:
         llm = _make_llm()
@@ -319,18 +335,80 @@ async def _maybe_enrich_summary(role: AgentRole, report: Any, ctx: dict[str, Any
 async def _run_role(role: AgentRole, brief: ProjectBrief, **kwargs) -> Any:
     ctx = _gather_tool_context(brief, role)
     report = _assemble(role, brief, ctx, **kwargs)
-    await asyncio.sleep(float(__import__("os").getenv("LOCAL_AGENT_STAGGER_SEC", "1")))
+    await asyncio.sleep(_agent_stagger_sec())
     return await _maybe_enrich_summary(role, report, ctx)
 
 
-async def run_local_case(brief: ProjectBrief) -> dict[str, Any]:
+async def _emit_progress(
+    on_progress,
+    brief: ProjectBrief,
+    *,
+    phase: str,
+    completed: list[str],
+    **extra,
+) -> None:
+    if not on_progress:
+        return
+    payload: dict[str, Any] = {
+        "status": "ANALYZING",
+        "brief": brief.model_dump(mode="json"),
+        "band_room_id": f"local-{brief.case_id}",
+        "phase": phase,
+        "completed_agents": completed,
+    }
+    payload.update(extra)
+    await on_progress(payload)
+
+
+async def run_local_case(
+    brief: ProjectBrief,
+    on_progress=None,
+) -> dict[str, Any]:
     logger.info("Running local in-process agents (tools + optional LLM) for %s", brief.case_id)
 
+    await _emit_progress(on_progress, brief, phase="waiting_jurisdiction", completed=[])
     jurisdiction = await _run_role(AgentRole.JURISDICTION, brief)
+    await _emit_progress(
+        on_progress,
+        brief,
+        phase="completed_jurisdiction",
+        completed=["jurisdiction"],
+        jurisdiction_report=jurisdiction.model_dump(mode="json"),
+    )
+
     building = await _run_role(AgentRole.BUILDING, brief)
+    await _emit_progress(
+        on_progress,
+        brief,
+        phase="completed_building",
+        completed=["jurisdiction", "building"],
+        jurisdiction_report=jurisdiction.model_dump(mode="json"),
+        building_report=building.model_dump(mode="json"),
+    )
+
     site = await _run_role(AgentRole.SITE, brief)
+    await _emit_progress(
+        on_progress,
+        brief,
+        phase="completed_site",
+        completed=["jurisdiction", "building", "site"],
+        jurisdiction_report=jurisdiction.model_dump(mode="json"),
+        building_report=building.model_dump(mode="json"),
+        site_report=site.model_dump(mode="json"),
+    )
+
     room_id = f"local-{brief.case_id}"
     summary = merge_reports(brief, jurisdiction, building, site, room_id)
+    await _emit_progress(
+        on_progress,
+        brief,
+        phase="waiting_packager",
+        completed=["jurisdiction", "building", "site"],
+        jurisdiction_report=jurisdiction.model_dump(mode="json"),
+        building_report=building.model_dump(mode="json"),
+        site_report=site.model_dump(mode="json"),
+        case_summary=summary.model_dump(mode="json"),
+    )
     package = await _run_role(
         AgentRole.PACKAGER,
         brief,
