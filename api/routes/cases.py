@@ -138,6 +138,7 @@ async def get_case_by_id(case_id: UUID):
         "stalled": bool(results.get("stalled")),
         "stall_reason": results.get("stall_reason"),
         "error": results.get("error") if case.status == "FAILED" else None,
+        "error_detail": results.get("error_detail") if case.status == "FAILED" else None,
     }
 
 

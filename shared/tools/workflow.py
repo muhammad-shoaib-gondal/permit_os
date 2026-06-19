@@ -12,7 +12,14 @@ logger = logging.getLogger(__name__)
 
 
 def _orchestration_mode() -> str:
-    return os.getenv("PERMITOS_ORCHESTRATION", "band").lower()
+    explicit = os.getenv("PERMITOS_ORCHESTRATION")
+    if explicit:
+        return explicit.lower()
+    from shared.band_client.config import _config_path
+
+    if _config_path().exists():
+        return "band"
+    return "local"
 
 
 async def run_workflow_with_activity_async(
@@ -22,10 +29,17 @@ async def run_workflow_with_activity_async(
 ) -> dict:
     mode = _orchestration_mode()
 
+    if mode == "band":
+        from shared.band_client.config import _config_path
+
+        if not _config_path().exists():
+            logger.warning("agent_config.yaml missing on server — falling back to local orchestration")
+            mode = "local"
+
     if mode == "local":
         from shared.agent_logic.local_runner import run_local_case
 
-        logger.warning("PERMITOS_ORCHESTRATION=local — not using Band")
+        logger.info("PERMITOS_ORCHESTRATION=local for case %s", brief.case_id)
         return await run_local_case(brief)
 
     logger.info("Running Band orchestration for case %s (room=%s)", brief.case_id, band_room_id)
