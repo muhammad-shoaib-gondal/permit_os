@@ -23,3 +23,8 @@ RUN pip install --no-cache-dir langchain-openai langgraph anthropic \
 RUN mkdir -p /app/data
 
 ENV DATABASE_URL=sqlite+aiosqlite:///./data/permitos.db
+
+RUN chmod +x scripts/start_agents_docker.sh
+
+# Render Background Worker: set start command to bash scripts/start_agents_docker.sh
+CMD ["bash", "scripts/start_agents_docker.sh"]
