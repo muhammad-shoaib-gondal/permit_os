@@ -18,7 +18,7 @@ def main() -> None:
         asyncio.run(run_agent(AgentRole.BUILDING))
     except KeyboardInterrupt:
         logger.info("Building agent stopped")
-    except Exception as exc:
+    except FileNotFoundError as exc:
         logger.error("Building agent failed: %s", exc)
         sys.exit(1)
 

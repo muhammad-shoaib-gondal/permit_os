@@ -129,7 +129,17 @@ def create_band_agent(role: AgentRole, extra_instructions: str = ""):
     )
 
 
+def _agent_restart_delay(exc: BaseException) -> float:
+    from shared.agent_logic.errors import is_llm_quota_error
+
+    if is_llm_quota_error(exc):
+        return float(os.getenv("BAND_AGENT_QUOTA_RESTART_SEC", "90"))
+    return float(os.getenv("BAND_AGENT_RESTART_SEC", "30"))
+
+
 async def run_agent(role: AgentRole, extra_instructions: str = "") -> None:
+    import asyncio
+
     from dotenv import load_dotenv
 
     root = Path(__file__).resolve().parents[2]
@@ -143,6 +153,17 @@ async def run_agent(role: AgentRole, extra_instructions: str = "") -> None:
             "or set AGENT_CONFIG_YAML / CONDUCTOR_AGENT_ID + CONDUCTOR_API_KEY env vars."
         )
 
-    agent = create_band_agent(role, extra_instructions)
-    logger.info("Starting PermitOS %s agent (%s)", role.value, agent.agent_name)
-    await agent.run()
+    while True:
+        try:
+            agent = create_band_agent(role, extra_instructions)
+            logger.info("Starting PermitOS %s agent (%s)", role.value, agent.agent_name)
+            await agent.run()
+            delay = float(os.getenv("BAND_AGENT_RESTART_SEC", "30"))
+            logger.warning("Agent %s disconnected; restarting in %.0fs", role.value, delay)
+        except KeyboardInterrupt:
+            logger.info("Agent %s stopped", role.value)
+            return
+        except Exception as exc:
+            delay = _agent_restart_delay(exc)
+            logger.error("Agent %s error (%s); restarting in %.0fs", role.value, exc, delay)
+        await asyncio.sleep(delay)

@@ -13,11 +13,9 @@ fi
 
 echo "Starting PermitOS Band agents (jurisdiction, building, site, packager)..."
 
-python -m agents.jurisdiction.agent &
-python -m agents.building.agent &
-python -m agents.site_environmental.agent &
-python -m agents.packager.agent &
+bash scripts/agent_supervisor.sh agents.jurisdiction.agent &
+bash scripts/agent_supervisor.sh agents.building.agent &
+bash scripts/agent_supervisor.sh agents.site_environmental.agent &
+bash scripts/agent_supervisor.sh agents.packager.agent &
 
-# If any agent exits, bring down the container so Render restarts it.
-wait -n
-exit $?
+wait

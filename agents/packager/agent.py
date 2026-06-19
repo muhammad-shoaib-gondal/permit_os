@@ -18,7 +18,7 @@ def main() -> None:
         asyncio.run(run_agent(AgentRole.PACKAGER))
     except KeyboardInterrupt:
         logger.info("Packager agent stopped")
-    except Exception as exc:
+    except FileNotFoundError as exc:
         logger.error("Packager agent failed: %s", exc)
         sys.exit(1)
 

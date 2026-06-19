@@ -3,20 +3,14 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-if ! bash scripts/ensure_agent_config.sh; then
-  echo "FATAL: Band agents cannot start without credentials. Fix Render Secret File and redeploy."
-  exit 1
-fi
+bash scripts/ensure_agent_config.sh || true
 
 echo "Starting PermitOS (API + 4 Band agents)..."
 
-python -m uvicorn api.main:app --host 0.0.0.0 --port 8000 &
-sleep 4
+bash scripts/agent_supervisor.sh agents.jurisdiction.agent &
+bash scripts/agent_supervisor.sh agents.building.agent &
+bash scripts/agent_supervisor.sh agents.site_environmental.agent &
+bash scripts/agent_supervisor.sh agents.packager.agent &
 
-python -m agents.jurisdiction.agent &
-python -m agents.building.agent &
-python -m agents.site_environmental.agent &
-python -m agents.packager.agent &
-
-wait -n
-exit $?
+# Keep container alive on API only — agent crashes must not kill the web service.
+exec python -m uvicorn api.main:app --host 0.0.0.0 --port 8000
