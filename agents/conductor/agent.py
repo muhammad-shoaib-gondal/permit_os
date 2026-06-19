@@ -18,7 +18,7 @@ def main() -> None:
         asyncio.run(run_agent(AgentRole.CONDUCTOR))
     except KeyboardInterrupt:
         logger.info("Conductor stopped")
-    except Exception as exc:
+    except FileNotFoundError as exc:
         logger.error("Conductor failed: %s", exc)
         sys.exit(1)
 

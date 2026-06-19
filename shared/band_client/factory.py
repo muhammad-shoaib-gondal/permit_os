@@ -4,7 +4,12 @@ import logging
 import os
 from pathlib import Path
 
-from shared.band_client.config import AgentRole, band_urls
+from shared.band_client.config import (
+    AgentRole,
+    band_urls,
+    get_agent_credentials,
+    materialize_agent_config_file,
+)
 from shared.llm.backends import LLMBackend, create_langgraph_adapter, get_backend
 from shared.tools.langchain_tools import TOOLS_BY_ROLE
 
@@ -114,21 +119,51 @@ def create_band_agent(role: AgentRole, extra_instructions: str = ""):
             f"{exc}\n\nSet LLM_BACKEND and API keys in .env (see .env.example)."
         ) from exc
 
-    return Agent.from_config(
-        role.value,
+    agent_id, api_key = get_agent_credentials(role)
+    return Agent.create(
         adapter=adapter,
+        agent_id=agent_id,
+        api_key=api_key,
         ws_url=urls["ws_url"],
         rest_url=urls["rest_url"],
     )
 
 
+def _agent_restart_delay(exc: BaseException) -> float:
+    from shared.agent_logic.errors import is_llm_quota_error
+
+    if is_llm_quota_error(exc):
+        return float(os.getenv("BAND_AGENT_QUOTA_RESTART_SEC", "90"))
+    return float(os.getenv("BAND_AGENT_RESTART_SEC", "30"))
+
+
 async def run_agent(role: AgentRole, extra_instructions: str = "") -> None:
+    import asyncio
+
     from dotenv import load_dotenv
 
     root = Path(__file__).resolve().parents[2]
     os.chdir(root)
     load_dotenv(root / ".env")
 
-    agent = create_band_agent(role, extra_instructions)
-    logger.info("Starting PermitOS %s agent (%s)", role.value, agent.agent_name)
-    await agent.run()
+    if not materialize_agent_config_file(root / "agent_config.yaml"):
+        raise FileNotFoundError(
+            "Missing Band agent credentials on server. On Render: add a Secret File "
+            "named agent_config.yaml (or agents_config.yaml) with all 5 agents, "
+            "or set AGENT_CONFIG_YAML / CONDUCTOR_AGENT_ID + CONDUCTOR_API_KEY env vars."
+        )
+
+    while True:
+        try:
+            agent = create_band_agent(role, extra_instructions)
+            logger.info("Starting PermitOS %s agent (%s)", role.value, agent.agent_name)
+            await agent.run()
+            delay = float(os.getenv("BAND_AGENT_RESTART_SEC", "30"))
+            logger.warning("Agent %s disconnected; restarting in %.0fs", role.value, delay)
+        except KeyboardInterrupt:
+            logger.info("Agent %s stopped", role.value)
+            return
+        except Exception as exc:
+            delay = _agent_restart_delay(exc)
+            logger.error("Agent %s error (%s); restarting in %.0fs", role.value, exc, delay)
+        await asyncio.sleep(delay)

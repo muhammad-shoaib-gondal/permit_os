@@ -1,4 +1,4 @@
-# API + UI + 4 Band agents — single container (Render default Dockerfile)
+# Render: API + UI + 4 Band agents in ONE container (one Web Service, no Background Worker).
 FROM node:20-slim AS web
 WORKDIR /web
 COPY web/package.json web/package-lock.json* ./
@@ -28,11 +28,10 @@ RUN pip install --no-cache-dir langchain-openai langgraph anthropic \
 
 COPY --from=web /web/dist ./web/dist
 
-RUN mkdir -p /app/data && chmod +x scripts/start_render_full.sh scripts/ensure_agent_config.sh scripts/agent_supervisor.sh scripts/start_agents_docker.sh
+RUN mkdir -p /app/data && chmod +x scripts/start_render_full.sh scripts/ensure_agent_config.sh scripts/agent_supervisor.sh
 
 EXPOSE 8000
 
-# Non-secret defaults — match local .env (secrets go in Render Environment)
 ENV DATABASE_URL=sqlite+aiosqlite:///./data/permitos.db
 ENV PERMITOS_ORCHESTRATION=band
 ENV LLM_BACKEND=baseten
@@ -46,7 +45,5 @@ ENV BAND_ORCHESTRATION_TIMEOUT=600
 ENV BAND_WS_URL=wss://app.band.ai/api/v1/socket/websocket
 ENV BAND_REST_URL=https://app.band.ai
 ENV BAND_AGENT_SILENCE_SEC=240
-ENV LLM_CROSS_PROCESS_LOCK=1
-ENV LLM_MIN_INTERVAL_SEC=4
 
 CMD ["bash", "scripts/start_render_full.sh"]

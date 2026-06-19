@@ -91,7 +91,8 @@ async def _run_case_background(brief: ProjectBrief) -> None:
         )
         await _save_case_results(brief, results)
     except Exception as exc:
-        logger.exception("Band pipeline failed for case %s", case_id)
+        logger.exception("Pipeline failed for case %s", case_id)
+        err_detail = f"{type(exc).__name__}: {exc}"[:500]
         async with SessionLocal() as session:
             result = await session.execute(select(PermitCase).where(PermitCase.case_id == case_id))
             case = result.scalar_one_or_none()
@@ -100,6 +101,7 @@ async def _run_case_background(brief: ProjectBrief) -> None:
                 merged.update(
                     {
                         "error": orchestration_hint(),
+                        "error_detail": err_detail,
                         "stalled": True,
                         "stall_reason": orchestration_hint(),
                         "last_progress_at": datetime.now(timezone.utc).isoformat(),
@@ -122,7 +124,7 @@ async def _save_case_results(brief: ProjectBrief, results: dict[str, Any]) -> No
                 brief=brief.model_dump(mode="json"),
             )
             session.add(case)
-        case.status = results["case_summary"]["status"]
+        case.status = str((results.get("case_summary") or {}).get("status", "AWAITING_APPROVAL"))
         case.results = results
         case.band_room_id = results.get("band_room_id") or case.band_room_id
         pkg = results.get("permit_package") or {}
