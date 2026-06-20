@@ -3,7 +3,10 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-bash scripts/ensure_agent_config.sh || true
+if ! bash scripts/ensure_agent_config.sh; then
+  echo "FATAL: Band agents need credentials. Add Render Secret File (agent_config.yaml) and redeploy."
+  exit 1
+fi
 
 python scripts/print_deploy_config.py
 

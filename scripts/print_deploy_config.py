@@ -24,6 +24,7 @@ def main() -> None:
     print(f"  LLM_MAX_TOKENS={os.getenv('LLM_MAX_TOKENS', '4096')}")
     print(f"  LLM_MAX_RETRIES={os.getenv('LLM_MAX_RETRIES', '8' if backend.value == 'baseten' else '4')}")
     print(f"  PERMITOS_ORCHESTRATION={os.getenv('PERMITOS_ORCHESTRATION', 'auto')}")
+    print(f"  PERMITOS_VIDEO_MODE={os.getenv('PERMITOS_VIDEO_MODE', '0')}")
     print(f"  SPECIALIST_STAGGER_SEC={_specialist_stagger_sec():.0f}")
     print(f"  SPECIALIST_COMPLETE_COOLDOWN_SEC={_specialist_complete_cooldown_sec():.0f}")
     print(f"  BAND_ORCHESTRATION_TIMEOUT={os.getenv('BAND_ORCHESTRATION_TIMEOUT', '600')}")

@@ -11,8 +11,15 @@ from shared.schemas.project_brief import ProjectBrief
 logger = logging.getLogger(__name__)
 
 
+def video_mode_enabled() -> bool:
+    return os.getenv("PERMITOS_VIDEO_MODE", "").lower() in ("1", "true", "yes")
+
+
 def _orchestration_mode() -> str:
     """Resolve orchestration mode without silently doubling LLM calls in band mode."""
+    if video_mode_enabled():
+        return "local"
+
     explicit = os.getenv("PERMITOS_ORCHESTRATION")
     if explicit and explicit.lower() not in ("auto", ""):
         return explicit.lower()
@@ -38,8 +45,11 @@ async def run_workflow_with_activity_async(
     if mode == "local":
         from shared.agent_logic.local_runner import run_local_case
 
-        logger.info("PERMITOS_ORCHESTRATION=local for case %s", brief.case_id)
-        return await run_local_case(brief)
+        if video_mode_enabled():
+            logger.info("PERMITOS_VIDEO_MODE=1 — fast demo path (no Band, no LLM)")
+        else:
+            logger.info("PERMITOS_ORCHESTRATION=local for case %s", brief.case_id)
+        return await run_local_case(brief, on_progress=on_progress)
 
     from shared.band_client.config import agent_config_available
 
@@ -53,7 +63,7 @@ async def run_workflow_with_activity_async(
         logger.warning("%s — falling back to local orchestration", msg)
         from shared.agent_logic.local_runner import run_local_case
 
-        return await run_local_case(brief)
+        return await run_local_case(brief, on_progress=on_progress)
 
     logger.info("Running Band orchestration for case %s (room=%s)", brief.case_id, band_room_id)
     # Never fall back to local when band mode is active: local_runner would call the
