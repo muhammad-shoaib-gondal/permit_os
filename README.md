@@ -57,15 +57,17 @@ uvicorn api.main:app --reload --port 8000
 curl http://localhost:8000/cases/demo/riverside
 ```
 
-### 4. Frontend
+### 4. Frontend (landing + app)
 
 ```bash
 cd web
 npm install
-npm run dev          # http://localhost:5173 (proxies API)
+npm run dev          # http://localhost:5173/ = marketing, http://localhost:5173/app = product UI
 # or build for production:
-npm run build        # served at http://localhost:8000/ when dist exists
+npm run build        # landing at /, app at /app when served by FastAPI
 ```
+
+Start the API in another terminal (`uvicorn api.main:app --reload --port 8000`) so the app can call `/cases`, etc.
 
 Click **Run Riverside Residences Demo** to see:
 - Live agent activity feed (Band-style events)

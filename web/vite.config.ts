@@ -1,8 +1,30 @@
-import { defineConfig } from "vite";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+function redirectAppTrailingSlash(): Plugin {
+  return {
+    name: "redirect-app-trailing-slash",
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const pathname = req.url?.split("?")[0] ?? "";
+        if (pathname === "/app") {
+          const query = req.url?.includes("?") ? req.url.slice(req.url.indexOf("?")) : "";
+          res.writeHead(301, { Location: `/app/${query}` });
+          res.end();
+          return;
+        }
+        next();
+      });
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), redirectAppTrailingSlash()],
   server: {
     port: 5173,
     proxy: {
@@ -23,5 +45,11 @@ export default defineConfig({
   },
   build: {
     outDir: "dist",
+    rollupOptions: {
+      input: {
+        landing: path.resolve(__dirname, "index.html"),
+        app: path.resolve(__dirname, "app/index.html"),
+      },
+    },
   },
 });

@@ -1,34 +1,39 @@
-# EstatePermit landing page
+# EstatePermit landing page (moved)
 
-Static marketing site (vanilla HTML/CSS/JS). The product app lives in `web/` (React + Vite).
+The marketing landing page now lives inside the unified frontend at [`../web/`](../web/):
 
-## Preview locally
+| Path | Purpose |
+|------|---------|
+| `web/index.html` | Marketing landing (served at `/`) |
+| `web/public/css/`, `web/public/js/` | Landing styles and scripts |
+| `web/app/index.html` | React product app (served at `/app`) |
 
-From repo root:
+## Local development (single command)
 
 ```bash
-# Python
-python -m http.server 8080 --directory landing
-
-# Or npx
-npx serve landing -p 8080
+cd ../web
+npm install
+npm run dev
 ```
 
-Open http://localhost:8080
+- **Marketing:** http://localhost:5173/
+- **Product app:** http://localhost:5173/app (linked from “Launch app” on the landing page)
 
-## Deploy notes
+Start the API separately:
 
-- **Landing:** serve `landing/` at `/` (or `www.estatepermit.com`)
-- **App:** build `web/` with `npm run build` and serve `web/dist` at `/app`
-- Update `href="/app"` in `index.html` if your app URL differs
-
-## Files
-
-```
-landing/
-  index.html      # Full page
-  css/styles.css
-  js/main.js      # Nav, FAQ accordion, waitlist mailto
+```bash
+cd ..
+uvicorn api.main:app --reload --port 8000
 ```
 
-Built on branch `feature/estatepermit-landing-page`.
+## Production
+
+`npm run build` in `web/` produces:
+
+- `dist/index.html` — landing at `/`
+- `dist/app/index.html` — React app at `/app`
+- `dist/css/`, `dist/js/` — landing assets
+
+FastAPI serves both when `web/dist` exists.
+
+This folder is kept for reference; edit the files under `web/` instead.

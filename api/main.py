@@ -17,10 +17,14 @@ DISCLAIMER = (
     "professionals and approval by applicable authorities."
 )
 
-WEB_DIST = Path(__file__).resolve().parents[1] / "web" / "dist"
+ROOT = Path(__file__).resolve().parents[1]
+WEB_DIST = ROOT / "web" / "dist"
+LANDING_INDEX = WEB_DIST / "index.html"
+APP_DIST = WEB_DIST / "app"
+APP_INDEX = APP_DIST / "index.html"
 
 # Load .env so LLM_BACKEND / HF_TOKEN are available to the agent pipeline
-load_dotenv(Path(__file__).resolve().parents[1] / ".env")
+load_dotenv(ROOT / ".env")
 
 
 @asynccontextmanager
@@ -59,8 +63,35 @@ async def disclaimer():
 
 
 if WEB_DIST.exists():
-    app.mount("/assets", StaticFiles(directory=WEB_DIST / "assets"), name="assets")
+    # Marketing landing static assets (css/, js/, etc.)
+    for sub in ("css", "js"):
+        static_dir = WEB_DIST / sub
+        if static_dir.is_dir():
+            app.mount(f"/{sub}", StaticFiles(directory=static_dir), name=f"landing-{sub}")
+
+    # React app bundle (hashed files under dist/assets/)
+    app_assets = WEB_DIST / "assets"
+    if app_assets.is_dir():
+        app.mount("/assets", StaticFiles(directory=app_assets), name="app-assets")
+
+    sample_brief = WEB_DIST / "sample-project-brief.json"
+    if sample_brief.is_file():
+
+        @app.get("/sample-project-brief.json")
+        async def sample_project_brief():
+            return FileResponse(sample_brief)
 
     @app.get("/")
-    async def serve_ui():
-        return FileResponse(WEB_DIST / "index.html")
+    async def serve_landing():
+        if LANDING_INDEX.is_file():
+            return FileResponse(LANDING_INDEX)
+        if APP_INDEX.is_file():
+            return FileResponse(APP_INDEX)
+        return {"error": "UI not built — run npm run build in web/"}
+
+    @app.get("/app")
+    @app.get("/app/")
+    async def serve_app():
+        if APP_INDEX.is_file():
+            return FileResponse(APP_INDEX)
+        return {"error": "App not built — run npm run build in web/"}
