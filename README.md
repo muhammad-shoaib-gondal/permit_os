@@ -1,8 +1,6 @@
 # PermitOS
 
-**The developer's multi-agent permitting team** — Band of Agents Hackathon, Track 3: Regulated & High-Stakes Workflows.
-
-PermitOS coordinates five specialized AI agents through the [Band SDK](https://docs.thenvoi.com) to analyze jurisdiction/zoning, building codes, environmental/utilities, assemble a permit package, and route to human approval with a full audit trail.
+**The developer's multi-agent permitting team** — coordinates five specialized AI agents through the [Band SDK](https://docs.thenvoi.com) to analyze jurisdiction/zoning, building codes, environmental/utilities, assemble a permit package, and route to human approval with a full audit trail.
 
 **MVP jurisdiction:** Austin, TX  
 **Demo project:** Riverside Residences (50-unit multifamily, intentional Block B setback violation)
@@ -15,13 +13,13 @@ Developer UI → FastAPI → Conductor Agent
          Jurisdiction ←→ Building ←→ Site/Env → Packager → Human
 ```
 
-| Agent | Role | Framework | Model provider |
-|-------|------|-----------|----------------|
-| Conductor | Orchestrator, merge, human gate | LangGraph | AI/ML API |
-| Jurisdiction & Zoning | Austin LDC, setbacks, FAR | Anthropic/CrewAI | Featherless (OSS) |
-| Building & Safety | IBC/IRC, fire, ADA | LangGraph | AI/ML API |
-| Site, Env & Utilities | Flood, stormwater, utilities | PydanticAI | Featherless (OSS) |
-| Permit Packager | Checklist, fees, filing sequence | Anthropic | AI/ML API |
+| Agent | Role |
+|-------|------|
+| Conductor | Orchestrator, merge, human gate |
+| Jurisdiction & Zoning | Austin LDC, setbacks, FAR |
+| Building & Safety | IBC/IRC, fire, ADA |
+| Site, Env & Utilities | Flood, stormwater, utilities |
+| Permit Packager | Checklist, fees, filing sequence |
 
 ## Quick Start
 
@@ -29,13 +27,13 @@ Developer UI → FastAPI → Conductor Agent
 
 - Python 3.11+
 - Node.js 18+ (for frontend)
-- Band account at [band.ai](https://band.ai) — create **5 External Agents** (for live Band mode)
-- AI/ML API + Featherless keys (partner prizes)
+- Band account at [band.ai](https://band.ai) — 5 External Agents (for live Band mode)
+- LLM API key (OpenAI, Baseten, Groq, etc. — see `.env.example`)
 
 ### 2. Backend setup
 
 ```bash
-cd permitos
+cd permit_os
 cp .env.example .env
 cp agent_config.yaml.example agent_config.yaml
 pip install -e ".[dev]"
@@ -44,40 +42,41 @@ pip install -e ".[dev]"
 Optional — live Band agents:
 
 ```bash
-pip install -e ".[band]"   # may require git SSH access for thenvoi SDK
+pip install -e ".[band]"
 ```
 
-### 3. Run API + demo pipeline
+### 3. Run API
 
 ```bash
 uvicorn api.main:app --reload --port 8000
 ```
 
 ```bash
-curl http://localhost:8000/cases/demo/riverside
+curl http://localhost:8000/health
 ```
 
-### 4. Frontend (landing + app)
+### 4. Frontend (marketing + app)
 
 ```bash
 cd web
 npm install
-npm run dev          # http://localhost:5173/ = marketing, http://localhost:5173/app = product UI
-# or build for production:
-npm run build        # landing at /, app at /app when served by FastAPI
+npm run dev
 ```
 
-Start the API in another terminal (`uvicorn api.main:app --reload --port 8000`) so the app can call `/cases`, etc.
+| URL | Page |
+|-----|------|
+| http://localhost:5173/ | Marketing landing |
+| http://localhost:5173/app/ | PermitOS dashboard |
 
-Click **Run Riverside Residences Demo** to see:
-- Live agent activity feed (Band-style events)
-- Compliance report with pass/fail/warn + citations
-- Conductor conflict + suggested fix
-- Permit package ($47,200, 45-day estimate)
-- Human approve → audit hash
-- Simulate City RFI → Packager draft
+Keep the API running on port 8000 (Vite proxies `/cases`, `/health`, etc.).
 
-### 5. Start Band agents (when credentials configured)
+Production build (optional — served by FastAPI when `web/dist` exists):
+
+```bash
+npm run build
+```
+
+### 5. Start Band agents (live mode)
 
 ```bash
 python -m agents.conductor.agent
@@ -87,12 +86,7 @@ python -m agents.site_environmental.agent
 python -m agents.packager.agent
 ```
 
-Or Docker:
-
-```bash
-docker compose up api
-docker compose --profile agents up   # all 5 agents + API
-```
+See [docs/band-agents.md](docs/band-agents.md) for agent registry and credential checks (`python scripts/verify_band_setup.py`).
 
 ## API Endpoints
 
@@ -107,27 +101,22 @@ docker compose --profile agents up   # all 5 agents + API
 | GET | `/cases/{id}/audit` | Audit log entries |
 | POST | `/cases/{id}/rfi` | Simulate city RFI + draft response |
 
-## Build Status
-
-- [x] Phase 1 — Schemas, Band client, Docker skeleton
-- [x] Phase 2 (partial) — Austin knowledge pack + deterministic tools
-- [x] Phase 6 (partial) — FastAPI, SQLite, audit log
-- [x] Phase 7 (partial) — React dashboard, demo flow, approve, RFI
-- [ ] Phase 3–5 — Live Band @mention orchestration (requires Band credentials)
-- [ ] Phase 8 — End-to-end Band hardening + video
-
-See [docs/PermitOS-Technical-Strategy.md](docs/PermitOS-Technical-Strategy.md) for prize alignment and [docs/PermitOS-Project-Document.md](docs/PermitOS-Project-Document.md) for full spec.
-
 ## Environment Variables
 
+See `.env.example` for all options. Minimum:
+
 ```
-AIML_API_KEY=          # AI/ML API partner prize
-FEATHERLESS_API_KEY=   # Featherless partner prize
-OPENAI_API_KEY=        # Fallback / Band adapters
+OPENAI_API_KEY=         # or another LLM backend (see LLM_BACKEND)
 DATABASE_URL=sqlite+aiosqlite:///./permitos.db
 ```
 
-Band agents also need `agent_config.yaml` with 5 agent UUIDs + API keys.
+Band live mode also needs `agent_config.yaml` with 5 agent UUIDs + API keys.
+
+## Tests
+
+```bash
+pytest
+```
 
 ## Disclaimer
 

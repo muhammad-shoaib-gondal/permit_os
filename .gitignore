@@ -19,5 +19,6 @@ _vendor/
 web/dist/
 web/.next/
 web/node_modules/
+web/*.tsbuildinfo
 node_modules/
 logs/
