@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from api.models import AuditLogEntry, Base, PermitCase
-from shared.band_client.config import load_settings
+from shared.config import load_settings
 from shared.llm.backends import orchestration_hint
 from shared.schemas.project_brief import ProjectBrief
 from shared.tools.workflow import run_workflow_with_activity_async
@@ -26,14 +26,13 @@ async def init_db() -> None:
 
 
 async def create_case(brief: ProjectBrief, demo: bool = False) -> dict[str, Any]:
-    band_room_id = f"permit-case-{brief.case_id}"
-    results = await run_workflow_with_activity_async(brief, band_room_id=band_room_id)
+    results = await run_workflow_with_activity_async(brief)
     await _save_case_results(brief, results)
     return results
 
 
 async def start_case_async(brief: ProjectBrief) -> dict[str, Any]:
-    """Create case row and run Band pipeline in background (avoids HTTP timeout)."""
+    """Create case row and run pipeline in background (avoids HTTP timeout)."""
     import asyncio
 
     case_id = str(brief.case_id)
@@ -54,7 +53,7 @@ async def start_case_async(brief: ProjectBrief) -> dict[str, Any]:
     return {
         "case_id": case_id,
         "status": "ANALYZING",
-        "message": "Band agents are analyzing. Poll GET /cases/{case_id} for results.",
+        "message": "LLM pipeline is analyzing. Poll GET /cases/{case_id} for results.",
     }
 
 
@@ -77,17 +76,12 @@ async def _update_case_progress(case_id: str, partial: dict[str, Any]) -> None:
 
 async def _run_case_background(brief: ProjectBrief) -> None:
     case_id = str(brief.case_id)
-    existing_room: str | None = None
     try:
-        case = await get_case(case_id)
-        if case and case.band_room_id and not case.band_room_id.startswith("local-"):
-            existing_room = case.band_room_id
-
         async def on_progress(partial: dict[str, Any]) -> None:
             await _update_case_progress(case_id, partial)
 
         results = await run_workflow_with_activity_async(
-            brief, band_room_id=existing_room, on_progress=on_progress
+            brief, on_progress=on_progress
         )
         await _save_case_results(brief, results)
     except Exception as exc:

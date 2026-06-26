@@ -5,17 +5,22 @@ import react from "@vitejs/plugin-react";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-function redirectAppTrailingSlash(): Plugin {
+function appRouting(): Plugin {
   return {
-    name: "redirect-app-trailing-slash",
+    name: "app-routing",
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
         const pathname = req.url?.split("?")[0] ?? "";
+        // Redirect /app (no trailing slash) to /app/
         if (pathname === "/app") {
           const query = req.url?.includes("?") ? req.url.slice(req.url.indexOf("?")) : "";
           res.writeHead(301, { Location: `/app/${query}` });
           res.end();
           return;
+        }
+        // Serve app index.html for all /app/* routes (SPA routing)
+        if (pathname.startsWith("/app/") && !pathname.includes(".")) {
+          req.url = "/app/index.html";
         }
         next();
       });
@@ -24,7 +29,7 @@ function redirectAppTrailingSlash(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [react(), redirectAppTrailingSlash()],
+  plugins: [react(), appRouting()],
   server: {
     port: 5173,
     proxy: {

@@ -11,7 +11,6 @@ from pydantic import BaseModel
 from api.services.case_service import approve_case, create_case, get_case, start_case_async
 from api.services.intake import parse_intake_upload
 from shared.agent_logic.errors import AgentPipelineError, AgentQuotaError
-from shared.band_client.orchestrator import BandOrchestrationError
 from shared.schemas.project_brief import ProjectBrief, ProjectType
 
 logger = logging.getLogger(__name__)
@@ -38,8 +37,6 @@ def _is_case_stale(case) -> bool:
 
 
 def _handle_pipeline_error(exc: Exception) -> None:
-    if isinstance(exc, BandOrchestrationError):
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
     if isinstance(exc, AgentQuotaError):
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     if isinstance(exc, AgentPipelineError):
@@ -83,9 +80,9 @@ async def post_case(body: CreateCaseRequest):
         )
     try:
         results = await create_case(brief, demo=body.use_demo)
-    except (BandOrchestrationError, AgentQuotaError, AgentPipelineError, RuntimeError) as exc:
+    except (AgentQuotaError, AgentPipelineError, RuntimeError) as exc:
         _handle_pipeline_error(exc)
-    return {"case_id": str(brief.case_id), "band_room_id": results["case_summary"].get("band_room_id"), **results}
+    return {"case_id": str(brief.case_id), **results}
 
 
 @router.post("/analyze")
@@ -110,11 +107,11 @@ async def demo_riverside_start():
 
 @router.get("/demo/riverside")
 async def demo_riverside():
-    """Legacy sync demo (may timeout). Prefer POST /demo/riverside."""
+    """Sync demo (may timeout for slow LLMs). Prefer POST /demo/riverside."""
     brief = ProjectBrief.riverside_residences_demo()
     try:
         results = await create_case(brief, demo=True)
-    except (BandOrchestrationError, AgentQuotaError, AgentPipelineError, RuntimeError) as exc:
+    except (AgentQuotaError, AgentPipelineError, RuntimeError) as exc:
         _handle_pipeline_error(exc)
     return {"case_id": str(brief.case_id), **results}
 

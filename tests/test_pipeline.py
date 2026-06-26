@@ -17,7 +17,7 @@ def test_riverside_demo_pipeline():
     assert result["case_summary"]["readiness_score"] == "NEEDS_CHANGES"
     assert result["permit_package"]["total_fees_estimate_usd"] == 47200
     assert result["permit_package"]["audit_hash"].startswith("sha256:")
-    assert result.get("band_orchestrated") is True
+    assert result.get("band_orchestrated") is False
 
 
 def test_project_brief_schema():

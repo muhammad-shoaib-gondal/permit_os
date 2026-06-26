@@ -1,13 +1,9 @@
-"""OpenAI-compatible LLM backends for Band agents (Ollama, Featherless, Hugging Face)."""
+"""OpenAI-compatible LLM backends (Baseten, Groq, Ollama, etc.)."""
 
 from __future__ import annotations
 
 import os
 from enum import Enum
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from band.adapters import LangGraphAdapter
 
 
 class LLMBackend(str, Enum):
@@ -175,37 +171,3 @@ def _build_chat_openai(**llm_kwargs):
     return RateLimitedChatOpenAI(**llm_kwargs)
 
 
-def create_langgraph_adapter(
-    custom_instructions: str,
-    additional_tools: list | None = None,
-) -> LangGraphAdapter:
-    """LangGraph adapter using any OpenAI-compatible endpoint (OSS-friendly)."""
-    from band.adapters import LangGraphAdapter
-    from langgraph.checkpoint.memory import InMemorySaver
-
-    base_url, api_key, model = resolve_llm_config()
-    llm_kwargs: dict = {
-        "model": model,
-        "base_url": base_url,
-        "api_key": api_key,
-        "temperature": 0.2,
-    }
-    # gpt-oss-120b emits reasoning tokens; needs headroom for actual content.
-    if get_backend() in {LLMBackend.CEREBRAS, LLMBackend.BASETEN, LLMBackend.OLLAMAFREEAPI}:
-        llm_kwargs["max_tokens"] = int(os.getenv("LLM_MAX_TOKENS", "4096"))
-        default_retries = "8" if get_backend() == LLMBackend.BASETEN else "4"
-        llm_kwargs["max_retries"] = int(os.getenv("LLM_MAX_RETRIES", default_retries))
-    if get_backend() == LLMBackend.OLLAMAFREEAPI:
-        llm_kwargs["request_timeout"] = float(os.getenv("OLLAMAFREEAPI_REQUEST_TIMEOUT_SEC", "120"))
-    if get_backend() == LLMBackend.OLLAMA and "localhost" not in base_url and "127.0.0.1" not in base_url:
-        llm_kwargs["request_timeout"] = float(os.getenv("OLLAMA_REQUEST_TIMEOUT_SEC", "180"))
-        llm_kwargs["max_retries"] = int(os.getenv("LLM_MAX_RETRIES", "3"))
-    llm = _build_chat_openai(**llm_kwargs)
-    kwargs: dict = {
-        "llm": llm,
-        "checkpointer": InMemorySaver(),
-        "custom_section": custom_instructions,
-    }
-    if additional_tools:
-        kwargs["additional_tools"] = additional_tools
-    return LangGraphAdapter(**kwargs)

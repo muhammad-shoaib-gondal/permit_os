@@ -1,19 +1,15 @@
-"""In-process agent runner — tools first, LLM optional; reliable when Band/Cerebras fail."""
+"""In-process pipeline runner — deterministic tools + one optional LLM call."""
 
 from __future__ import annotations
 
 import asyncio
 import json
 import logging
+import os
 from datetime import datetime, timezone
 from typing import Any
-from uuid import UUID
 
-from langchain_core.messages import HumanMessage
-from langchain_openai import ChatOpenAI
-
-from shared.band_client.config import AgentRole
-from shared.llm.backends import LLMBackend, get_backend, resolve_llm_config
+from shared.config import AgentRole
 from shared.schemas.package import DocumentRequirement, PermitPackage, PermitRequirement
 from shared.schemas.project_brief import ProjectBrief
 from shared.schemas.reports import (
@@ -26,36 +22,15 @@ from shared.schemas.reports import (
     SiteEnvironmentalReport,
     ZoningInfo,
 )
+from shared.tools import building_tools, jurisdiction_tools, site_tools
 from shared.tools.conductor import compute_audit_hash, merge_reports
-from shared.tools.langchain_tools import (
-    BUILDING_TOOLS,
-    JURISDICTION_TOOLS,
-    PACKAGER_TOOLS,
-    SITE_TOOLS,
-)
+from shared.tools.knowledge import load_json
 
 logger = logging.getLogger(__name__)
 
-_ROLE_TOOLS = {
-    AgentRole.JURISDICTION: JURISDICTION_TOOLS,
-    AgentRole.BUILDING: BUILDING_TOOLS,
-    AgentRole.SITE: SITE_TOOLS,
-    AgentRole.PACKAGER: PACKAGER_TOOLS,
-}
 
-
-def _make_llm() -> ChatOpenAI:
-    base_url, api_key, model = resolve_llm_config()
-    kwargs: dict[str, Any] = {
-        "model": model,
-        "base_url": base_url,
-        "api_key": api_key,
-        "temperature": 0.2,
-    }
-    if get_backend() in {LLMBackend.CEREBRAS, LLMBackend.BASETEN}:
-        kwargs["max_tokens"] = int(__import__("os").getenv("LLM_MAX_TOKENS", "4096"))
-        kwargs["max_retries"] = int(__import__("os").getenv("LLM_MAX_RETRIES", "8"))
-    return ChatOpenAI(**kwargs)
+def _skip_llm() -> bool:
+    return os.getenv("LOCAL_SKIP_LLM", "0").lower() in ("1", "true", "yes")
 
 
 def _status(raw: str) -> CheckStatus:
@@ -65,48 +40,16 @@ def _status(raw: str) -> CheckStatus:
         return CheckStatus.WARN
 
 
-def _gather_tool_context(brief: ProjectBrief, role: AgentRole) -> dict[str, Any]:
-    ctx: dict[str, Any] = {}
-    if role == AgentRole.JURISDICTION:
-        from shared.tools import jurisdiction_tools
+# ---------------------------------------------------------------------------
+# Deterministic analysis — no LLM
+# ---------------------------------------------------------------------------
 
-        ctx["lookup_jurisdiction"] = json.loads(
-            JURISDICTION_TOOLS[0].invoke({"address": brief.address})
-        )
-        city = ctx["lookup_jurisdiction"].get("city", "Austin")
-        district = ctx["lookup_jurisdiction"].get("district", "MF-3")
-        ctx["get_zoning_rules"] = json.loads(
-            JURISDICTION_TOOLS[1].invoke({"city": city, "district": district})
-        )
-        ctx["calculate_setbacks"] = jurisdiction_tools.calculate_setbacks(brief, district)
-    elif role == AgentRole.BUILDING:
-        ctx["check_egress"] = json.loads(
-            BUILDING_TOOLS[0].invoke({"units": brief.units, "stories": brief.stories})
-        )
-        ctx["check_sprinklers"] = json.loads(
-            BUILDING_TOOLS[1].invoke({"stories": brief.stories})
-        )
-        ctx["check_accessibility"] = json.loads(
-            BUILDING_TOOLS[2].invoke({"unit_count": brief.units})
-        )
-    elif role == AgentRole.SITE:
-        ctx["lookup_flood_zone"] = json.loads(
-            SITE_TOOLS[0].invoke({"address": brief.address})
-        )
-        ctx["get_utility_requirements"] = json.loads(
-            SITE_TOOLS[1].invoke({"units": brief.units})
-        )
-    elif role == AgentRole.PACKAGER:
-        ctx["get_fee_schedule"] = json.loads(PACKAGER_TOOLS[0].invoke({}))
-        ctx["get_permit_catalog"] = json.loads(PACKAGER_TOOLS[1].invoke({}))
-    return ctx
-
-
-def _assemble_jurisdiction(brief: ProjectBrief, ctx: dict[str, Any]) -> JurisdictionReport:
-    lookup = ctx["lookup_jurisdiction"]
+def _run_jurisdiction(brief: ProjectBrief) -> JurisdictionReport:
+    lookup = jurisdiction_tools.lookup_jurisdiction(brief.address)
     district = lookup.get("district", "MF-3")
-    zoning_rules = ctx.get("get_zoning_rules", {})
-    setbacks = ctx.get("calculate_setbacks", [])
+    zoning_rules = jurisdiction_tools.get_zoning_rules(lookup.get("city", "Austin"), district)
+    setbacks = jurisdiction_tools.calculate_setbacks(brief, district)
+
     checks: list[CheckResult] = []
     blockers: list[str] = []
     for row in setbacks:
@@ -121,12 +64,11 @@ def _assemble_jurisdiction(brief: ProjectBrief, ctx: dict[str, Any]) -> Jurisdic
         )
         if row["status"] == "fail":
             blockers.append(f"Setback non-compliance {row['block_id']}")
+
     by_right = len(blockers) == 0
     impact = ReadinessImpact.NEEDS_CHANGES if blockers else ReadinessImpact.READY
-    summary = (
-        f"{district} zoning; "
-        + ("setback FAIL on Block B" if blockers else "setbacks pass")
-    )
+    summary = f"{district} zoning; " + ("setback FAIL on Block B" if blockers else "setbacks pass")
+
     return JurisdictionReport(
         case_id=brief.case_id,
         summary=summary,
@@ -150,33 +92,38 @@ def _assemble_jurisdiction(brief: ProjectBrief, ctx: dict[str, Any]) -> Jurisdic
     )
 
 
-def _assemble_building(brief: ProjectBrief, ctx: dict[str, Any]) -> BuildingSafetyReport:
+def _run_building(brief: ProjectBrief) -> BuildingSafetyReport:
+    egress = building_tools.check_egress_requirements(brief.units, brief.stories)
+    sprinklers = building_tools.check_sprinkler_requirements(brief.stories)
+    accessibility = building_tools.check_accessibility_requirements(brief.units)
+
     checks = [
         CheckResult(
-            rule=ctx["check_egress"]["rule"],
-            status=_status(ctx["check_egress"]["status"]),
-            citation=ctx["check_egress"]["citation"],
-            detail=ctx["check_egress"]["detail"],
+            rule=egress["rule"],
+            status=_status(egress["status"]),
+            citation=egress["citation"],
+            detail=egress["detail"],
             category="fire",
         ),
         CheckResult(
-            rule=ctx["check_sprinklers"]["rule"],
-            status=_status(ctx["check_sprinklers"]["status"]),
-            citation=ctx["check_sprinklers"]["citation"],
-            detail=ctx["check_sprinklers"]["detail"],
+            rule=sprinklers["rule"],
+            status=_status(sprinklers["status"]),
+            citation=sprinklers["citation"],
+            detail=sprinklers["detail"],
             category="fire",
         ),
         CheckResult(
-            rule=ctx["check_accessibility"]["rule"],
-            status=_status(ctx["check_accessibility"]["status"]),
-            citation=ctx["check_accessibility"]["citation"],
-            detail=ctx["check_accessibility"]["detail"],
+            rule=accessibility["rule"],
+            status=_status(accessibility["status"]),
+            citation=accessibility["citation"],
+            detail=accessibility["detail"],
             category="accessibility",
         ),
     ]
     recs = []
-    if ctx["check_sprinklers"].get("recommendation"):
-        recs.append(ctx["check_sprinklers"]["recommendation"])
+    if sprinklers.get("recommendation"):
+        recs.append(sprinklers["recommendation"])
+
     return BuildingSafetyReport(
         case_id=brief.case_id,
         summary="Egress PASS; sprinklers REQUIRED" if brief.stories >= 4 else "Building pre-screen complete",
@@ -186,9 +133,10 @@ def _assemble_building(brief: ProjectBrief, ctx: dict[str, Any]) -> BuildingSafe
     )
 
 
-def _assemble_site(brief: ProjectBrief, ctx: dict[str, Any]) -> SiteEnvironmentalReport:
-    flood = ctx["lookup_flood_zone"]
-    util = ctx["get_utility_requirements"]
+def _run_site(brief: ProjectBrief) -> SiteEnvironmentalReport:
+    flood = site_tools.lookup_flood_zone(brief.address)
+    util = site_tools.get_utility_requirements(brief.units)
+
     env_checks = [
         CheckResult(
             rule="Flood zone",
@@ -216,19 +164,18 @@ def _assemble_site(brief: ProjectBrief, ctx: dict[str, Any]) -> SiteEnvironmenta
     )
 
 
-def _assemble_package(
+def _run_package(
     brief: ProjectBrief,
-    ctx: dict[str, Any],
     jurisdiction: JurisdictionReport,
     building: BuildingSafetyReport,
     site: SiteEnvironmentalReport,
 ) -> PermitPackage:
-    catalog = ctx.get("get_permit_catalog", {})
-    fees = ctx.get("get_fee_schedule", {})
+    catalog = load_json("permit_catalog.json")
     permits_data = catalog.get("permits", catalog.get("permit_types", []))
     permits: list[PermitRequirement] = []
     total = 0.0
     max_days = 0
+
     for p in permits_data[:6]:
         fee = float(p.get("base_fee_usd", p.get("fee_usd", 5000)))
         days = int(p.get("timeline_days", 30))
@@ -244,6 +191,7 @@ def _assemble_package(
         )
         total += fee
         max_days = max(max_days, days)
+
     if not permits:
         permits = [
             PermitRequirement(
@@ -254,9 +202,9 @@ def _assemble_package(
                 timeline_days=30,
             )
         ]
+
     total = float(catalog.get("demo_total_fees_usd", total or 47200))
     max_days = max_days or 45
-
     sequence = catalog.get(
         "filing_sequence",
         ["Step 1: Zoning verification", "Step 2: Building permit application", "Step 3: Fire review"],
@@ -271,73 +219,89 @@ def _assemble_package(
         permits_required=permits,
         documents_required=docs,
         total_fees_estimate_usd=total,
-        estimated_timeline_days=max_days or 45,
+        estimated_timeline_days=max_days,
         filing_sequence=sequence if isinstance(sequence, list) else list(sequence),
     )
 
 
-def _assemble(role: AgentRole, brief: ProjectBrief, ctx: dict[str, Any], **kwargs) -> Any:
-    if role == AgentRole.JURISDICTION:
-        return _assemble_jurisdiction(brief, ctx)
-    if role == AgentRole.BUILDING:
-        return _assemble_building(brief, ctx)
-    if role == AgentRole.SITE:
-        return _assemble_site(brief, ctx)
-    if role == AgentRole.PACKAGER:
-        return _assemble_package(
-            brief,
-            ctx,
-            kwargs["jurisdiction"],
-            kwargs["building"],
-            kwargs["site"],
-        )
-    raise ValueError(role)
+# ---------------------------------------------------------------------------
+# Single LLM call for executive summary
+# ---------------------------------------------------------------------------
 
-
-def _skip_llm() -> bool:
-    import os
-
-    if os.getenv("PERMITOS_VIDEO_MODE", "").lower() in ("1", "true", "yes"):
-        return True
-    return os.getenv("LOCAL_SKIP_LLM", "0").lower() in ("1", "true", "yes")
-
-
-def _agent_stagger_sec() -> float:
-    import os
-
-    if os.getenv("PERMITOS_VIDEO_MODE", "").lower() in ("1", "true", "yes"):
-        return float(os.getenv("VIDEO_AGENT_STAGGER_SEC", "2"))
-    return float(os.getenv("LOCAL_AGENT_STAGGER_SEC", "1"))
-
-
-async def _maybe_enrich_summary(role: AgentRole, report: Any, ctx: dict[str, Any]) -> Any:
-    """Optional one-line LLM polish; skipped on rate limits."""
+async def _llm_executive_summary(
+    brief: ProjectBrief,
+    jurisdiction: JurisdictionReport,
+    building: BuildingSafetyReport,
+    site: SiteEnvironmentalReport,
+) -> str:
+    fallback = (
+        f"Project {brief.project_name}: automated pre-screen complete. "
+        f"Jurisdiction: {jurisdiction.summary}. Building: {building.summary}. Site: {site.summary}."
+    )
     if _skip_llm():
-        return report
+        return fallback
+
     try:
-        llm = _make_llm()
-        prompt = (
-            f"In one sentence, summarize this {role.value} permitting report for executives. "
-            f"Facts: {json.dumps(ctx)[:1500]}"
+        from langchain_openai import ChatOpenAI
+        from langchain_core.messages import SystemMessage, HumanMessage
+        from shared.llm.backends import get_backend, resolve_llm_config, LLMBackend
+
+        base_url, api_key, model = resolve_llm_config()
+        llm_kwargs: dict[str, Any] = {
+            "model": model,
+            "base_url": base_url,
+            "api_key": api_key,
+            "temperature": 0.1,
+        }
+        if get_backend() in {LLMBackend.BASETEN, LLMBackend.CEREBRAS}:
+            llm_kwargs["max_tokens"] = int(os.getenv("LLM_MAX_TOKENS", "1024"))
+            llm_kwargs["max_retries"] = int(os.getenv("LLM_MAX_RETRIES", "3"))
+
+        llm = ChatOpenAI(**llm_kwargs)
+
+        facts = {
+            "project": brief.project_name,
+            "address": brief.address,
+            "units": brief.units,
+            "stories": brief.stories,
+            "gross_sqft": brief.gross_sqft,
+            "zoning_summary": jurisdiction.summary,
+            "zoning_blockers": jurisdiction.blockers,
+            "building_summary": building.summary,
+            "building_checks": [
+                {"rule": c.rule, "status": c.status, "detail": c.detail}
+                for c in building.checks
+            ],
+            "site_summary": site.summary,
+            "site_issues": [
+                {"rule": c.rule, "status": c.status, "detail": c.detail}
+                for c in (site.environmental_checks + site.utility_checks)
+            ],
+        }
+
+        system = (
+            "You are a senior permitting analyst. Write a 2-3 sentence executive summary "
+            "of the permit pre-screen results for a real estate developer. Be concise, "
+            "factual, and highlight the most important blocker or approval path."
         )
+        user = f"Pre-screen data:\n{json.dumps(facts, indent=2)}"
+
         resp = await asyncio.wait_for(
-            llm.ainvoke([HumanMessage(content=prompt)]),
-            timeout=45.0,
+            llm.ainvoke([SystemMessage(content=system), HumanMessage(content=user)]),
+            timeout=60.0,
         )
         text = (resp.content or "").strip()
-        if text and hasattr(report, "summary"):
-            report.summary = text[:280]
+        if text:
+            return text[:500]
     except Exception as exc:
-        logger.debug("LLM summary skip for %s: %s", role.value, exc)
-    return report
+        logger.warning("LLM executive summary failed, using fallback: %s", exc)
+
+    return fallback
 
 
-async def _run_role(role: AgentRole, brief: ProjectBrief, **kwargs) -> Any:
-    ctx = _gather_tool_context(brief, role)
-    report = _assemble(role, brief, ctx, **kwargs)
-    await asyncio.sleep(_agent_stagger_sec())
-    return await _maybe_enrich_summary(role, report, ctx)
-
+# ---------------------------------------------------------------------------
+# Progress + main runner
+# ---------------------------------------------------------------------------
 
 async def _emit_progress(
     on_progress,
@@ -364,32 +328,32 @@ async def run_local_case(
     brief: ProjectBrief,
     on_progress=None,
 ) -> dict[str, Any]:
-    logger.info("Running local in-process agents (tools + optional LLM) for %s", brief.case_id)
+    logger.info("Running LLM pipeline (tools + 1 LLM call) for %s", brief.case_id)
 
     await _emit_progress(on_progress, brief, phase="waiting_jurisdiction", completed=[])
-    jurisdiction = await _run_role(AgentRole.JURISDICTION, brief)
+    jurisdiction = _run_jurisdiction(brief)
+    await asyncio.sleep(0.2)
     await _emit_progress(
-        on_progress,
-        brief,
+        on_progress, brief,
         phase="completed_jurisdiction",
         completed=["jurisdiction"],
         jurisdiction_report=jurisdiction.model_dump(mode="json"),
     )
 
-    building = await _run_role(AgentRole.BUILDING, brief)
+    building = _run_building(brief)
+    await asyncio.sleep(0.2)
     await _emit_progress(
-        on_progress,
-        brief,
+        on_progress, brief,
         phase="completed_building",
         completed=["jurisdiction", "building"],
         jurisdiction_report=jurisdiction.model_dump(mode="json"),
         building_report=building.model_dump(mode="json"),
     )
 
-    site = await _run_role(AgentRole.SITE, brief)
+    site = _run_site(brief)
+    await asyncio.sleep(0.2)
     await _emit_progress(
-        on_progress,
-        brief,
+        on_progress, brief,
         phase="completed_site",
         completed=["jurisdiction", "building", "site"],
         jurisdiction_report=jurisdiction.model_dump(mode="json"),
@@ -397,11 +361,15 @@ async def run_local_case(
         site_report=site.model_dump(mode="json"),
     )
 
+    # Single LLM call for the executive summary
+    exec_summary = await _llm_executive_summary(brief, jurisdiction, building, site)
+
     room_id = f"local-{brief.case_id}"
     summary = merge_reports(brief, jurisdiction, building, site, room_id)
+    summary.executive_summary = exec_summary
+
     await _emit_progress(
-        on_progress,
-        brief,
+        on_progress, brief,
         phase="waiting_packager",
         completed=["jurisdiction", "building", "site"],
         jurisdiction_report=jurisdiction.model_dump(mode="json"),
@@ -409,13 +377,8 @@ async def run_local_case(
         site_report=site.model_dump(mode="json"),
         case_summary=summary.model_dump(mode="json"),
     )
-    package = await _run_role(
-        AgentRole.PACKAGER,
-        brief,
-        jurisdiction=jurisdiction,
-        building=building,
-        site=site,
-    )
+
+    package = _run_package(brief, jurisdiction, building, site)
     if package.permits_required:
         package.audit_hash = compute_audit_hash(package)
 
@@ -436,14 +399,14 @@ async def run_local_case(
         "case_summary": summary.model_dump(mode="json"),
         "permit_package": package.model_dump(mode="json"),
         "activity": [
-            evt("conductor", "local_dispatch", "In-process agents (Band unavailable)"),
+            evt("conductor", "pipeline_start", "LLM pipeline initialized"),
             evt("jurisdiction", "complete", jurisdiction.summary),
             evt("building", "complete", building.summary),
             evt("site", "complete", site.summary),
-            evt("packager", "complete", f"{len(package.permits_required)} permits"),
+            evt("llm", "executive_summary", exec_summary[:120]),
+            evt("packager", "complete", f"{len(package.permits_required)} permits assembled"),
         ],
         "band_room_id": room_id,
         "agent_driven": True,
         "band_orchestrated": False,
-        "local_fallback": True,
     }

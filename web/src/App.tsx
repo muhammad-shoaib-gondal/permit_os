@@ -10,75 +10,119 @@ import {
   ProjectTypeValue,
   simulateRfi,
 } from "./api";
+import { isAuthenticated, logout } from "./auth";
+import LoginPage from "./LoginPage";
+import SignupPage from "./SignupPage";
 import "./App.css";
 
-function StatusBadge({ status }: { status: string }) {
-  const cls =
-    status === "pass" || status === "READY"
-      ? "badge pass"
-      : status === "fail" || status === "BLOCKED"
-        ? "badge fail"
-        : "badge warn";
-  return <span className={cls}>{status}</span>;
+// ---------------------------------------------------------------------------
+// Routing helpers (no library needed for this simple case)
+// ---------------------------------------------------------------------------
+function getRoute(): "login" | "signup" | "app" {
+  const p = window.location.pathname;
+  if (p.includes("/signup")) return "signup";
+  return isAuthenticated() ? "app" : "login";
 }
 
-function CheckList({
-  checks,
-  title,
-  pending,
-  visible,
-}: {
-  checks: Check[];
-  title: string;
-  pending?: boolean;
-  visible?: boolean;
-}) {
-  if (!visible && !checks.length) return null;
-  if (!checks.length) {
-    return (
-      <div className="panel agent-panel panel-pending">
-        <h3>{title}</h3>
-        <p className="pending-note">{pending ? "Waiting for agent…" : "—"}</p>
-      </div>
-    );
-  }
+// ---------------------------------------------------------------------------
+// Sub-components
+// ---------------------------------------------------------------------------
+
+function StatusBadge({ status }: { status: string }) {
+  const map: Record<string, string> = {
+    pass: "badge-pass",
+    READY: "badge-pass",
+    fail: "badge-fail",
+    BLOCKED: "badge-fail",
+    warn: "badge-warn",
+    NEEDS_CHANGES: "badge-warn",
+  };
+  const cls = map[status] ?? "badge-warn";
+  return <span className={`badge ${cls}`}>{status.replace(/_/g, " ")}</span>;
+}
+
+function CheckCard({ check }: { check: Check }) {
+  const icon = check.status === "pass" ? "✓" : check.status === "fail" ? "✕" : "⚠";
   return (
-    <div className="panel agent-panel">
-      <h3>{title}</h3>
-      <ul className="check-list">
-        {checks.map((c, i) => (
-          <li key={i} className={`check-item ${c.status}`}>
-            <div className="check-header">
-              <StatusBadge status={c.status} />
-              <strong>{c.rule}</strong>
-            </div>
-            <p>{c.detail}</p>
-            <p className="citation mono">{c.citation}</p>
-          </li>
-        ))}
-      </ul>
+    <div className={`check-card check-${check.status}`}>
+      <div className="check-card-header">
+        <span className={`check-icon check-icon-${check.status}`}>{icon}</span>
+        <span className="check-rule">{check.rule}</span>
+        <StatusBadge status={check.status} />
+      </div>
+      <p className="check-detail">{check.detail}</p>
+      <p className="check-citation">{check.citation}</p>
     </div>
   );
 }
 
-const SEC_PER_AGENT = 120;
-const TOTAL_AGENTS = 4;
-
-function formatDuration(totalSec: number): string {
-  const m = Math.floor(totalSec / 60);
-  const s = totalSec % 60;
-  return `${m}:${s.toString().padStart(2, "0")}`;
+function SectionPanel({
+  title,
+  icon,
+  checks,
+  pending,
+  empty,
+}: {
+  title: string;
+  icon: string;
+  checks: Check[];
+  pending?: boolean;
+  empty?: boolean;
+}) {
+  return (
+    <div className="section-panel">
+      <div className="section-panel-header">
+        <span className="section-icon">{icon}</span>
+        <h3>{title}</h3>
+        {pending && <span className="badge badge-warn">Analyzing…</span>}
+        {!pending && !empty && checks.length > 0 && (
+          <span className="badge badge-pass">{checks.length} checks</span>
+        )}
+      </div>
+      <div className="section-panel-body">
+        {pending ? (
+          <div className="section-pending">
+            <div className="mini-spinner" />
+            <span>Waiting for results…</span>
+          </div>
+        ) : empty || checks.length === 0 ? (
+          <p className="muted-note">No data yet.</p>
+        ) : (
+          checks.map((c, i) => <CheckCard key={i} check={c} />)
+        )}
+      </div>
+    </div>
+  );
 }
 
-function estimateRemainingSec(elapsed: number, completedCount: number): number {
-  const agentsLeft = Math.max(0, TOTAL_AGENTS - completedCount);
-  if (agentsLeft === 0) return 0;
-  const budget = agentsLeft * SEC_PER_AGENT;
-  const spentOnCurrent = elapsed - completedCount * SEC_PER_AGENT;
-  return Math.max(30, budget - Math.max(0, spentOnCurrent));
+function StatCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
+  return (
+    <div className="stat-card">
+      <span className="stat-label">{label}</span>
+      <span className="stat-value">{value}</span>
+      {sub && <span className="stat-sub">{sub}</span>}
+    </div>
+  );
 }
+
+// ---------------------------------------------------------------------------
+// Main dashboard
+// ---------------------------------------------------------------------------
 
 export default function App() {
+  const route = getRoute();
+
+  function handleLoginSuccess() {
+    window.location.reload();
+  }
+
+  if (route === "signup") return <SignupPage />;
+  if (route === "login") return <LoginPage onSuccess={handleLoginSuccess} />;
+
+  return <Dashboard />;
+}
+
+function Dashboard() {
   const [data, setData] = useState<CaseResults | null>(null);
   const [loading, setLoading] = useState(false);
   const [approved, setApproved] = useState(false);
@@ -87,29 +131,26 @@ export default function App() {
   const [disclaimer, setDisclaimer] = useState("");
   const [progress, setProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-
   const [stallReason, setStallReason] = useState<string | null>(null);
   const [elapsedSec, setElapsedSec] = useState(0);
   const [projectFile, setProjectFile] = useState<File | null>(null);
   const [projectType, setProjectType] = useState<ProjectTypeValue>("multifamily_residential");
   const [jurisdiction, setJurisdiction] = useState("austin_tx");
   const [dragOver, setDragOver] = useState(false);
+  const [activeTab, setActiveTab] = useState<"overview" | "jurisdiction" | "building" | "site" | "package">("overview");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
   const completedCount = data?.completed_agents?.length ?? 0;
+  const analyzing = loading && !stallReason;
 
   useEffect(() => {
     getDisclaimer().then(setDisclaimer).catch(() => {});
   }, []);
 
   useEffect(() => {
-    if (!loading) {
-      setElapsedSec(0);
-      return;
-    }
+    if (!loading) { setElapsedSec(0); return; }
     const started = Date.now();
-    const tick = () => setElapsedSec(Math.floor((Date.now() - started) / 1000));
-    tick();
-    const id = window.setInterval(tick, 1000);
+    const id = window.setInterval(() => setElapsedSec(Math.floor((Date.now() - started) / 1000)), 1000);
     return () => window.clearInterval(id);
   }, [loading]);
 
@@ -125,51 +166,39 @@ export default function App() {
   }
 
   async function handleAnalyze() {
-    if (!projectFile) {
-      setError("Select or drop a project brief (.json) or package (.zip).");
-      return;
-    }
+    if (!projectFile) { setError("Select a project brief (.json) or package (.zip)."); return; }
     setLoading(true);
     setError(null);
     setApproved(false);
     setRfiDraft(null);
     setData(null);
     setStallReason(null);
-    setProgress("Agents are analyzing your project…");
+    setProgress("Initializing analysis pipeline…");
+    setActiveTab("overview");
     try {
       const result = await analyzeProject(projectFile, projectType, jurisdiction, (partial) => {
         setData(partial as CaseResults);
         const n = partial.completed_agents?.length ?? 0;
-        if (n === 0) {
-          setProgress("Agents are analyzing your project…");
-        } else if (n >= 3) {
-          setProgress("Agents are assembling the permit package…");
-        } else {
-          setProgress(`Agent analysis in progress — ${n} of 3 reviews complete`);
-        }
+        if (n === 0) setProgress("Running jurisdiction & zoning analysis…");
+        else if (n === 1) setProgress("Running building safety checks…");
+        else if (n === 2) setProgress("Running site & environmental review…");
+        else setProgress("Assembling permit package…");
       });
       setData(result);
       setAuditHash(result.permit_package?.audit_hash ?? null);
-      if (result.stalled) {
-        setStallReason(result.stall_reason || "Something went wrong — we couldn't complete the analysis.");
-      }
+      if (result.stalled) setStallReason(result.stall_reason || "Analysis could not complete.");
       setProgress(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to start analysis");
+      setError(e instanceof Error ? e.message : "Analysis failed");
     } finally {
       setLoading(false);
     }
   }
 
-  function handleNewAnalysis() {
-    setData(null);
-    setProjectFile(null);
-    setError(null);
-    setStallReason(null);
-    setProgress(null);
-    setApproved(false);
-    setRfiDraft(null);
-    setAuditHash(null);
+  function handleReset() {
+    setData(null); setProjectFile(null); setError(null);
+    setStallReason(null); setProgress(null); setApproved(false);
+    setRfiDraft(null); setAuditHash(null); setActiveTab("overview");
   }
 
   async function handleApprove() {
@@ -188,361 +217,391 @@ export default function App() {
     try {
       const res = await simulateRfi(data.case_id);
       setRfiDraft(res.draft);
+      setActiveTab("overview");
     } catch (e) {
       setError(e instanceof Error ? e.message : "RFI failed");
     }
   }
 
+  function formatTime(s: number) {
+    return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
+  }
+
+  const jurisdictionChecks = data?.jurisdiction_report?.checks ?? [];
+  const buildingChecks = data?.building_report?.checks ?? [];
+  const siteChecks = [...(data?.site_report?.environmental_checks ?? []), ...(data?.site_report?.utility_checks ?? [])];
   const permits = data?.permit_package?.permits_required ?? [];
   const filingSequence = data?.permit_package?.filing_sequence ?? [];
   const documents = data?.permit_package?.documents_required ?? [];
-  const remainingSec = estimateRemainingSec(elapsedSec, completedCount);
-  const analyzing = loading && !stallReason;
-  const jurisdictionChecks = data?.jurisdiction_report?.checks ?? [];
-  const buildingChecks = data?.building_report?.checks ?? [];
-  const siteChecks = [
-    ...(data?.site_report?.environmental_checks ?? []),
-    ...(data?.site_report?.utility_checks ?? []),
-  ];
-  const showAgentPanels = analyzing || !!data;
 
-  function renderAgentPanels() {
-    return (
-      <div className="findings-layout">
-        <div className="findings-row findings-row-top">
-          <CheckList
-            checks={jurisdictionChecks}
-            title="Jurisdiction & zoning"
-            pending={analyzing && jurisdictionChecks.length === 0}
-            visible={showAgentPanels}
-          />
-          <CheckList
-            checks={buildingChecks}
-            title="Building & safety"
-            pending={analyzing && buildingChecks.length === 0}
-            visible={showAgentPanels}
-          />
-        </div>
-        <CheckList
-          checks={siteChecks}
-          title="Site & environmental"
-          pending={analyzing && siteChecks.length === 0}
-          visible={showAgentPanels}
-        />
-      </div>
-    );
-  }
+  const tabs = [
+    { id: "overview" as const, label: "Overview", icon: "◎" },
+    { id: "jurisdiction" as const, label: "Jurisdiction", icon: "⚖" },
+    { id: "building" as const, label: "Building", icon: "🏗" },
+    { id: "site" as const, label: "Site", icon: "🌿" },
+    { id: "package" as const, label: "Package", icon: "📋" },
+  ];
 
   return (
-    <div className="app">
-      <header className="header">
-        <div className="brand">
-          <h1>PermitOS</h1>
-          <p className="tagline">AI-powered permitting intelligence for real estate development</p>
+    <div className="dashboard">
+      {/* Sidebar */}
+      <aside className="sidebar">
+        <div className="sidebar-brand">
+          <span className="sidebar-logo">⚡</span>
+          <div>
+            <div className="sidebar-title">PermitOS</div>
+            <div className="sidebar-tagline">Permitting Intelligence</div>
+          </div>
         </div>
-        {data && !loading && (
-          <button className="btn secondary" type="button" onClick={handleNewAnalysis}>
-            New analysis
-          </button>
+
+        <nav className="sidebar-nav">
+          <a href="/" className="sidebar-home-link">
+            <span>←</span> Home
+          </a>
+        </nav>
+
+        {data && (
+          <nav className="sidebar-tabs">
+            {tabs.map((t) => (
+              <button
+                key={t.id}
+                className={`sidebar-tab ${activeTab === t.id ? "active" : ""}`}
+                onClick={() => setActiveTab(t.id)}
+              >
+                <span className="tab-icon">{t.icon}</span>
+                {t.label}
+              </button>
+            ))}
+          </nav>
         )}
-      </header>
 
-      {!data && !loading && (
-        <section className="panel intake-panel">
-          <h2>Project intake</h2>
-
-          <div className="intake-controls">
-            <label className="intake-field">
-              <span>Jurisdiction</span>
-              <select
-                value={jurisdiction}
-                onChange={(e) => setJurisdiction(e.target.value)}
-                disabled={loading}
-              >
-                {JURISDICTIONS.map((j) => (
-                  <option key={j.value} value={j.value}>
-                    {j.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="intake-field">
-              <span>Project type</span>
-              <select
-                value={projectType}
-                onChange={(e) => setProjectType(e.target.value as ProjectTypeValue)}
-                disabled={loading}
-              >
-                {PROJECT_TYPES.map((t) => (
-                  <option key={t.value} value={t.value}>
-                    {t.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-
-          <div
-            className={`drop-zone ${dragOver ? "drag-over" : ""} ${projectFile ? "has-file" : ""}`}
-            onDragOver={(e) => {
-              e.preventDefault();
-              setDragOver(true);
-            }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={(e) => {
-              e.preventDefault();
-              setDragOver(false);
-              acceptFile(e.dataTransfer.files[0] ?? null);
-            }}
-            onClick={() => fileInputRef.current?.click()}
-            onKeyDown={(e) => e.key === "Enter" && fileInputRef.current?.click()}
-            role="button"
-            tabIndex={0}
+        <div className="sidebar-footer">
+          <button
+            className="sidebar-logout"
+            onClick={() => { logout(); window.location.reload(); }}
           >
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".json,.zip,application/json,application/zip"
-              className="file-input-hidden"
-              onChange={(e) => acceptFile(e.target.files?.[0] ?? null)}
-            />
-            {projectFile ? (
-              <>
-                <strong>{projectFile.name}</strong>
-                <span>{(projectFile.size / 1024).toFixed(1)} KB</span>
-              </>
-            ) : (
-              <>
-                <strong>Drop file here</strong>
-                <span>or click to browse — .json or .zip</span>
-              </>
-            )}
-          </div>
+            Sign out
+          </button>
+        </div>
+      </aside>
 
-          <div className="intake-actions">
-            <button
-              className="btn primary"
-              type="button"
-              onClick={handleAnalyze}
-              disabled={loading || !projectFile}
-            >
-              {loading ? "Analyzing…" : "Analyze"}
-            </button>
-            {!projectFile && (
-              <a className="sample-link" href="/sample-project-brief.json" download>
-                Download sample brief
-              </a>
+      {/* Main content */}
+      <main className="main-content">
+        {/* Top bar */}
+        <div className="topbar">
+          <div className="topbar-left">
+            <h1 className="topbar-title">
+              {data ? (data.brief?.project_name as string) || "Analysis" : "New Analysis"}
+            </h1>
+            {data?.case_summary?.readiness_score && (
+              <StatusBadge status={data.case_summary.readiness_score} />
             )}
+            {loading && <div className="topbar-spinner" />}
           </div>
-        </section>
-      )}
-
-      {stallReason && <div className="stall-banner">{stallReason}</div>}
-      {error && <div className="error-banner">{error}</div>}
-      {loading && progress && (
-        <div className="panel progress-panel">
-          <div className="progress-row">
-            <span>{progress}</span>
-            <span className="timer mono">
-              {formatDuration(elapsedSec)} elapsed
-              {remainingSec > 0 && ` · ~${formatDuration(remainingSec)} left`}
-            </span>
-          </div>
-          <div className="progress-bar-track">
-            <div
-              className="progress-bar-fill"
-              style={{
-                width: `${Math.min(100, ((completedCount / TOTAL_AGENTS) * 100 + (elapsedSec % SEC_PER_AGENT) / SEC_PER_AGENT / TOTAL_AGENTS * 100))}%`,
-              }}
-            />
+          <div className="topbar-right">
+            {data && !loading && (
+              <button className="btn btn-ghost" onClick={handleReset}>+ New Analysis</button>
+            )}
           </div>
         </div>
-      )}
 
-      {!data && !loading && (
-        <section className="hero">
-          <h2>Pre-screen permits before you file</h2>
-          <p>
-            PermitOS coordinates zoning, building code, and environmental review for multifamily
-            projects — surfacing blockers, fee estimates, and filing order with a full audit trail.
-          </p>
-          <div className="value-props">
-            <div className="value-card">
-              <strong>Zoning &amp; jurisdiction</strong>
-              <span>Setbacks, use, density, parking</span>
+        {/* Banners */}
+        {stallReason && <div className="banner banner-warn">{stallReason}</div>}
+        {error && <div className="banner banner-error">{error}</div>}
+
+        {/* Progress bar */}
+        {loading && progress && (
+          <div className="progress-wrapper">
+            <div className="progress-info">
+              <span>{progress}</span>
+              <span className="muted">{formatTime(elapsedSec)} elapsed</span>
             </div>
-            <div className="value-card">
-              <strong>Building &amp; safety</strong>
-              <span>Egress, fire, accessibility</span>
+            <div className="progress-track">
+              <div
+                className="progress-fill"
+                style={{ width: `${Math.min(90, (completedCount / 4) * 100 + (elapsedSec % 30) / 30 * 25)}%` }}
+              />
             </div>
-            <div className="value-card">
-              <strong>Site &amp; environmental</strong>
-              <span>Flood, stormwater, utilities</span>
-            </div>
-            <div className="value-card">
-              <strong>Permit package</strong>
-              <span>Checklist, fees, filing sequence</span>
+            <div className="progress-steps">
+              {["Jurisdiction", "Building", "Site", "Package"].map((step, i) => (
+                <div key={step} className={`progress-step ${i < completedCount ? "done" : i === completedCount ? "active" : ""}`}>
+                  <div className="progress-dot" />
+                  <span>{step}</span>
+                </div>
+              ))}
             </div>
           </div>
-        </section>
-      )}
+        )}
 
-      {loading && !data && (
-        <section className="loading-panel loading-panel-compact">
-          <div className="spinner" />
-          <p className="timer mono">
-            {formatDuration(elapsedSec)} elapsed
-            {remainingSec > 0 && ` · ~${formatDuration(remainingSec)} remaining`}
-          </p>
-        </section>
-      )}
+        {/* Intake form */}
+        {!data && !loading && (
+          <div className="intake-wrapper">
+            <div className="intake-card">
+              <h2>Project intake</h2>
+              <p className="intake-desc">Upload a project brief to run the permit pre-screen analysis.</p>
 
-      {showAgentPanels && !data && renderAgentPanels()}
-
-      {data && (
-        <div className="results">
-          {data.brief && (
-            <section className="panel summary-panel">
-              <div className="summary-top">
-                <div>
-                  <p className="project-label">Project</p>
-                  <h2>{data.brief.project_name as string}</h2>
-                  <p className="address">{data.brief.address as string}</p>
+              <div className="intake-selects">
+                <div className="form-field">
+                  <label>Jurisdiction</label>
+                  <select value={jurisdiction} onChange={(e) => setJurisdiction(e.target.value)}>
+                    {JURISDICTIONS.map((j) => (
+                      <option key={j.value} value={j.value}>{j.label}</option>
+                    ))}
+                  </select>
                 </div>
-                {data.case_summary?.readiness_score && (
-                  <div className="readiness-block">
-                    <span className="label">Readiness</span>
-                    <StatusBadge status={data.case_summary.readiness_score} />
+                <div className="form-field">
+                  <label>Project type</label>
+                  <select value={projectType} onChange={(e) => setProjectType(e.target.value as ProjectTypeValue)}>
+                    {PROJECT_TYPES.map((t) => (
+                      <option key={t.value} value={t.value}>{t.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div
+                className={`drop-zone ${dragOver ? "dz-hover" : ""} ${projectFile ? "dz-filled" : ""}`}
+                onClick={() => fileInputRef.current?.click()}
+                onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={(e) => { e.preventDefault(); setDragOver(false); acceptFile(e.dataTransfer.files[0]); }}
+                role="button" tabIndex={0}
+                onKeyDown={(e) => e.key === "Enter" && fileInputRef.current?.click()}
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".json,.zip"
+                  className="hidden-input"
+                  onChange={(e) => acceptFile(e.target.files?.[0] ?? null)}
+                />
+                {projectFile ? (
+                  <div className="dz-file">
+                    <span className="dz-file-icon">📄</span>
+                    <div>
+                      <strong>{projectFile.name}</strong>
+                      <span className="muted">{(projectFile.size / 1024).toFixed(1)} KB</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="dz-empty">
+                    <span className="dz-upload-icon">↑</span>
+                    <strong>Drop file here or click to browse</strong>
+                    <span className="muted">.json or .zip project brief</span>
                   </div>
                 )}
               </div>
 
-              {data.case_summary?.executive_summary && (
-                <p className="executive-summary">{data.case_summary.executive_summary}</p>
-              )}
+              <div className="intake-actions">
+                <button
+                  className="btn btn-primary"
+                  onClick={handleAnalyze}
+                  disabled={!projectFile || loading}
+                >
+                  Run Analysis
+                </button>
+                {!projectFile && (
+                  <a className="link-subtle" href="/sample-project-brief.json" download>
+                    Download sample brief
+                  </a>
+                )}
+              </div>
+            </div>
 
-              {data.permit_package && (
-                <div className="stats">
+            <div className="feature-grid">
+              {[
+                { icon: "⚖", title: "Jurisdiction & Zoning", desc: "Setbacks, use, density, and parking requirements" },
+                { icon: "🏗", title: "Building & Safety", desc: "Egress, fire suppression, and accessibility codes" },
+                { icon: "🌿", title: "Site & Environmental", desc: "Flood zone, stormwater, and utility capacity" },
+                { icon: "📋", title: "Permit Package", desc: "Checklist, fee estimates, and filing sequence" },
+              ].map((f) => (
+                <div key={f.title} className="feature-card">
+                  <span className="feature-icon">{f.icon}</span>
                   <div>
-                    <span className="label">Est. fees</span>
-                    <strong>${data.permit_package.total_fees_estimate_usd.toLocaleString()}</strong>
+                    <strong>{f.title}</strong>
+                    <p>{f.desc}</p>
                   </div>
-                  <div>
-                    <span className="label">Timeline</span>
-                    <strong>{data.permit_package.estimated_timeline_days} days</strong>
-                  </div>
-                  <div>
-                    <span className="label">Permits</span>
-                    <strong>{permits.length}</strong>
-                  </div>
-                  {data.case_id && (
-                    <div>
-                      <span className="label">Case ID</span>
-                      <span className="mono case-id">{data.case_id.slice(0, 8)}…</span>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {data.case_summary?.conflicts?.map((c, i) => (
-                <div key={i} className="conflict">
-                  <strong>{c.issue}</strong>
-                  <p>{c.suggested_fix}</p>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
 
-              {data.case_summary && (
-                <div className="actions">
-                  <button className="btn primary" onClick={handleApprove} disabled={approved}>
-                    {approved ? "Approved for Filing" : "Approve for Filing"}
-                  </button>
-                  <button className="btn secondary" onClick={handleRfi}>
-                    Simulate City RFI
-                  </button>
-                </div>
-              )}
+        {/* Results */}
+        {(data || (loading && completedCount > 0)) && (
+          <div className="results-layout">
+            {/* Stats row */}
+            {data?.permit_package && (
+              <div className="stats-row">
+                <StatCard
+                  label="Est. fees"
+                  value={`$${data.permit_package.total_fees_estimate_usd.toLocaleString()}`}
+                  sub="total permit costs"
+                />
+                <StatCard
+                  label="Timeline"
+                  value={`${data.permit_package.estimated_timeline_days}d`}
+                  sub="estimated review"
+                />
+                <StatCard
+                  label="Permits"
+                  value={`${permits.length}`}
+                  sub="required filings"
+                />
+                <StatCard
+                  label="Readiness"
+                  value={data.case_summary?.readiness_score?.replace(/_/g, " ") ?? "—"}
+                  sub="overall status"
+                />
+              </div>
+            )}
 
-              {approved && (
-                <p className="approval-note">
-                  Status updated to <strong>APPROVED_FOR_FILING</strong>. Package locked with audit hash below.
-                </p>
-              )}
-
-              {auditHash && (
-                <p className="audit-hash mono">
-                  Audit hash: <code>{auditHash}</code>
-                </p>
-              )}
-            </section>
-          )}
-
-          {renderAgentPanels()}
-
-          {data.permit_package && (
-            <section className="panel permit-package-panel">
-                <h3>Permit package</h3>
-                {permits.length === 0 ? (
-                  <p className="empty-note">No permits listed — re-run analysis or check API logs.</p>
-                ) : (
-                  <ul className="permit-list">
-                    {permits.map((p, i) => (
-                      <li key={i}>
-                        <strong>{p.permit_name}</strong>
-                        <span>{p.agency}</span>
-                        <span className="mono">
-                          ${p.fee_usd.toLocaleString()} · {p.timeline_days}d
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
+            {/* Executive summary + actions */}
+            {activeTab === "overview" && (
+              <div className="overview-section">
+                {data?.case_summary?.executive_summary && (
+                  <div className="exec-summary">
+                    <div className="exec-summary-label">Executive Summary</div>
+                    <p>{data.case_summary.executive_summary}</p>
+                  </div>
                 )}
 
-                {documents.length > 0 && (
-                  <>
-                    <h4>Required documents</h4>
-                    <ul className="doc-list">
-                      {documents.map((d, i) => (
-                        <li key={i}>{d.name}</li>
+                {data?.case_summary?.conflicts?.map((c, i) => (
+                  <div key={i} className="conflict-card">
+                    <div className="conflict-header">
+                      <span className="conflict-icon">⚠</span>
+                      <strong>{c.issue}</strong>
+                      <span className={`badge badge-${c.severity === "high" ? "fail" : "warn"}`}>{c.severity}</span>
+                    </div>
+                    <p>{c.suggested_fix}</p>
+                  </div>
+                ))}
+
+                {data?.case_summary && !approved && (
+                  <div className="action-bar">
+                    <button className="btn btn-primary" onClick={handleApprove}>
+                      ✓ Approve for Filing
+                    </button>
+                    <button className="btn btn-outline" onClick={handleRfi}>
+                      Simulate City RFI
+                    </button>
+                  </div>
+                )}
+
+                {approved && (
+                  <div className="approval-card">
+                    <span className="approval-icon">✓</span>
+                    <div>
+                      <strong>Approved for Filing</strong>
+                      <p>Package is locked with a tamper-evident audit hash.</p>
+                      {auditHash && <code className="audit-hash">{auditHash}</code>}
+                    </div>
+                  </div>
+                )}
+
+                {rfiDraft && (
+                  <div className="rfi-card">
+                    <h4>Draft RFI Response</h4>
+                    <p className="muted rfi-hint">Auto-generated response — review before sending.</p>
+                    <pre>{rfiDraft}</pre>
+                  </div>
+                )}
+
+                {/* Show agent summary cards while loading */}
+                {analyzing && (
+                  <div className="agent-status-grid">
+                    {[
+                      { key: "jurisdiction", label: "Jurisdiction", icon: "⚖", checks: jurisdictionChecks },
+                      { key: "building", label: "Building", icon: "🏗", checks: buildingChecks },
+                      { key: "site", label: "Site & Env", icon: "🌿", checks: siteChecks },
+                    ].map(({ key, label, icon, checks }) => {
+                      const done = (data?.completed_agents ?? []).includes(key);
+                      return (
+                        <div key={key} className={`agent-status-card ${done ? "agent-done" : "agent-pending"}`}>
+                          <span>{icon}</span>
+                          <div>
+                            <strong>{label}</strong>
+                            <span>{done ? `${checks.length} checks complete` : "Analyzing…"}</span>
+                          </div>
+                          {done ? <span className="agent-check">✓</span> : <div className="mini-spinner" />}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === "jurisdiction" && (
+              <SectionPanel
+                title="Jurisdiction & Zoning"
+                icon="⚖"
+                checks={jurisdictionChecks}
+                pending={analyzing && jurisdictionChecks.length === 0}
+              />
+            )}
+
+            {activeTab === "building" && (
+              <SectionPanel
+                title="Building & Safety"
+                icon="🏗"
+                checks={buildingChecks}
+                pending={analyzing && buildingChecks.length === 0}
+              />
+            )}
+
+            {activeTab === "site" && (
+              <SectionPanel
+                title="Site & Environmental"
+                icon="🌿"
+                checks={siteChecks}
+                pending={analyzing && siteChecks.length === 0}
+              />
+            )}
+
+            {activeTab === "package" && data?.permit_package && (
+              <div className="package-section">
+                <div className="package-grid">
+                  <div className="package-col">
+                    <h4>Required Permits</h4>
+                    <div className="permit-list">
+                      {permits.map((p, i) => (
+                        <div key={i} className="permit-item">
+                          <div className="permit-item-main">
+                            <strong>{p.permit_name}</strong>
+                            <span className="permit-agency">{p.agency}</span>
+                          </div>
+                          <div className="permit-item-meta">
+                            <span>${p.fee_usd.toLocaleString()}</span>
+                            <span>{p.timeline_days}d</span>
+                          </div>
+                        </div>
                       ))}
+                    </div>
+                  </div>
+
+                  <div className="package-col">
+                    <h4>Required Documents</h4>
+                    <ul className="doc-list">
+                      {documents.map((d, i) => <li key={i}>{d.name}</li>)}
                     </ul>
-                  </>
-                )}
 
-                <h4>Filing sequence</h4>
-                {filingSequence.length === 0 ? (
-                  <p className="empty-note">Filing sequence not generated.</p>
-                ) : (
-                  <ol className="filing-sequence">
-                    {filingSequence.map((s, i) => (
-                      <li key={i}>{s}</li>
-                    ))}
-                  </ol>
-                )}
-              </section>
-          )}
+                    <h4 style={{ marginTop: "1.5rem" }}>Filing Sequence</h4>
+                    <ol className="filing-list">
+                      {filingSequence.map((s, i) => <li key={i}>{s}</li>)}
+                    </ol>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
-          {analyzing && !data.permit_package && (
-            <section className="panel panel-pending permit-package-panel">
-              <h3>Permit package</h3>
-              <p className="pending-note">Waiting for agent…</p>
-            </section>
-          )}
-
-          {rfiDraft && (
-            <section className="panel rfi-panel">
-              <h3>Draft RFI response</h3>
-              <p className="rfi-hint">
-                Simulated city request for clarification — auto-drafted response for reviewer edit.
-              </p>
-              <pre className="mono">{rfiDraft}</pre>
-            </section>
-          )}
-        </div>
-      )}
-
-      <footer className="footer">
-        <p className="disclaimer">{disclaimer}</p>
-      </footer>
+        {/* Footer */}
+        <footer className="dash-footer">
+          <p>{disclaimer}</p>
+        </footer>
+      </main>
     </div>
   );
 }
