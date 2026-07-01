@@ -1,67 +1,17 @@
-export type Check = {
-  rule: string;
-  status: "pass" | "fail" | "warn";
-  citation: string;
-  detail: string;
-  category?: string;
-};
+import type {
+  AnalysisModuleKey,
+  BuiltinRule,
+  BuiltinRuleGroup,
+  CaseResults,
+  CustomRule,
+  Jurisdiction,
+  Project,
+  ProjectTypeValue,
+} from "./types";
 
-export type ActivityEvent = {
-  timestamp: string;
-  agent: string;
-  event_type: string;
-  detail: string;
-  payload?: Record<string, unknown>;
-};
-
-export type CaseResults = {
-  case_id: string;
-  band_room_id?: string;
-  brief?: Record<string, unknown>;
-  jurisdiction_report?: {
-    summary: string;
-    checks: Check[];
-    blockers: string[];
-    zoning?: { district: string; by_right: boolean };
-  };
-  building_report?: { summary: string; checks: Check[] };
-  site_report?: {
-    summary: string;
-    environmental_checks: Check[];
-    utility_checks: Check[];
-  };
-  case_summary?: {
-    readiness_score: string;
-    conflicts: { issue: string; suggested_fix: string; severity: string }[];
-    executive_summary?: string;
-    status: string;
-  };
-  permit_package?: {
-    permits_required: { permit_name: string; agency: string; fee_usd: number; timeline_days: number }[];
-    documents_required: { name: string; source_agent: string }[];
-    total_fees_estimate_usd: number;
-    estimated_timeline_days: number;
-    filing_sequence: string[];
-    audit_hash?: string;
-  };
-  activity?: ActivityEvent[];
-  stalled?: boolean;
-  stall_reason?: string;
-  phase?: string;
-  completed_agents?: string[];
-};
-
-export const PROJECT_TYPES = [
-  { value: "multifamily_residential", label: "Multifamily residential" },
-  { value: "single_family", label: "Single family" },
-  { value: "commercial", label: "Commercial" },
-  { value: "mixed_use", label: "Mixed use" },
-  { value: "industrial", label: "Industrial" },
-] as const;
-
-export const JURISDICTIONS = [{ value: "austin_tx", label: "Austin, TX" }] as const;
-
-export type ProjectTypeValue = (typeof PROJECT_TYPES)[number]["value"];
+export type { Check, CaseResults, Project, CustomRule, Jurisdiction } from "./types";
+export { PROJECT_TYPES, FILE_TYPES, RULE_CATEGORIES } from "./types";
+export { ANALYSIS_MODULES } from "./types";
 
 const API = import.meta.env.VITE_API_URL || "";
 
@@ -202,7 +152,7 @@ export async function pollCase(
   throw new Error(INCOMPLETE_MSG);
 }
 
-export async function analyzeProject(
+export async function analyzeUpload(
   file: File,
   projectType: ProjectTypeValue,
   jurisdiction: string,
@@ -219,23 +169,7 @@ export async function analyzeProject(
   } catch {
     throw new Error(INCOMPLETE_MSG);
   }
-  if (!start.ok) throw new Error(INCOMPLETE_MSG);
-
-  const { case_id } = (await start.json()) as { case_id: string };
-  return pollCase(case_id, onProgress);
-}
-
-/** @deprecated Use analyzeProject with sample JSON instead */
-export async function runDemo(
-  onProgress?: (partial: CaseResults & { status?: string; completed_agents?: string[] }) => void
-): Promise<CaseResults> {
-  let start: Response;
-  try {
-    start = await fetch(`${API}/cases/demo/riverside`, { method: "POST" });
-  } catch {
-    throw new Error(INCOMPLETE_MSG);
-  }
-  if (!start.ok) throw new Error(INCOMPLETE_MSG);
+  if (!start.ok) throw new Error(await parseError(start));
 
   const { case_id } = (await start.json()) as { case_id: string };
   return pollCase(case_id, onProgress);
@@ -267,4 +201,151 @@ export async function getDisclaimer(): Promise<string> {
   const res = await fetch(`${API}/disclaimer`);
   const data = await res.json();
   return data.disclaimer;
+}
+
+// --- Projects API ---
+
+export async function listProjects(): Promise<Project[]> {
+  const res = await fetch(`${API}/projects`);
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json();
+}
+
+export async function getProject(id: string): Promise<Project> {
+  const res = await fetch(`${API}/projects/${id}`);
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json();
+}
+
+export async function createProject(data: Partial<Project>): Promise<Project> {
+  const res = await fetch(`${API}/projects`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name: data.name,
+      address: data.address,
+      projectType: data.projectType ?? "multifamily_residential",
+      jurisdiction: data.jurisdiction ?? "austin_tx",
+      area: data.area ?? null,
+      customRules: data.customRules ?? [],
+    }),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json();
+}
+
+export async function updateProject(id: string, data: Partial<Project>): Promise<Project> {
+  const res = await fetch(`${API}/projects/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json();
+}
+
+export async function deleteProject(id: string): Promise<void> {
+  const res = await fetch(`${API}/projects/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(await parseError(res));
+}
+
+export async function uploadProjectFile(
+  projectId: string,
+  file: File,
+  fileType?: string,
+  isPrimaryBrief?: boolean,
+  documentLabel?: string,
+  fileSections?: AnalysisModuleKey[]
+): Promise<void> {
+  const form = new FormData();
+  form.append("file", file);
+  if (fileType) form.append("file_type", fileType);
+  if (isPrimaryBrief) form.append("is_primary_brief", "true");
+  if (documentLabel) form.append("document_label", documentLabel);
+  if (fileSections?.length) form.append("file_sections", JSON.stringify(fileSections));
+  const res = await fetch(`${API}/projects/${projectId}/files`, { method: "POST", body: form });
+  if (!res.ok) throw new Error(await parseError(res));
+}
+
+export async function deleteProjectFile(projectId: string, fileId: string): Promise<void> {
+  const res = await fetch(`${API}/projects/${projectId}/files/${fileId}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(await parseError(res));
+}
+
+export async function getProjectRules(
+  projectId: string
+): Promise<{ customRules: CustomRule[]; builtinRules: BuiltinRule[]; builtinGroups: BuiltinRuleGroup[] }> {
+  const res = await fetch(`${API}/projects/${projectId}/rules`);
+  if (!res.ok) throw new Error(await parseError(res));
+  const data = await res.json();
+  const groupsMap = new Map<string, BuiltinRuleGroup>();
+  for (const rule of (data.builtinRules as BuiltinRule[])) {
+    const key = (rule.group || rule.category || "permits") as BuiltinRuleGroup["key"];
+    if (!groupsMap.has(key)) {
+      groupsMap.set(key, { key, label: groupLabel(key), rules: [] });
+    }
+    groupsMap.get(key)!.rules.push(rule);
+  }
+  return { ...data, builtinGroups: Array.from(groupsMap.values()) };
+}
+
+export async function saveProjectRules(projectId: string, rules: CustomRule[]): Promise<void> {
+  const res = await fetch(`${API}/projects/${projectId}/rules`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(rules),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+}
+
+export async function analyzeProjectById(
+  projectId: string,
+  modules?: AnalysisModuleKey[]
+): Promise<{ case_id: string }> {
+  const res = await fetch(`${API}/projects/${projectId}/analyze`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ modules: modules ?? [] }),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json();
+}
+
+export async function analyzeProject(
+  projectId: string,
+  modules?: AnalysisModuleKey[],
+  onProgress?: (partial: CaseResults) => void
+): Promise<CaseResults> {
+  const { case_id } = await analyzeProjectById(projectId, modules);
+  return pollCase(case_id, onProgress);
+}
+
+function groupLabel(key: string): string {
+  switch (key) {
+    case "zoning":
+      return "Zoning";
+    case "building":
+      return "Building";
+    case "fire":
+      return "Fire / Life Safety";
+    case "site":
+      return "Site / Utilities";
+    case "permits":
+      return "Permits";
+    default:
+      return key;
+  }
+}
+
+export async function suggestRules(projectId: string): Promise<CustomRule[]> {
+  const res = await fetch(`${API}/projects/${projectId}/suggest-rules`, { method: "POST" });
+  if (!res.ok) throw new Error(await parseError(res));
+  const data = await res.json();
+  return data.rules as CustomRule[];
+}
+
+export async function listJurisdictions(): Promise<Jurisdiction[]> {
+  const res = await fetch(`${API}/jurisdictions`);
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json();
 }

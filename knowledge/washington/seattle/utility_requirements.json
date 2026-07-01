@@ -1,0 +1,10 @@
+{
+  "water_sewer": {
+    "capacity_review_threshold_units": 1,
+    "citation": "Seattle TI MVP: trade permits reviewed separately from building permit."
+  },
+  "electrical": {
+    "multifamily_min_service_amps": 200,
+    "citation": "SDCI Electrical Permit guidance"
+  }
+}

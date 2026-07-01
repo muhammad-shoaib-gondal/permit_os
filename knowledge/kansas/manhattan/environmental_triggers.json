@@ -1,0 +1,33 @@
+{
+  "floodplain": {
+    "administrator": "Floodplain Administrator (Zoning Administrator or designee)",
+    "permit_required": "Floodplain development permit before building permit in regulated floodplain",
+    "permit_fee_usd": 50,
+    "citation": "MDC Sec. 26-8A-3, Sec. 26-9D-6; Division 26-6",
+    "api": "FEMA NFIP — use lat/lng at runtime"
+  },
+  "triggers": [
+    {
+      "id": "floodplain_any",
+      "condition": "site_in_FEMA_special_flood_hazard_area",
+      "action": "Floodplain development permit required before building permit",
+      "citation": "MDC Sec. 26-9D-6"
+    },
+    {
+      "id": "historic_review",
+      "condition": "property_in_historic_district_or_register",
+      "action": "Historic review per MDC historic provisions",
+      "citation": "MDC Division 26-9C"
+    },
+    {
+      "id": "stormwater",
+      "condition": "new_impervious_or_grading",
+      "action": "Comply with city stormwater and site development standards",
+      "citation": "MDC Article 26-7"
+    }
+  ],
+  "kansas_state": {
+    "note": "Kansas adopts IBC/IRC; local Manhattan Chapter 8 amendments apply",
+    "citation": "Code of Ordinances Chapter 8"
+  }
+}

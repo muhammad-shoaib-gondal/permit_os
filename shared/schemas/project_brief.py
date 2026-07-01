@@ -11,6 +11,7 @@ class ProjectType(str, Enum):
     MULTIFAMILY_RESIDENTIAL = "multifamily_residential"
     SINGLE_FAMILY = "single_family"
     COMMERCIAL = "commercial"
+    COMMERCIAL_TENANT_IMPROVEMENT = "commercial_tenant_improvement"
     MIXED_USE = "mixed_use"
     INDUSTRIAL = "industrial"
 
@@ -26,12 +27,21 @@ class ProjectBrief(BaseModel):
     case_id: UUID = Field(default_factory=uuid4)
     project_name: str
     address: str
+    jurisdiction: str = "austin_tx"
     project_type: ProjectType = ProjectType.MULTIFAMILY_RESIDENTIAL
-    units: int
-    stories: int
-    gross_sqft: int
-    lot_sqft: int
-    parking_spaces: int
+    units: int = 0
+    stories: int = 0
+    gross_sqft: int = 0
+    lot_sqft: int = 0
+    parking_spaces: int = 0
+    occupancy_type: Optional[str] = None
+    use_description: Optional[str] = None
+    scope_of_work: Optional[str] = None
+    change_of_use: bool = False
+    trade_scopes: list[str] = Field(default_factory=list)
+    fire_alarm_work: bool = False
+    sprinkler_work: bool = False
+    right_of_way_impacts: bool = False
     plan_pdf_url: Optional[str] = None
     notes: Optional[str] = None
     blocks: list[BlockSetback] = Field(default_factory=list)

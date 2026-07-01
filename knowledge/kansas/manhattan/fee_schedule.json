@@ -1,0 +1,45 @@
+{
+  "year": 2026,
+  "currency": "USD",
+  "source": "City of Manhattan Master Fee Schedule",
+  "source_url": "https://www.manhattanks.gov/2268/Master-Fee-Schedule",
+  "building_permit_valuation_tiers": [
+    { "min_usd": 1, "max_usd": 500, "fee_usd": 19 },
+    { "min_usd": 501, "max_usd": 2000, "formula": "$19 first $500 + $2.47 per additional $100" },
+    { "min_usd": 2001, "max_usd": 25000, "formula": "$56.09 first $2,000 + $11.34 per additional $1,000" },
+    { "min_usd": 25001, "max_usd": 50000, "formula": "$317.31 first $25,000 + $8.18 per additional $1,000" },
+    { "min_usd": 50001, "max_usd": 100000, "formula": "$521.43 first $50,000 + $5.67 per additional $1,000" },
+    { "min_usd": 100001, "max_usd": 500000, "formula": "$804.93 first $100,000 + $4.53 per additional $1,000" },
+    { "min_usd": 500001, "max_usd": 1000000, "formula": "$2,619.33 first $500,000 + $3.84 per additional $1,000" },
+    { "min_usd": 1000001, "max_usd": null, "formula": "$4,543.08 first $1,000,000 + $2.95 per additional $1,000" }
+  ],
+  "plan_review_fee_pct": 30,
+  "plan_review_note": "30% of building permit fee at issuance — Code Ch. 8, Sec. 8-32",
+  "trade_permits": {
+    "electrical_minimum": 10,
+    "plumbing_per_permit": 15,
+    "mechanical_per_permit": 15,
+    "sign_per_sign": 25
+  },
+  "zoning_and_land_use": {
+    "conditional_use_permit": 120,
+    "variance": 120,
+    "exception": 120,
+    "rezoning_residential_commercial_industrial": 160,
+    "rezoning_pud_preliminary": 300,
+    "floodplain_development_permit": 50,
+    "preliminary_plat": 150,
+    "final_plat": 150
+  },
+  "contacts": {
+    "building_official": "785-587-4506",
+    "planning": "785-587-2424",
+    "zoning_administrator": "785-587-2426"
+  },
+  "example_estimate_14_5m_project": {
+    "construction_valuation_usd": 14500000,
+    "note": "Approximate — use city calculator for exact figure",
+    "building_permit_fee_approx_usd": 48000,
+    "plan_review_fee_approx_usd": 14400
+  }
+}

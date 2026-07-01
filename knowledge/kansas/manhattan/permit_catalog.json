@@ -1,0 +1,105 @@
+{
+  "jurisdiction": "City of Manhattan, KS",
+  "code": "MDC Chapter 26 + Code of Ordinances Chapter 8",
+  "permits": [
+    {
+      "id": "building_permit",
+      "agency": "City of Manhattan Code Services / Risk Reduction",
+      "permit_name": "Building Permit",
+      "procedure_type": "Type I",
+      "review_authority": "Zoning Administrator + Building Official",
+      "typical_timeline_days": 2,
+      "fee_basis": "valuation_schedule",
+      "dependencies": ["zoning_compliance"],
+      "citation": "MDC Sec. 26-9D-6; Code Ch. 8"
+    },
+    {
+      "id": "floodplain_development",
+      "agency": "Community Development — Floodplain Administrator",
+      "permit_name": "Floodplain Development Permit",
+      "procedure_type": "Type I",
+      "fee_usd": 50,
+      "dependencies": [],
+      "citation": "MDC Sec. 26-9D-6; Division 26-6"
+    },
+    {
+      "id": "conditional_use",
+      "agency": "Planning Board",
+      "permit_name": "Conditional Use Permit",
+      "procedure_type": "Type III",
+      "fee_usd": 120,
+      "requires_public_hearing": true,
+      "citation": "MDC Sec. 26-9E"
+    },
+    {
+      "id": "variance",
+      "agency": "Board of Zoning Appeals",
+      "permit_name": "Variance",
+      "procedure_type": "Type III",
+      "fee_usd": 120,
+      "requires_public_hearing": true,
+      "citation": "MDC Sec. 26-9E"
+    },
+    {
+      "id": "rezoning",
+      "agency": "Planning Board / City Commission",
+      "permit_name": "Rezoning",
+      "procedure_type": "Type IV",
+      "fee_usd": 160,
+      "requires_public_hearing": true,
+      "citation": "MDC Division 26-9A"
+    },
+    {
+      "id": "preliminary_plat",
+      "agency": "Community Development",
+      "permit_name": "Preliminary Plat",
+      "procedure_type": "Type III",
+      "fee_usd": 150,
+      "citation": "MDC Division 26-9B"
+    },
+    {
+      "id": "final_plat",
+      "agency": "Community Development",
+      "permit_name": "Final Plat",
+      "procedure_type": "Type III",
+      "fee_usd": 150,
+      "citation": "MDC Division 26-9B"
+    },
+    {
+      "id": "sign_permit",
+      "agency": "Code Services",
+      "permit_name": "Sign Permit",
+      "procedure_type": "Type I",
+      "fee_usd": 25,
+      "citation": "Code Ch. 8, Sec. 8-271"
+    },
+    {
+      "id": "electrical",
+      "agency": "Code Services",
+      "permit_name": "Electrical Permit",
+      "fee_usd_min": 10,
+      "citation": "Code Ch. 8, Sec. 8-64"
+    },
+    {
+      "id": "plumbing",
+      "agency": "Code Services",
+      "permit_name": "Plumbing Permit",
+      "fee_usd": 15,
+      "citation": "Code Ch. 8, Sec. 8-93"
+    },
+    {
+      "id": "mechanical",
+      "agency": "Code Services",
+      "permit_name": "Mechanical Permit",
+      "fee_usd": 15,
+      "citation": "Code Ch. 8, Sec. 8-167"
+    }
+  ],
+  "procedure_types": {
+    "type_I": "Staff review — building permits, floodplain, signs; usually a couple of days",
+    "type_II": "Staff review with neighbor input — larger projects without public hearing",
+    "type_III": "Board public hearing — subdivisions, CUP, variance, planned development",
+    "type_IV": "Legislative — annexation, rezoning, code amendments"
+  },
+  "citation": "MDC Sec. 26-8B-2"
+}

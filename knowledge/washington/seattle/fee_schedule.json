@@ -1,0 +1,28 @@
+{
+  "permits": {
+    "building_construction": {
+      "basis": "project valuation and review complexity",
+      "demo_fee_usd": 1800
+    },
+    "mechanical": {
+      "basis": "equipment and system scope",
+      "demo_fee_usd": 450
+    },
+    "plumbing": {
+      "basis": "fixture count and scope",
+      "demo_fee_usd": 350
+    },
+    "electrical": {
+      "basis": "scope and permit type",
+      "demo_fee_usd": 400
+    },
+    "fire_alarm_suppression": {
+      "basis": "device count and review scope",
+      "demo_fee_usd": 600
+    },
+    "street_use": {
+      "basis": "right-of-way impact duration and type",
+      "demo_fee_usd": 500
+    }
+  }
+}

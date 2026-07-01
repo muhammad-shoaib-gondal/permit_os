@@ -1,0 +1,134 @@
+{
+  "city": "Manhattan",
+  "state": "KS",
+  "county": "Riley",
+  "code": "Manhattan Development Code (MDC) Chapter 26",
+  "residential_districts": {
+    "RL": {
+      "name": "Low-Density Residential",
+      "housing_types": {
+        "SFR-D": {
+          "min_lot_area_sqft": 6000,
+          "min_lot_width_ft": 50,
+          "max_height_ft": 35,
+          "max_building_coverage_pct": 20,
+          "setbacks_ft": { "front": 25, "rear": 35, "side_interior": 8, "side_street": 15 }
+        },
+        "SFR-A": {
+          "min_lot_area_sqft": 4500,
+          "min_lot_width_ft": 40,
+          "max_height_ft": 35,
+          "max_building_coverage_pct": 15,
+          "setbacks_ft": { "front": 20, "rear": 35, "side_interior": "10/0", "side_street": 10 },
+          "note": "10/0 = exterior side / zero on attached side"
+        },
+        "MFR_2_5_DU": {
+          "min_lot_area_per_du_sqft": 1800,
+          "min_lot_width_ft_per_du": 18,
+          "max_height_ft": 35,
+          "max_building_coverage_pct": 20,
+          "setbacks_ft": { "front": 20, "rear": 35, "side_interior": "6/0", "side_street": 15 }
+        }
+      },
+      "citation": "MDC Table 26-2C-4.1, Sec. 26-2C-4"
+    },
+    "RL-A": {
+      "name": "Low-Density Residential Attached",
+      "housing_types": {
+        "MFR_6_17_DU": {
+          "min_lot_area_per_du_sqft": 680,
+          "min_lot_width_ft": 50,
+          "max_height_ft": 45,
+          "max_building_coverage_pct": 15,
+          "setbacks_ft": { "front": 15, "rear": 45, "side_interior": 5, "side_street": 10 }
+        }
+      },
+      "citation": "MDC Table 26-2C-4.2, Sec. 26-2C-4"
+    },
+    "RM": {
+      "name": "Medium-Density Residential",
+      "housing_types": {
+        "MFR_2_18_DU": {
+          "min_lot_area_per_du_sqft": 750,
+          "min_lot_width_ft_per_du": 18,
+          "max_height_ft": 35,
+          "max_building_coverage_pct": 15,
+          "setbacks_ft": { "front": 15, "rear": 40, "side_interior": "6/0", "side_street": 10 }
+        },
+        "MFR_6_17_DU": {
+          "min_lot_area_per_du_sqft": 1200,
+          "min_lot_width_ft": 50,
+          "max_height_ft": 45,
+          "max_building_coverage_pct": 15,
+          "setbacks_ft": { "front": 15, "rear": 45, "side_interior": 5, "side_street": 10 }
+        },
+        "MFR_large_18_plus": {
+          "min_lot_area_per_du_sqft": 1200,
+          "min_lot_area_total_sqft": 25000,
+          "min_lot_width_ft": 50,
+          "max_height_ft": 60,
+          "max_building_coverage_pct": 15,
+          "setbacks_ft": { "front": 20, "rear": 50, "side_interior": 5, "side_street": 12 }
+        }
+      },
+      "citation": "MDC Table 26-2C-4.3, Sec. 26-2C-4"
+    },
+    "RH": {
+      "name": "High-Density Residential",
+      "housing_types": {
+        "MFR_large_18_plus": {
+          "min_lot_area_per_du_sqft": 680,
+          "min_lot_area_total_sqft": 15000,
+          "min_lot_width_ft": 50,
+          "max_height_ft": 60,
+          "max_building_coverage_pct": 15,
+          "setbacks_ft": { "front": 20, "rear": 50, "side_interior": 5, "side_street": 12 }
+        }
+      },
+      "citation": "MDC Table 26-2C-4.4, Sec. 26-2C-4"
+    },
+    "RC": {
+      "name": "Urban Core Residential",
+      "citation": "MDC Table 26-2C-4.5, Sec. 26-2C-4",
+      "note": "See code_chunks for downtown-specific standards"
+    }
+  },
+  "infill_development": {
+    "citation": "MDC Sec. 26-2C-5, Table 26-2C-5.1",
+    "purpose": "Relaxed lot/density standards for existing lots in RL-A, RM, RH within infill boundary",
+    "applicability_boundary": "Kimball Ave, Tuttle Creek Blvd, Fort Riley Blvd to Westwood Dr, west to College Ave extended, north to Kimball",
+    "density_du_per_acre": {
+      "RL-A": { "1_bdrm": 30, "2_plus_bdrm": 18 },
+      "RM": { "1_bdrm": 40, "2_plus_bdrm": 24 },
+      "RH": { "1_bdrm": 60, "2_bdrm": 45, "3_plus_bdrm": 30 }
+    },
+    "parking_spaces_per_bedroom": {
+      "RM_MFR": 0.75,
+      "RH_MFR": 0.5
+    }
+  },
+  "global_rules": {
+    "garage_setback_ft": 20,
+    "garage_setback_note": "Garages must be 20ft from front or street-side lot line regardless of lower table setback — MDC Sec. 26-2C-4",
+    "cluster_mp_reductions": {
+      "lot_area_and_width_pct": 20,
+      "front_and_side_setback_pct": 25,
+      "max_building_coverage_pct": 50
+    },
+    "setback_definition": "Measured horizontally to building facade, not eaves — MDC Sec. 26-10B-7"
+  },
+  "demo_addresses": {
+    "1101 Poyntz Ave, Manhattan, KS 66502": {
+      "district": "RC",
+      "lat": 39.1787,
+      "lng": -96.5717,
+      "note": "City Hall — downtown urban core"
+    }
+  },
+  "citations": {
+    "residential_bulk": "MDC Sec. 26-2C-4, Tables 26-2C-4.1–4.5",
+    "infill": "MDC Sec. 26-2C-5",
+    "setback_definitions": "MDC Sec. 26-10B-7",
+    "permitted_uses": "MDC Table 26-2C-3.1"
+  }
+}

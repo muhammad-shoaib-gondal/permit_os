@@ -1,0 +1,40 @@
+{
+  "jurisdiction_id": "manhattan-ks",
+  "city": "Manhattan",
+  "state": "KS",
+  "county": "Riley",
+  "code_name": "Manhattan Development Code (MDC)",
+  "code_chapter": "Chapter 26",
+  "ordinance_base": "Ord. No. 7560, 12/07/2021",
+  "version": "2026-03-fetch",
+  "last_updated": "2026-06-19",
+  "official_sources": [
+    {
+      "name": "Manhattan Development Code (enCodePlus)",
+      "url": "https://online.encodeplus.com/regs/manhattan-udo"
+    },
+    {
+      "name": "Planning & Development",
+      "url": "https://manhattanks.gov/203/Planning-Development"
+    },
+    {
+      "name": "Master Fee Schedule",
+      "url": "https://www.manhattanks.gov/2268/Master-Fee-Schedule"
+    },
+    {
+      "name": "Building permit fee calculator",
+      "url": "https://www.cityofmhkdata.com/permitlookup/calculator.php"
+    },
+    {
+      "name": "MDC project page",
+      "url": "https://engagemhk.org/manhattan-development-code"
+    }
+  ],
+  "building_code": "City of Manhattan adopts IBC/IRC via Chapter 8, Buildings and Building Regulations",
+  "planning_phone": "785-587-2424",
+  "building_official_phone": "785-587-4506",
+  "coverage_status": "bulk_ingest",
+  "coverage_detail": "266 MDC sections in code_chunks/chunks.json (Ch 26 Arts 1-10). Re-run scripts/ingest_manhattan_code.py after raw_chapters update.",
+  "chunk_count": 266,
+  "notes": "Structured fields from MDC Articles 26-2, 26-7 (fences), 26-8, 26-9 and city fee schedule. Expand code_chunks/ via crawl or pilot-driven ingestion."
+}

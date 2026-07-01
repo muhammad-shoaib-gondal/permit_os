@@ -1,0 +1,65 @@
+{
+  "article": "26-7",
+  "title": "Site Development",
+  "citation_base": "MDC Article 26-7",
+  "source_url": "https://online.encodeplus.com/regs/manhattan-udo",
+  "fences": {
+    "section": "26-7A-7",
+    "front_and_street_side": {
+      "max_height_ft": 3,
+      "max_height_note": "Within front yard and area between street and front facade; corner lots also 3ft within 2ft of street-side lot line and 10ft past front setback line",
+      "height_measurement": "From top of adjacent sidewalk if present, else ground level",
+      "may_encroach_to_lot_line": true,
+      "must_not_encroach_right_of_way": true,
+      "citation": "MDC Sec. 26-7A-7 B.1.a"
+    },
+    "interior_side_and_rear": {
+      "may_encroach_to_lot_line": true,
+      "max_height_ft": null,
+      "max_height_note": "MDC does not set explicit rear/side max height in 26-7A-7; screening buffers may require 6ft opaque fence per 26-7C. City FAQ: fences generally along rear/side; front setback 25ft from front property line per staff guidance.",
+      "citation": "MDC Sec. 26-7A-7 B.1.b"
+    },
+    "prohibited_materials": [
+      "scrap lumber", "plywood", "sheet metal", "plastic", "fiberglass sheets",
+      "barbed wire", "spikes", "nails", "sharp points on top or sides",
+      "welded wire", "agricultural fencing", "chicken wire"
+    ],
+    "city_faq_front_setback_ft": 25,
+    "city_faq_source": "https://www.manhattanks.gov/FAQ.aspx?QID=391"
+  },
+  "accessory_structures": {
+    "section": "26-7A-7 A",
+    "max_footprint": "Not larger than principal building",
+    "height": "Must comply with zoning district height limit",
+    "setbacks_ft": {
+      "front": "No closer than principal building facade or 60ft, whichever is less",
+      "interior_side": 3,
+      "rear": 5,
+      "rear_garage_alley": 10,
+      "street_side_detached_garage_residential": 20
+    },
+    "citation": "MDC Sec. 26-7A-7 A"
+  },
+  "clear_vision_triangle": {
+    "section": "26-7A-5",
+    "note": "Fences must not obstruct corner visibility at street intersections",
+    "citation": "MDC Sec. 26-7A-5"
+  },
+  "parking": {
+    "section": "26-7B",
+    "note": "Off-street parking standards by use and district — see code_chunks for details",
+    "citation": "MDC Division 26-7B"
+  },
+  "landscaping_and_buffering": {
+    "section": "26-7C",
+    "screen_types": {
+      "D": "Open-pattern fence or wall, 3-6 ft, 40%+ opacity",
+      "E": "Opaque fence or wall, 4-8 ft, complete visual separation"
+    },
+    "citation": "MDC Sec. 26-7C-4"
+  },
+  "solid_waste_enclosure": {
+    "wall_height_ft": { "min": 6, "max": 7 },
+    "citation": "MDC Sec. 26-7A-7 D"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "state": "Kansas",
+  "building_code": {
+    "base": "International Building Code (IBC) and International Residential Code (IRC)",
+    "adoption": "Adopted by City of Manhattan Code of Ordinances Chapter 8",
+    "local_amendments": "See Manhattan Chapter 8 for amendments",
+    "note": "City-specific MDC (Chapter 26) governs zoning and site development; Chapter 8 governs construction standards"
+  },
+  "environmental": {
+    "flood": "NFIP / FEMA maps — national API at runtime",
+    "state_agency": "Kansas Department of Health and Environment (KDHE) for some env reviews"
+  },
+  "source_note": "State-level pack is minimal; city packs hold jurisdiction-specific rules"
+}

@@ -1,5 +1,6 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import tailwindcss from "@tailwindcss/vite";
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 
@@ -24,7 +25,7 @@ function redirectAppTrailingSlash(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [react(), redirectAppTrailingSlash()],
+  plugins: [react(), tailwindcss(), redirectAppTrailingSlash()],
   server: {
     port: 5173,
     proxy: {
@@ -34,6 +35,13 @@ export default defineConfig({
         timeout: 600_000,
         proxyTimeout: 600_000,
       },
+      "/projects": {
+        target: "http://127.0.0.1:8000",
+        changeOrigin: true,
+        timeout: 600_000,
+        proxyTimeout: 600_000,
+      },
+      "/jurisdictions": "http://127.0.0.1:8000",
       "/health": "http://127.0.0.1:8000",
       "/disclaimer": "http://127.0.0.1:8000",
       "/audit": {

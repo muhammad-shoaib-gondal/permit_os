@@ -1,0 +1,75 @@
+{
+  "jurisdiction": "Seattle, WA",
+  "focus_project_type": "commercial_tenant_improvement",
+  "permit_types": [
+    {
+      "id": "building_construction",
+      "agency": "Seattle Department of Construction and Inspections",
+      "permit_name": "Construction Permit - Addition or Alteration",
+      "timeline_days": 21,
+      "citation": "SDCI Construction Permit - Addition or Alteration",
+      "applies_when": [
+        "commercial_tenant_improvement",
+        "interior_alteration",
+        "change_of_use"
+      ]
+    },
+    {
+      "id": "mechanical",
+      "agency": "Seattle Department of Construction and Inspections",
+      "permit_name": "Mechanical Permit",
+      "timeline_days": 10,
+      "citation": "SDCI Mechanical Permit",
+      "applies_when": [
+        "hvac_work",
+        "kitchen_hood_work",
+        "commercial_tenant_improvement"
+      ]
+    },
+    {
+      "id": "plumbing",
+      "agency": "Seattle Department of Construction and Inspections",
+      "permit_name": "Plumbing Permit",
+      "timeline_days": 10,
+      "citation": "Seattle business remodel permit guidance",
+      "applies_when": [
+        "plumbing_work",
+        "fixture_relocation"
+      ]
+    },
+    {
+      "id": "electrical",
+      "agency": "Seattle Department of Construction and Inspections",
+      "permit_name": "Electrical Permit",
+      "timeline_days": 7,
+      "citation": "SDCI Electrical Permit",
+      "applies_when": [
+        "electrical_work",
+        "low_voltage_work"
+      ]
+    },
+    {
+      "id": "fire_alarm_suppression",
+      "agency": "SDCI + Seattle Fire Department review",
+      "permit_name": "Fire Alarm / Fire Sprinkler / Hood Suppression Permit",
+      "timeline_days": 14,
+      "citation": "Seattle Fire permit guidance and SDCI Fire Alarm Permit",
+      "applies_when": [
+        "fire_alarm_work",
+        "sprinkler_work",
+        "kitchen_hood_work"
+      ]
+    },
+    {
+      "id": "street_use",
+      "agency": "Seattle Department of Transportation",
+      "permit_name": "Street Use / Right-of-Way Permit",
+      "timeline_days": 14,
+      "citation": "Seattle street use permit guidance",
+      "applies_when": [
+        "right_of_way_impacts",
+        "construction_staging"
+      ]
+    }
+  ]
+}

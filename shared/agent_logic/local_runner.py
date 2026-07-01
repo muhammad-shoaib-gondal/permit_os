@@ -363,61 +363,103 @@ async def _emit_progress(
 async def run_local_case(
     brief: ProjectBrief,
     on_progress=None,
+    custom_rules: list[dict[str, Any]] | None = None,
+    selected_modules: list[str] | None = None,
+    module_requirements: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     logger.info("Running local in-process agents (tools + optional LLM) for %s", brief.case_id)
+    selected = set(selected_modules or ["zoning", "building", "fire", "site"])
+    completed: list[str] = []
+    module_requirements = module_requirements or {}
 
-    await _emit_progress(on_progress, brief, phase="waiting_jurisdiction", completed=[])
-    jurisdiction = await _run_role(AgentRole.JURISDICTION, brief)
-    await _emit_progress(
-        on_progress,
-        brief,
-        phase="completed_jurisdiction",
-        completed=["jurisdiction"],
-        jurisdiction_report=jurisdiction.model_dump(mode="json"),
-    )
+    jurisdiction = None
+    building = None
+    site = None
+    if "zoning" in selected:
+        await _emit_progress(on_progress, brief, phase="waiting_jurisdiction", completed=completed)
+        jurisdiction = await _run_role(AgentRole.JURISDICTION, brief)
+        completed.append("jurisdiction")
+        await _emit_progress(
+            on_progress,
+            brief,
+            phase="completed_jurisdiction",
+            completed=completed,
+            jurisdiction_report=jurisdiction.model_dump(mode="json"),
+            module_requirements=module_requirements,
+            selected_modules=list(selected),
+        )
 
-    building = await _run_role(AgentRole.BUILDING, brief)
-    await _emit_progress(
-        on_progress,
-        brief,
-        phase="completed_building",
-        completed=["jurisdiction", "building"],
-        jurisdiction_report=jurisdiction.model_dump(mode="json"),
-        building_report=building.model_dump(mode="json"),
-    )
+    if "building" in selected or "fire" in selected:
+        building = await _run_role(AgentRole.BUILDING, brief)
+        completed.append("building")
+        await _emit_progress(
+            on_progress,
+            brief,
+            phase="completed_building",
+            completed=completed,
+            jurisdiction_report=jurisdiction.model_dump(mode="json") if jurisdiction else None,
+            building_report=building.model_dump(mode="json"),
+            module_requirements=module_requirements,
+            selected_modules=list(selected),
+        )
 
-    site = await _run_role(AgentRole.SITE, brief)
-    await _emit_progress(
-        on_progress,
-        brief,
-        phase="completed_site",
-        completed=["jurisdiction", "building", "site"],
-        jurisdiction_report=jurisdiction.model_dump(mode="json"),
-        building_report=building.model_dump(mode="json"),
-        site_report=site.model_dump(mode="json"),
-    )
+    if "site" in selected:
+        site = await _run_role(AgentRole.SITE, brief)
+        completed.append("site")
+        await _emit_progress(
+            on_progress,
+            brief,
+            phase="completed_site",
+            completed=completed,
+            jurisdiction_report=jurisdiction.model_dump(mode="json") if jurisdiction else None,
+            building_report=building.model_dump(mode="json") if building else None,
+            site_report=site.model_dump(mode="json"),
+            module_requirements=module_requirements,
+            selected_modules=list(selected),
+        )
 
     room_id = f"local-{brief.case_id}"
-    summary = merge_reports(brief, jurisdiction, building, site, room_id)
-    await _emit_progress(
-        on_progress,
-        brief,
-        phase="waiting_packager",
-        completed=["jurisdiction", "building", "site"],
-        jurisdiction_report=jurisdiction.model_dump(mode="json"),
-        building_report=building.model_dump(mode="json"),
-        site_report=site.model_dump(mode="json"),
-        case_summary=summary.model_dump(mode="json"),
-    )
-    package = await _run_role(
-        AgentRole.PACKAGER,
-        brief,
-        jurisdiction=jurisdiction,
-        building=building,
-        site=site,
-    )
-    if package.permits_required:
-        package.audit_hash = compute_audit_hash(package)
+    if jurisdiction and building and site:
+        summary = merge_reports(brief, jurisdiction, building, site, room_id)
+        await _emit_progress(
+            on_progress,
+            brief,
+            phase="waiting_packager",
+            completed=completed,
+            jurisdiction_report=jurisdiction.model_dump(mode="json"),
+            building_report=building.model_dump(mode="json"),
+            site_report=site.model_dump(mode="json"),
+            case_summary=summary.model_dump(mode="json"),
+            module_requirements=module_requirements,
+            selected_modules=list(selected),
+        )
+        package = await _run_role(
+            AgentRole.PACKAGER,
+            brief,
+            jurisdiction=jurisdiction,
+            building=building,
+            site=site,
+        )
+        if package.permits_required:
+            package.audit_hash = compute_audit_hash(package)
+    else:
+        from shared.schemas.case import PermitCaseSummary, CaseStatus, ReadinessScore
+        from shared.schemas.package import PermitPackage
+
+        summary = PermitCaseSummary(
+            case_id=brief.case_id,
+            project_name=brief.project_name,
+            status=CaseStatus.AWAITING_APPROVAL,
+            readiness_score=ReadinessScore.NEEDS_CHANGES,
+            executive_summary="Partial analysis completed. Run additional modules for a full project-wide review.",
+        )
+        package = PermitPackage(case_id=brief.case_id)
+
+    custom_checks: list[CheckResult] = []
+    if custom_rules:
+        from shared.agent_logic.custom_rules import evaluate_custom_rules
+
+        custom_checks = await evaluate_custom_rules(brief, custom_rules)
 
     def evt(agent: str, event_type: str, detail: str):
         return {
@@ -428,22 +470,74 @@ async def run_local_case(
             "payload": {},
         }
 
+    activity = [evt("conductor", "local_dispatch", "In-process agents (Band unavailable)")]
+    if jurisdiction:
+        activity.append(evt("jurisdiction", "complete", jurisdiction.summary))
+    if building:
+        activity.append(evt("building", "complete", building.summary))
+    if site:
+        activity.append(evt("site", "complete", site.summary))
+    if package.permits_required:
+        activity.append(evt("packager", "complete", f"{len(package.permits_required)} permits"))
+
+    rule_groups = [
+        {
+            "key": "zoning",
+            "label": "Zoning",
+            "checks": [c.model_dump(mode="json") for c in ((jurisdiction.checks if jurisdiction else []))],
+        },
+        {
+            "key": "building",
+            "label": "Building",
+            "checks": [
+                c.model_dump(mode="json")
+                for c in (
+                    [c for c in (building.checks if building else []) if c.category != "fire"]
+                )
+            ],
+        },
+        {
+            "key": "fire",
+            "label": "Fire / Life Safety",
+            "checks": [
+                c.model_dump(mode="json")
+                for c in (
+                    [c for c in (building.checks if building else []) if c.category == "fire"]
+                )
+            ],
+        },
+        {
+            "key": "site",
+            "label": "Site / Utilities",
+            "checks": [
+                c.model_dump(mode="json")
+                for c in ((site.environmental_checks + site.utility_checks) if site else [])
+            ],
+        },
+        {
+            "key": "custom",
+            "label": "Custom Rules",
+            "checks": [c.model_dump(mode="json") for c in custom_checks],
+        },
+    ]
+
     return {
         "brief": brief.model_dump(mode="json"),
-        "jurisdiction_report": jurisdiction.model_dump(mode="json"),
-        "building_report": building.model_dump(mode="json"),
-        "site_report": site.model_dump(mode="json"),
+        "jurisdiction_report": jurisdiction.model_dump(mode="json") if jurisdiction else None,
+        "building_report": building.model_dump(mode="json") if building else None,
+        "site_report": site.model_dump(mode="json") if site else None,
+        "custom_rules_report": {
+            "summary": f"{len(custom_checks)} custom rule(s) evaluated",
+            "checks": [c.model_dump(mode="json") for c in custom_checks],
+        },
         "case_summary": summary.model_dump(mode="json"),
         "permit_package": package.model_dump(mode="json"),
-        "activity": [
-            evt("conductor", "local_dispatch", "In-process agents (Band unavailable)"),
-            evt("jurisdiction", "complete", jurisdiction.summary),
-            evt("building", "complete", building.summary),
-            evt("site", "complete", site.summary),
-            evt("packager", "complete", f"{len(package.permits_required)} permits"),
-        ],
+        "activity": activity,
         "band_room_id": room_id,
         "agent_driven": True,
         "band_orchestrated": False,
         "local_fallback": True,
+        "selected_modules": list(selected),
+        "module_requirements": module_requirements,
+        "rule_groups": rule_groups,
     }

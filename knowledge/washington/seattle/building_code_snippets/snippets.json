@@ -1,0 +1,17 @@
+[
+  {
+    "id": "egress",
+    "citation": "Seattle commercial TI screening standards - Means of Egress / Existing plan",
+    "summary": "Commercial TI submittals should document means of egress."
+  },
+  {
+    "id": "sprinkler_multifamily",
+    "citation": "Seattle Fire / SDCI permit guidance",
+    "summary": "Sprinkler changes are reviewed under separate fire protection permit workflows."
+  },
+  {
+    "id": "accessible_units",
+    "citation": "Commercial TI code analysis and accessibility conformance requirements",
+    "summary": "Accessibility conformance must be included in the code analysis."
+  }
+]

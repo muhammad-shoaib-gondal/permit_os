@@ -1,0 +1,15 @@
+{
+  "flood_zones": {},
+  "triggers": [
+    {
+      "id": "stormwater",
+      "label": "Stormwater / drainage review",
+      "citation": "SDCI TI checklist other considerations"
+    },
+    {
+      "id": "right_of_way",
+      "label": "Street use review",
+      "citation": "Seattle street use permit guidance"
+    }
+  ]
+}

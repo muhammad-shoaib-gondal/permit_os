@@ -13,6 +13,7 @@ from api.services.intake import parse_intake_upload
 from shared.agent_logic.errors import AgentPipelineError, AgentQuotaError
 from shared.band_client.orchestrator import BandOrchestrationError
 from shared.schemas.project_brief import ProjectBrief, ProjectType
+from shared.tools.knowledge import JURISDICTION_PATHS
 
 logger = logging.getLogger(__name__)
 
@@ -95,9 +96,13 @@ async def analyze_intake(
     jurisdiction: str = Form("austin_tx"),
 ):
     """Upload project brief (.json) or package (.zip) and start Band analysis."""
-    if jurisdiction != "austin_tx":
-        raise HTTPException(status_code=400, detail="Only Austin, TX is supported in this MVP.")
+    if jurisdiction not in JURISDICTION_PATHS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported jurisdiction: {jurisdiction}. Available: {', '.join(JURISDICTION_PATHS)}",
+        )
     brief, _ = await parse_intake_upload(file, project_type)
+    brief.jurisdiction = jurisdiction
     return await start_case_async(brief)
 
 

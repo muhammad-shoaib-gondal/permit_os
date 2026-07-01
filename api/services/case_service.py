@@ -21,8 +21,11 @@ SessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 
 
 async def init_db() -> None:
+    from api.services.db_migrate import run_sqlite_migrations
+
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(run_sqlite_migrations)
 
 
 async def create_case(brief: ProjectBrief, demo: bool = False) -> dict[str, Any]:
@@ -32,7 +35,13 @@ async def create_case(brief: ProjectBrief, demo: bool = False) -> dict[str, Any]
     return results
 
 
-async def start_case_async(brief: ProjectBrief) -> dict[str, Any]:
+async def start_case_async(
+    brief: ProjectBrief,
+    project_id: str | None = None,
+    custom_rules: list[dict[str, Any]] | None = None,
+    selected_modules: list[str] | None = None,
+    module_requirements: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """Create case row and run Band pipeline in background (avoids HTTP timeout)."""
     import asyncio
 
@@ -41,6 +50,7 @@ async def start_case_async(brief: ProjectBrief) -> dict[str, Any]:
         session.add(
             PermitCase(
                 case_id=case_id,
+                project_id=project_id,
                 project_name=brief.project_name,
                 status="ANALYZING",
                 brief=brief.model_dump(mode="json"),
@@ -50,12 +60,29 @@ async def start_case_async(brief: ProjectBrief) -> dict[str, Any]:
         )
         await session.commit()
 
-    asyncio.create_task(_run_case_background(brief))
+    asyncio.create_task(
+        _run_case_background(
+            brief,
+            custom_rules=custom_rules,
+            selected_modules=selected_modules,
+            module_requirements=module_requirements,
+        )
+    )
     return {
         "case_id": case_id,
         "status": "ANALYZING",
         "message": "Band agents are analyzing. Poll GET /cases/{case_id} for results.",
+        "selected_modules": selected_modules or [],
+        "module_requirements": module_requirements or {},
     }
+
+
+async def _run_case_background_with_rules(
+    brief: ProjectBrief,
+    project_id: str,
+    custom_rules: list[dict[str, Any]] | None = None,
+) -> None:
+    await _run_case_background(brief, custom_rules=custom_rules)
 
 
 async def _update_case_progress(case_id: str, partial: dict[str, Any]) -> None:
@@ -75,7 +102,12 @@ async def _update_case_progress(case_id: str, partial: dict[str, Any]) -> None:
         await session.commit()
 
 
-async def _run_case_background(brief: ProjectBrief) -> None:
+async def _run_case_background(
+    brief: ProjectBrief,
+    custom_rules: list[dict[str, Any]] | None = None,
+    selected_modules: list[str] | None = None,
+    module_requirements: dict[str, Any] | None = None,
+) -> None:
     case_id = str(brief.case_id)
     existing_room: str | None = None
     try:
@@ -87,7 +119,12 @@ async def _run_case_background(brief: ProjectBrief) -> None:
             await _update_case_progress(case_id, partial)
 
         results = await run_workflow_with_activity_async(
-            brief, band_room_id=existing_room, on_progress=on_progress
+            brief,
+            band_room_id=existing_room,
+            on_progress=on_progress,
+            custom_rules=custom_rules,
+            selected_modules=selected_modules,
+            module_requirements=module_requirements,
         )
         await _save_case_results(brief, results)
     except Exception as exc:
@@ -180,7 +217,7 @@ async def simulate_rfi(case_id: str, rfi_text: str) -> dict[str, Any] | None:
         "fire apparatus access route along the east property line with 20'-0\" clear width "
         "per Austin Fire Code 503.1.1. A supplemental access diagram is attached showing "
         "turning radii and hydrant locations.\n\n"
-        "Submitted for review,\nPermitOS Packager Agent"
+        "Submitted for review,\nEstatePermit Packager Agent"
     )
 
     async with SessionLocal() as session:
