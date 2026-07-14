@@ -18,6 +18,9 @@ function redirectAppTrailingSlash(): Plugin {
           res.end();
           return;
         }
+        if (pathname.startsWith("/app/") && !pathname.includes(".")) {
+          req.url = "/app/index.html";
+        }
         next();
       });
     },

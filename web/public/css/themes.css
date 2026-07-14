@@ -1,0 +1,57 @@
+/* EstatePermit color themes — set data-theme on <html> or use ?theme=slate in the URL */
+
+/* Default: warm terracotta (defined in styles.css :root) */
+
+/* Slate — cool navy + blue accent. Professional, construction-tech feel. */
+html[data-theme="slate"] {
+  --bg: #f3f5f7;
+  --bg-elevated: #ffffff;
+  --bg-dark: #0c1929;
+  --bg-dark-soft: #152a40;
+  --text: #152232;
+  --text-muted: #5a6d80;
+  --text-on-dark: #e8eef4;
+  --text-on-dark-muted: #94a8bc;
+  --accent: #1d6fd4;
+  --accent-hover: #1558ad;
+  --accent-soft: rgba(29, 111, 212, 0.1);
+  --border: #dde3ea;
+  --success: #15803d;
+  --warn: #b45309;
+}
+
+/* Forest — deep green accent. Trust, stability, land-use vibe. */
+html[data-theme="forest"] {
+  --bg: #f5f6f3;
+  --bg-elevated: #ffffff;
+  --bg-dark: #0f1f1a;
+  --bg-dark-soft: #1a3028;
+  --text: #1a2820;
+  --text-muted: #5c6e64;
+  --text-on-dark: #e6efe9;
+  --text-on-dark-muted: #9bb5a8;
+  --accent: #2d6a4f;
+  --accent-hover: #1f4d39;
+  --accent-soft: rgba(45, 106, 79, 0.11);
+  --border: #dce4de;
+  --success: #1a7f5a;
+  --warn: #b8860b;
+}
+
+/* Ink — near-monochrome + copper accent. Minimal, editorial. */
+html[data-theme="ink"] {
+  --bg: #f8f7f5;
+  --bg-elevated: #ffffff;
+  --bg-dark: #141414;
+  --bg-dark-soft: #242424;
+  --text: #1a1a1a;
+  --text-muted: #6b6b6b;
+  --text-on-dark: #ececec;
+  --text-on-dark-muted: #a3a3a3;
+  --accent: #b87333;
+  --accent-hover: #9a5f28;
+  --accent-soft: rgba(184, 115, 51, 0.1);
+  --border: #e5e2dd;
+  --success: #2d6a4f;
+  --warn: #a16207;
+}

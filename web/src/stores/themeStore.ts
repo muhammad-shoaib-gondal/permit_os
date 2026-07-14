@@ -2,7 +2,7 @@ import { create } from "zustand";
 
 export type Theme = "dark" | "light";
 
-const STORAGE_KEY = "permitos-theme";
+const STORAGE_KEY = "estatepermit-theme";
 
 function getInitialTheme(): Theme {
   if (typeof window === "undefined") return "dark";
