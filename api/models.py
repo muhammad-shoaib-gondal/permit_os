@@ -21,6 +21,10 @@ class Project(Base):
     project_type: Mapped[str] = mapped_column(String(50), default="multifamily_residential")
     jurisdiction: Mapped[str] = mapped_column(String(50), default="austin_tx")
     area: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    zoning_status: Mapped[str] = mapped_column(String(50), default="pending")
+    zoning_profile: Mapped[dict] = mapped_column(JSON, default=dict)
+    zoning_warnings: Mapped[list] = mapped_column(JSON, default=list)
+    scope: Mapped[dict] = mapped_column(JSON, default=dict)
     custom_rules: Mapped[list] = mapped_column(JSON, default=list)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
@@ -31,6 +35,7 @@ class Project(Base):
 
     files: Mapped[list["ProjectFile"]] = relationship(back_populates="project", cascade="all, delete-orphan")
     cases: Mapped[list["PermitCase"]] = relationship(back_populates="project")
+    permits: Mapped[list["ProjectPermit"]] = relationship(back_populates="project", cascade="all, delete-orphan")
 
 
 class ProjectFile(Base):
@@ -50,6 +55,47 @@ class ProjectFile(Base):
     )
 
     project: Mapped["Project"] = relationship(back_populates="files")
+
+
+class ProjectPermit(Base):
+    __tablename__ = "project_permits"
+
+    permit_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    project_id: Mapped[str] = mapped_column(String(36), ForeignKey("projects.project_id"), index=True)
+    permit_type: Mapped[str] = mapped_column(String(100), index=True)
+    permit_name: Mapped[str] = mapped_column(String(255))
+    issuing_authority: Mapped[str] = mapped_column(String(255), default="")
+    jurisdiction: Mapped[str] = mapped_column(String(50), default="")
+    requirement_status: Mapped[str] = mapped_column(String(50), default="suggested")
+    lifecycle_status: Mapped[str] = mapped_column(String(80), default="not_started")
+    origin: Mapped[str] = mapped_column(String(50), default="system")
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    recommendation_evidence: Mapped[dict] = mapped_column(JSON, default=dict)
+    source: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    portal_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    coverage_status: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    parent_permit_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    dependencies: Mapped[list] = mapped_column(JSON, default=list)
+    required_documents: Mapped[list] = mapped_column(JSON, default=list)
+    assigned_employee: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    assigned_contractor: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    estimated_fee_usd: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    actual_fee_usd: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    application_number: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    issued_number: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    application_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    issuance_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    expiration_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    current_blocker: Mapped[str | None] = mapped_column(Text, nullable=True)
+    next_action: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+
+    project: Mapped["Project"] = relationship(back_populates="permits")
 
 
 class PermitCase(Base):

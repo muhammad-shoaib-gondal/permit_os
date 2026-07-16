@@ -12,13 +12,41 @@ from fastapi import HTTPException, UploadFile
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from api.models import PermitCase, Project, ProjectFile
+from api.models import PermitCase, Project, ProjectFile, ProjectPermit
 from api.services.case_service import SessionLocal, start_case_async
 from api.services.intake import parse_intake_upload
+from api.services.kcmo_zoning_rules import build_kcmo_rules
+from api.services.manhattan_zoning_rules import build_manhattan_rules
+from api.services.zoning_service import (
+    JURISDICTION_ZONING,
+    has_zoning_rule_coverage,
+    public_zoning_source_url,
+    resolve_zoning,
+)
 from shared.schemas.project_brief import ProjectBrief, ProjectType
 from shared.tools.knowledge import JURISDICTION_PATHS, jurisdiction_context, load_json
 
 PROJECT_UPLOAD_ROOT = Path(__file__).resolve().parents[2] / "uploads" / "projects"
+
+USER_MANAGED_REQUIREMENT_STATUSES = {"removed_by_user", "manual"}
+DEFAULT_SCOPE = {
+    "new_construction": False,
+    "addition": False,
+    "alteration": False,
+    "repair": False,
+    "demolition": False,
+    "structural_work": False,
+    "electrical_work": False,
+    "plumbing_work": False,
+    "mechanical_hvac_work": False,
+    "fire_alarm_sprinkler_work": False,
+    "signs": False,
+    "change_use_occupancy": False,
+    "grading_land_disturbance": False,
+    "driveway_sidewalk_row": False,
+    "solar_battery_generator_ev": False,
+    "water_sewer_connections": False,
+}
 
 FILE_TYPE_MAP = {
     ".json": "brief_json",
@@ -79,7 +107,26 @@ BUILTIN_RULE_GROUPS = {
     "permits": [],
 }
 
-MANHATTAN_DISTRICT_TOKENS = {"RL", "RL-A", "RM", "RH", "RC"}
+MANHATTAN_DISTRICT_TOKENS = {
+    "BC", "BP", "CA", "CC", "CD", "CN", "ICS", "IG", "IL", "LR",
+    "MX", "PI-1", "PI-2", "PUD", "RC", "RH", "RL", "RL-A", "RM", "UC",
+}
+LEGACY_RULE_PLACEHOLDERS = (
+    "enter the value",
+    "enter the spaces",
+    "enter the exact threshold",
+    "cannot be selected until area",
+    "numeric side-setback minimum for district",
+    "numeric height limit for district",
+)
+
+
+def _usable_custom_rules(rules: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
+    return [
+        rule
+        for rule in (rules or [])
+        if not any(phrase in str(rule.get("condition", "")).casefold() for phrase in LEGACY_RULE_PLACEHOLDERS)
+    ]
 
 
 def _project_dir(project_id: str) -> Path:
@@ -100,6 +147,14 @@ def _serialize_project(project: Project, cases: list[PermitCase] | None = None) 
         last_status = latest.status
         readiness = (latest.results.get("case_summary") or {}).get("readiness_score")
 
+    zoning_profile = dict(project.zoning_profile or {})
+    public_source_url = public_zoning_source_url(project.jurisdiction, project.address)
+    if public_source_url:
+        zoning_profile["sourceUrl"] = public_source_url
+    zoning_warnings = list(project.zoning_warnings or [])
+    if has_zoning_rule_coverage(project.jurisdiction, project.area):
+        zoning_warnings = [warning for warning in zoning_warnings if warning.get("code") != "numeric_rules_missing"]
+
     return {
         "id": project.project_id,
         "name": project.name,
@@ -107,6 +162,10 @@ def _serialize_project(project: Project, cases: list[PermitCase] | None = None) 
         "projectType": project.project_type,
         "jurisdiction": project.jurisdiction,
         "area": project.area,
+        "zoningStatus": project.zoning_status or "pending",
+        "zoningProfile": zoning_profile,
+        "zoningWarnings": zoning_warnings,
+        "scope": _normalized_scope(project.scope),
         "files": [
             {
                 "id": f.file_id,
@@ -120,7 +179,11 @@ def _serialize_project(project: Project, cases: list[PermitCase] | None = None) 
             }
             for f in (project.files or [])
         ],
-        "customRules": project.custom_rules or [],
+        "permits": [_serialize_project_permit(p) for p in sorted(
+            project.permits or [],
+            key=lambda p: (p.requirement_status == "not_required", p.permit_name),
+        )],
+        "customRules": _usable_custom_rules(project.custom_rules),
         "moduleRequirements": _module_requirements_payload(list(project.files or [])),
         "analyses": [
             {
@@ -145,9 +208,12 @@ def _serialize_project(project: Project, cases: list[PermitCase] | None = None) 
 async def list_projects() -> list[dict[str, Any]]:
     async with SessionLocal() as session:
         result = await session.execute(
-            select(Project).options(selectinload(Project.files), selectinload(Project.cases))
+            select(Project).options(selectinload(Project.files), selectinload(Project.cases), selectinload(Project.permits))
         )
         projects = result.scalars().all()
+        for project in projects:
+            _sync_project_permit_recommendations(project)
+        await session.commit()
         return [_serialize_project(p) for p in projects]
 
 
@@ -156,20 +222,25 @@ async def get_project(project_id: str) -> dict[str, Any] | None:
         result = await session.execute(
             select(Project)
             .where(Project.project_id == project_id)
-            .options(selectinload(Project.files), selectinload(Project.cases))
+            .options(selectinload(Project.files), selectinload(Project.cases), selectinload(Project.permits))
         )
         project = result.scalar_one_or_none()
         if not project:
             return None
+        if not project.zoning_profile:
+            await _resolve_project_zoning(project)
+        _sync_project_permit_recommendations(project)
+        await session.commit()
         return _serialize_project(project)
 
 
 async def create_project(data: dict[str, Any]) -> dict[str, Any]:
     project_id = str(uuid4())
     now = datetime.now(timezone.utc)
-    jurisdiction = data.get("jurisdiction", "austin_tx")
-    if jurisdiction not in JURISDICTION_PATHS:
+    jurisdiction = data.get("jurisdiction", "kansas_city_mo")
+    if jurisdiction not in JURISDICTION_ZONING:
         raise HTTPException(status_code=400, detail=f"Unsupported jurisdiction: {jurisdiction}")
+    resolution = await resolve_zoning(data["address"], jurisdiction)
 
     async with SessionLocal() as session:
         project = Project(
@@ -178,14 +249,22 @@ async def create_project(data: dict[str, Any]) -> dict[str, Any]:
             address=data["address"],
             project_type=data.get("projectType", "multifamily_residential"),
             jurisdiction=jurisdiction,
-            area=data.get("area"),
+            area=(resolution.get("profile") or {}).get("district"),
+            zoning_status=resolution["status"],
+            zoning_profile=resolution.get("profile") or {},
+            zoning_warnings=resolution.get("warnings") or [],
+            scope=_normalized_scope(data.get("scope")),
             custom_rules=data.get("customRules", []),
+            permits=[],
             created_at=now,
             updated_at=now,
         )
         session.add(project)
+        await session.flush()
+        _sync_project_permit_recommendations(project)
         await session.commit()
         await session.refresh(project, ["files", "cases"])
+        await session.refresh(project, ["permits"])
         return _serialize_project(project)
 
 
@@ -194,7 +273,7 @@ async def update_project(project_id: str, data: dict[str, Any]) -> dict[str, Any
         result = await session.execute(
             select(Project)
             .where(Project.project_id == project_id)
-            .options(selectinload(Project.files), selectinload(Project.cases))
+            .options(selectinload(Project.files), selectinload(Project.cases), selectinload(Project.permits))
         )
         project = result.scalar_one_or_none()
         if not project:
@@ -207,16 +286,47 @@ async def update_project(project_id: str, data: dict[str, Any]) -> dict[str, Any
         if "projectType" in data:
             project.project_type = data["projectType"]
         if "jurisdiction" in data:
-            if data["jurisdiction"] not in JURISDICTION_PATHS:
+            if data["jurisdiction"] not in JURISDICTION_ZONING:
                 raise HTTPException(status_code=400, detail=f"Unsupported jurisdiction: {data['jurisdiction']}")
             project.jurisdiction = data["jurisdiction"]
-        if "area" in data:
-            project.area = data["area"]
+        address_context_changed = "address" in data or "jurisdiction" in data
+        if address_context_changed:
+            await _resolve_project_zoning(project)
+        if "scope" in data:
+            project.scope = _normalized_scope(data["scope"])
         if "customRules" in data:
             project.custom_rules = data["customRules"]
         project.updated_at = datetime.now(timezone.utc)
+        _sync_project_permit_recommendations(project)
         await session.commit()
+        await session.refresh(project, ["files", "cases", "permits"])
         return _serialize_project(project)
+
+
+async def refresh_project_zoning(project_id: str) -> dict[str, Any] | None:
+    async with SessionLocal() as session:
+        result = await session.execute(
+            select(Project)
+            .where(Project.project_id == project_id)
+            .options(selectinload(Project.files), selectinload(Project.cases), selectinload(Project.permits))
+        )
+        project = result.scalar_one_or_none()
+        if not project:
+            return None
+        await _resolve_project_zoning(project)
+        _sync_project_permit_recommendations(project)
+        project.updated_at = datetime.now(timezone.utc)
+        await session.commit()
+        await session.refresh(project, ["files", "cases", "permits"])
+        return _serialize_project(project)
+
+
+async def _resolve_project_zoning(project: Project) -> None:
+    resolution = await resolve_zoning(project.address, project.jurisdiction)
+    project.zoning_status = resolution["status"]
+    project.zoning_profile = resolution.get("profile") or {}
+    project.zoning_warnings = resolution.get("warnings") or []
+    project.area = project.zoning_profile.get("district")
 
 
 async def delete_project(project_id: str) -> bool:
@@ -320,7 +430,7 @@ async def get_project_rules(project_id: str) -> list[dict[str, Any]] | None:
         project = result.scalar_one_or_none()
         if not project:
             return None
-        return project.custom_rules or []
+        return _usable_custom_rules(project.custom_rules)
 
 
 async def get_project_context(project_id: str) -> dict[str, Any] | None:
@@ -352,6 +462,99 @@ async def save_project_rules(project_id: str, rules: list[dict[str, Any]]) -> li
         return rules
 
 
+async def list_project_permits(project_id: str) -> list[dict[str, Any]] | None:
+    async with SessionLocal() as session:
+        result = await session.execute(
+            select(Project)
+            .where(Project.project_id == project_id)
+            .options(selectinload(Project.permits))
+        )
+        project = result.scalar_one_or_none()
+        if not project:
+            return None
+        _sync_project_permit_recommendations(project)
+        await session.commit()
+        return [_serialize_project_permit(p) for p in sorted(project.permits or [], key=lambda p: p.permit_name)]
+
+
+async def add_project_permit(project_id: str, data: dict[str, Any]) -> dict[str, Any] | None:
+    async with SessionLocal() as session:
+        project = await session.get(Project, project_id)
+        if not project:
+            return None
+        now = datetime.now(timezone.utc)
+        permit = ProjectPermit(
+            permit_id=str(uuid4()),
+            project_id=project_id,
+            permit_type=data.get("permitType") or data.get("permit_type") or f"manual_{uuid4().hex[:8]}",
+            permit_name=data.get("permitName") or data.get("permit_name") or "Manual permit",
+            issuing_authority=data.get("issuingAuthority") or data.get("issuing_authority") or "",
+            jurisdiction=data.get("jurisdiction") or project.jurisdiction,
+            requirement_status=data.get("requirementStatus") or "manual",
+            lifecycle_status=data.get("lifecycleStatus") or "not_started",
+            origin="manual",
+            reason=data.get("reason") or "Manually added by user.",
+            source=data.get("source"),
+            portal_url=data.get("portalUrl"),
+            coverage_status=data.get("coverageStatus") or "manual",
+            dependencies=data.get("dependencies") or [],
+            required_documents=data.get("requiredDocuments") or [],
+            assigned_employee=data.get("assignedEmployee"),
+            assigned_contractor=data.get("assignedContractor"),
+            current_blocker=data.get("currentBlocker"),
+            next_action=data.get("nextAction") or "Confirm requirements and collect documents.",
+            created_at=now,
+            updated_at=now,
+        )
+        session.add(permit)
+        project.updated_at = now
+        await session.commit()
+        return _serialize_project_permit(permit)
+
+
+async def update_project_permit(project_id: str, permit_id: str, data: dict[str, Any]) -> dict[str, Any] | None:
+    async with SessionLocal() as session:
+        result = await session.execute(
+            select(ProjectPermit).where(
+                ProjectPermit.project_id == project_id,
+                ProjectPermit.permit_id == permit_id,
+            )
+        )
+        permit = result.scalar_one_or_none()
+        if not permit:
+            return None
+
+        mapping = {
+            "permitName": "permit_name",
+            "issuingAuthority": "issuing_authority",
+            "requirementStatus": "requirement_status",
+            "lifecycleStatus": "lifecycle_status",
+            "reason": "reason",
+            "source": "source",
+            "portalUrl": "portal_url",
+            "coverageStatus": "coverage_status",
+            "parentPermitId": "parent_permit_id",
+            "dependencies": "dependencies",
+            "requiredDocuments": "required_documents",
+            "assignedEmployee": "assigned_employee",
+            "assignedContractor": "assigned_contractor",
+            "estimatedFeeUsd": "estimated_fee_usd",
+            "actualFeeUsd": "actual_fee_usd",
+            "applicationNumber": "application_number",
+            "issuedNumber": "issued_number",
+            "currentBlocker": "current_blocker",
+            "nextAction": "next_action",
+        }
+        for incoming, attr in mapping.items():
+            if incoming in data:
+                setattr(permit, attr, data[incoming])
+        if "requirementStatus" in data:
+            permit.origin = "manual"
+        permit.updated_at = datetime.now(timezone.utc)
+        await session.commit()
+        return _serialize_project_permit(permit)
+
+
 def _parse_file_sections(raw: str | None) -> list[str]:
     if not raw:
         return []
@@ -362,6 +565,244 @@ def _parse_file_sections(raw: str | None) -> list[str]:
     except json.JSONDecodeError:
         pass
     return [part.strip() for part in raw.split(",") if part.strip()]
+
+
+def _normalized_scope(raw: dict[str, Any] | None) -> dict[str, bool]:
+    scope = dict(DEFAULT_SCOPE)
+    if isinstance(raw, dict):
+        for key in scope:
+            scope[key] = bool(raw.get(key))
+    return scope
+
+
+def _validate_jurisdiction_address(jurisdiction: str, address: str) -> None:
+    normalized = address.lower()
+    if jurisdiction == "kansas_city_mo" and (
+        "kansas city, ks" in normalized
+        or "kansas city ks" in normalized
+        or ", ks" in normalized
+        or normalized.endswith(" ks")
+        or normalized.endswith(", kansas")
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Kansas City, Kansas addresses cannot be evaluated with Kansas City, Missouri rules.",
+        )
+
+
+def _serialize_project_permit(permit: ProjectPermit) -> dict[str, Any]:
+    return {
+        "id": permit.permit_id,
+        "projectId": permit.project_id,
+        "permitType": permit.permit_type,
+        "permitName": permit.permit_name,
+        "issuingAuthority": permit.issuing_authority,
+        "jurisdiction": permit.jurisdiction,
+        "requirementStatus": permit.requirement_status,
+        "lifecycleStatus": permit.lifecycle_status,
+        "origin": permit.origin,
+        "reason": permit.reason,
+        "recommendationEvidence": permit.recommendation_evidence or {},
+        "source": permit.source,
+        "portalUrl": permit.portal_url,
+        "coverageStatus": permit.coverage_status,
+        "parentPermitId": permit.parent_permit_id,
+        "dependencies": permit.dependencies or [],
+        "requiredDocuments": permit.required_documents or [],
+        "missingDocumentCount": len(permit.required_documents or []),
+        "assignedEmployee": permit.assigned_employee,
+        "assignedContractor": permit.assigned_contractor,
+        "estimatedFeeUsd": permit.estimated_fee_usd,
+        "actualFeeUsd": permit.actual_fee_usd,
+        "applicationNumber": permit.application_number,
+        "issuedNumber": permit.issued_number,
+        "applicationDate": permit.application_date.isoformat() if permit.application_date else None,
+        "issuanceDate": permit.issuance_date.isoformat() if permit.issuance_date else None,
+        "expirationDate": permit.expiration_date.isoformat() if permit.expiration_date else None,
+        "currentBlocker": permit.current_blocker,
+        "nextAction": permit.next_action,
+        "createdAt": permit.created_at.isoformat() if permit.created_at else None,
+        "updatedAt": permit.updated_at.isoformat() if permit.updated_at else None,
+    }
+
+
+def _candidate_permit_recommendations(project: Project) -> list[dict[str, Any]]:
+    if project.zoning_status == "invalid_address":
+        return []
+    if project.jurisdiction not in JURISDICTION_PATHS:
+        return []
+
+    try:
+        catalog = load_json("permit_catalog.json", project.jurisdiction)
+    except Exception:
+        return []
+
+    try:
+        document_requirements = load_json("document_requirements.json", project.jurisdiction)
+    except Exception:
+        document_requirements = {}
+
+    scope = _normalized_scope(project.scope)
+    development_type = project.project_type
+    development_type_candidates = _development_type_candidates(development_type)
+    recommendations: list[dict[str, Any]] = []
+
+    for permit in catalog.get("permit_types", []):
+        supported = set(permit.get("supported_development_types") or [])
+        if supported and not development_type_candidates.intersection(supported):
+            continue
+
+        applies_when = list(permit.get("applies_when_any") or permit.get("applies_when") or [])
+        default_for = set(permit.get("default_for_development_types") or [])
+        active_triggers = _scope_aliases_for(scope)
+        triggered_by = [key for key in applies_when if scope.get(key) or key in active_triggers]
+        default_match = bool(development_type_candidates.intersection(default_for))
+        development_match = bool(development_type_candidates.intersection(applies_when))
+
+        if not triggered_by and not default_match and not development_match:
+            continue
+
+        classification = "required" if triggered_by or development_match else "likely_required"
+        reason_parts = []
+        if triggered_by:
+            reason_parts.append("confirmed scope: " + ", ".join(_humanize_scope_key(k) for k in triggered_by))
+        if default_match or development_match:
+            reason_parts.append(f"standard for {development_type.replace('_', ' ')} projects")
+        required_documents = _permit_required_documents(permit, document_requirements)
+        evidence = {
+            "catalogRule": {
+                "permitId": permit.get("id"),
+                "permitName": permit.get("permit_name", permit["id"]),
+                "supportedDevelopmentTypes": list(supported),
+                "defaultForDevelopmentTypes": list(default_for),
+                "appliesWhenAny": applies_when,
+            },
+            "projectFacts": {
+                "jurisdiction": project.jurisdiction,
+                "projectType": development_type,
+                "projectTypeMatchedAs": sorted(development_type_candidates),
+                "selectedScope": [key for key, value in scope.items() if value],
+                "activeScopeAliases": sorted(active_triggers),
+            },
+            "matchResult": {
+                "triggeredBy": triggered_by,
+                "defaultMatch": default_match,
+                "developmentTypeMatch": development_match,
+                "classification": classification,
+            },
+        }
+
+        recommendations.append(
+            {
+                "permit_type": permit["id"],
+                "permit_name": permit.get("permit_name", permit["id"]),
+                "issuing_authority": permit.get("agency", permit.get("authority", "")),
+                "jurisdiction": project.jurisdiction,
+                "requirement_status": classification,
+                "lifecycle_status": "gathering_documents" if classification == "required" else "not_started",
+                "origin": "system",
+                "reason": f"{permit.get('permit_name', permit['id'])} applies because " + "; ".join(reason_parts) + ".",
+                "recommendation_evidence": evidence,
+                "source": permit.get("source_url") or permit.get("source") or permit.get("citation"),
+                "portal_url": permit.get("portal_url"),
+                "coverage_status": permit.get("coverage_status"),
+                "dependencies": permit.get("dependencies", []),
+                "required_documents": required_documents,
+                "estimated_fee_usd": permit.get("estimated_fee_usd"),
+                "next_action": "Confirm whether this permit belongs in the working permit bundle.",
+            }
+        )
+
+    return recommendations
+
+
+def _development_type_candidates(development_type: str) -> set[str]:
+    aliases = {
+        "new_commercial_construction": {"new_commercial_construction", "commercial", "new_construction"},
+    }
+    return aliases.get(development_type, {development_type})
+
+
+def _scope_aliases_for(scope: dict[str, bool]) -> set[str]:
+    aliases = {
+        "alteration": {"interior_alteration"},
+        "electrical_work": {"low_voltage_work"},
+        "mechanical_hvac_work": {"hvac_work", "kitchen_hood_work"},
+        "plumbing_work": {"fixture_relocation"},
+        "fire_alarm_sprinkler_work": {"fire_alarm_work", "sprinkler_work"},
+        "driveway_sidewalk_row": {"right_of_way_impacts", "construction_staging"},
+        "change_use_occupancy": {"change_of_use"},
+    }
+    active: set[str] = set()
+    for key, enabled in scope.items():
+        if not enabled:
+            continue
+        active.add(key)
+        active.update(aliases.get(key, set()))
+    return active
+
+
+def _permit_required_documents(permit: dict[str, Any], document_requirements: dict[str, Any]) -> list[str]:
+    direct = permit.get("required_documents")
+    if isinstance(direct, list) and direct:
+        return [str(item) for item in direct]
+
+    configured = document_requirements.get(permit.get("id"), [])
+    documents: list[str] = []
+    for item in configured:
+        if isinstance(item, dict):
+            label = item.get("label") or item.get("name") or item.get("key")
+            if label:
+                documents.append(str(label))
+        elif item:
+            documents.append(str(item))
+    return documents
+
+
+def _humanize_scope_key(key: str) -> str:
+    labels = {
+        "mechanical_hvac_work": "mechanical/HVAC work",
+        "fire_alarm_sprinkler_work": "fire alarm or sprinkler work",
+        "driveway_sidewalk_row": "driveway, sidewalk, or right-of-way impact",
+        "solar_battery_generator_ev": "solar, battery, generator, or EV charger work",
+        "water_sewer_connections": "water or sewer connection work",
+    }
+    return labels.get(key, key.replace("_", " "))
+
+
+def _sync_project_permit_recommendations(project: Project) -> None:
+    existing = {p.permit_type: p for p in (project.permits or [])}
+    recommendations = {r["permit_type"]: r for r in _candidate_permit_recommendations(project)}
+    now = datetime.now(timezone.utc)
+
+    for permit_type, rec in recommendations.items():
+        permit = existing.get(permit_type)
+        if not permit:
+            project.permits.append(
+                ProjectPermit(
+                    permit_id=str(uuid4()),
+                    project_id=project.project_id,
+                    updated_at=now,
+                    **rec,
+                )
+            )
+            continue
+
+        if permit.origin == "manual" or permit.requirement_status == "removed_by_user":
+            continue
+        for key, value in rec.items():
+            setattr(permit, key, value)
+        permit.updated_at = now
+
+    for permit_type, permit in existing.items():
+        if permit_type in recommendations:
+            continue
+        if permit.origin == "system" and permit.requirement_status not in USER_MANAGED_REQUIREMENT_STATUSES:
+            permit.requirement_status = "not_required"
+            permit.lifecycle_status = "not_started"
+            permit.current_blocker = None
+            permit.next_action = "No longer recommended from the current project scope."
+            permit.updated_at = now
 
 
 def _build_brief_from_project(project: Project) -> ProjectBrief:
@@ -425,7 +866,8 @@ async def analyze_project(project_id: str, modules: list[str] | None = None) -> 
         project_name = project.name
         project_address = project.address
         project_area = project.area
-        custom_rules = list(project.custom_rules or [])
+        project_zoning_profile = dict(project.zoning_profile or {})
+        custom_rules = _usable_custom_rules(project.custom_rules)
         files = list(project.files or [])
         brief_filename = brief_file.name if brief_file else "generated-project-brief.json"
         project.updated_at = datetime.now(timezone.utc)
@@ -449,6 +891,29 @@ async def analyze_project(project_id: str, modules: list[str] | None = None) -> 
 
     if project_area:
         brief.notes = f"{brief.notes or ''}\nArea: {project_area}".strip()
+
+    builtin_rules = await get_builtin_rules_for_project(
+        jurisdiction,
+        area=project_area,
+        project_type=project_type.value,
+        zoning_profile=project_zoning_profile,
+    )
+    custom_rule_names = {str(rule.get("rule", "")).casefold() for rule in custom_rules}
+    system_rules = [
+        {
+            "id": f"system-{index}",
+            "category": rule.get("category", "zoning"),
+            "rule": rule["rule"],
+            "condition": rule["condition"],
+            "severity": rule.get("severity", "warning"),
+            "enabled": True,
+            "source": rule.get("source"),
+            "systemManaged": True,
+        }
+        for index, rule in enumerate(builtin_rules)
+        if rule.get("condition") and str(rule.get("rule", "")).casefold() not in custom_rule_names
+    ]
+    custom_rules = system_rules + custom_rules
 
     selected_modules = [m for m in (modules or list(ANALYSIS_MODULES.keys())) if m in ANALYSIS_MODULES]
     requirements = _module_requirements_payload(files)
@@ -584,72 +1049,37 @@ async def get_builtin_rules_for_project(
     *,
     area: str | None = None,
     project_type: str | None = None,
-) -> list[dict[str, str]]:
+    zoning_profile: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
+    if jurisdiction == "kansas_city_mo":
+        return _build_kcmo_rule_library(area=area, zoning_profile=zoning_profile)
     if jurisdiction != "manhattan_ks":
         return await get_builtin_rules(jurisdiction)
 
     with jurisdiction_context(jurisdiction):
-        return _build_manhattan_rule_library(area=area, project_type=project_type)
+        return _build_manhattan_rule_library(
+            area=area,
+            project_type=project_type,
+            zoning_profile=zoning_profile,
+        )
+
+
+def _build_kcmo_rule_library(
+    *,
+    area: str | None = None,
+    zoning_profile: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
+    return build_kcmo_rules(area, zoning_profile)
 
 
 def _build_manhattan_rule_library(
     *,
     area: str | None = None,
     project_type: str | None = None,
-) -> list[dict[str, str]]:
-    rules: list[dict[str, str]] = []
+    zoning_profile: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
     area_token = (area or "").strip().upper()
-
-    zoning = load_json("zoning_rules.json", "manhattan_ks")
-    for district, details in (zoning.get("residential_districts") or {}).items():
-        if area_token and district.upper() != area_token:
-            continue
-        rules.append(
-            {
-                "category": "zoning",
-                "group": "zoning",
-                "rule": f"{district}: district standards",
-                "source": details.get("citation", "MDC residential district table"),
-            }
-        )
-        for housing_type, housing in (details.get("housing_types") or {}).items():
-            if "max_height_ft" in housing:
-                rules.append(
-                    {
-                        "category": "zoning",
-                        "group": "zoning",
-                        "rule": f"{district} {housing_type}: max height {housing['max_height_ft']} ft",
-                        "source": details.get("citation", "MDC district table"),
-                    }
-                )
-            if "setbacks_ft" in housing:
-                rules.append(
-                    {
-                        "category": "zoning",
-                        "group": "zoning",
-                        "rule": f"{district} {housing_type}: setback standards",
-                        "source": details.get("citation", "MDC district table"),
-                    }
-                )
-            if "max_building_coverage_pct" in housing:
-                rules.append(
-                    {
-                        "category": "zoning",
-                        "group": "zoning",
-                        "rule": f"{district} {housing_type}: max building coverage {housing['max_building_coverage_pct']}%",
-                        "source": details.get("citation", "MDC district table"),
-                    }
-                )
-
-    if not area_token and zoning.get("infill_development"):
-        rules.append(
-            {
-                "category": "zoning",
-                "group": "zoning",
-                "rule": "Infill development standards",
-                "source": zoning["infill_development"].get("citation", "MDC infill development"),
-            }
-        )
+    rules: list[dict[str, Any]] = build_manhattan_rules(area_token, zoning_profile)
 
     site = load_json("site_development_rules.json", "manhattan_ks")
     for label, source in [
@@ -697,7 +1127,7 @@ def _build_manhattan_rule_library(
         )
 
     catalog = load_json("permit_catalog.json", "manhattan_ks")
-    for permit in catalog.get("permits", []):
+    for permit in catalog.get("permit_types", []) or catalog.get("permits", []):
         rules.append(
             {
                 "category": "permits",
@@ -730,10 +1160,11 @@ def _build_manhattan_rule_library(
 def _chunk_matches_area(chunk: dict[str, Any], area_token: str) -> bool:
     if not area_token:
         return True
-    if area_token not in MANHATTAN_DISTRICT_TOKENS:
+    area_tokens = {token.strip() for token in area_token.split("/") if token.strip()}
+    if not area_tokens or not area_tokens.issubset(MANHATTAN_DISTRICT_TOKENS):
         return True
     haystack = f"{chunk.get('title', '')} {chunk.get('text', '')}"
-    if re.search(rf"\b{re.escape(area_token)}\b", haystack):
+    if any(re.search(rf"\b{re.escape(token)}\b", haystack) for token in area_tokens):
         return True
     general_articles = {"26-7", "26-8", "26-9", "26-10"}
     return chunk.get("article") in general_articles

@@ -12,6 +12,7 @@ class ProjectType(str, Enum):
     SINGLE_FAMILY = "single_family"
     COMMERCIAL = "commercial"
     COMMERCIAL_TENANT_IMPROVEMENT = "commercial_tenant_improvement"
+    NEW_COMMERCIAL_CONSTRUCTION = "new_commercial_construction"
     MIXED_USE = "mixed_use"
     INDUSTRIAL = "industrial"
 

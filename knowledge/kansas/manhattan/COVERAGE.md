@@ -24,7 +24,7 @@ knowledge/
 
 | Area | Coverage |
 |------|----------|
-| Zoning districts RL, RL-A, RM, RH, RC | Partial — key multifamily bulk tables |
+| All 20 district codes currently returned by Manhattan GIS | Structured automatic rules for residential, commercial, industrial, special, LR, and PUD districts |
 | Infill development (Sec. 26-2C-5) | Yes |
 | Permits & procedure types (Art. 26-8, 26-9) | Partial |
 | Fee schedule (building, zoning, floodplain) | Yes |
@@ -37,7 +37,7 @@ knowledge/
 The full MDC on [enCodePlus](https://online.encodeplus.com/regs/manhattan-udo) has **Chapter 26, Articles 26-1 through 26-10**, including:
 
 - Article 26-1: Purpose and applicability
-- Article 26-2D: Commercial & industrial districts (full tables)
+- Use-specific conditions beyond the structured district, lot, bulk, and design standards in Article 26-2D
 - Article 26-3: Subdivision standards
 - Article 26-4: Design standards (historic, urban core)
 - Article 26-5: Thoroughfares, access management

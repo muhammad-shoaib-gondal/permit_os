@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { AnalysisModuleKey, CaseResults, Project } from "../types";
+import type { AnalysisModuleKey, CaseResults, Project, ProjectPermit } from "../types";
 import * as api from "../api";
 
 type ProjectState = {
@@ -11,6 +11,7 @@ type ProjectState = {
   fetchProject: (id: string) => Promise<Project | null>;
   createProject: (data: Partial<Project>) => Promise<Project>;
   updateProject: (id: string, data: Partial<Project>) => Promise<void>;
+  resolveZoning: (id: string) => Promise<void>;
   deleteProject: (id: string) => Promise<void>;
   uploadFile: (
     projectId: string,
@@ -22,6 +23,8 @@ type ProjectState = {
   ) => Promise<void>;
   removeFile: (projectId: string, fileId: string) => Promise<void>;
   saveRules: (projectId: string, rules: Project["customRules"]) => Promise<void>;
+  createPermit: (projectId: string, data: Partial<ProjectPermit>) => Promise<void>;
+  updatePermit: (projectId: string, permitId: string, data: Partial<ProjectPermit>) => Promise<void>;
 };
 
 export const useProjectStore = create<ProjectState>((set, get) => ({
@@ -66,6 +69,14 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     });
   },
 
+  resolveZoning: async (id) => {
+    const updated = await api.resolveProjectZoning(id);
+    set({
+      projects: get().projects.map((p) => (p.id === id ? updated : p)),
+      currentProject: get().currentProject?.id === id ? updated : get().currentProject,
+    });
+  },
+
   deleteProject: async (id) => {
     await api.deleteProject(id);
     set({
@@ -88,6 +99,18 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   saveRules: async (projectId, rules) => {
     await api.saveProjectRules(projectId, rules);
     await get().fetchProject(projectId);
+  },
+
+  createPermit: async (projectId, data) => {
+    await api.createProjectPermit(projectId, data);
+    await get().fetchProject(projectId);
+    await get().fetchProjects();
+  },
+
+  updatePermit: async (projectId, permitId, data) => {
+    await api.updateProjectPermit(projectId, permitId, data);
+    await get().fetchProject(projectId);
+    await get().fetchProjects();
   },
 }));
 

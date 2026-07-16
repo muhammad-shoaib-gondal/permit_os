@@ -1,6 +1,9 @@
 .env
 agent_config.yaml
 .cursor/
+contacts/
+# Large MDC source exports; regenerated via scripts/ingest_manhattan_code.py
+knowledge/**/raw_chapters/
 __pycache__/
 *.py[cod]
 *.egg-info/

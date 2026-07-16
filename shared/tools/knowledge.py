@@ -10,6 +10,7 @@ KNOWLEDGE_BASE = Path(__file__).resolve().parents[2] / "knowledge"
 
 JURISDICTION_PATHS: dict[str, Path] = {
     "austin_tx": KNOWLEDGE_BASE / "austin",
+    "kansas_city_mo": KNOWLEDGE_BASE / "missouri" / "kansas_city",
     "manhattan_ks": KNOWLEDGE_BASE / "kansas" / "manhattan",
     "seattle_wa": KNOWLEDGE_BASE / "washington" / "seattle",
 }
@@ -35,20 +36,8 @@ def jurisdiction_context(jurisdiction: str):
 
 
 def list_jurisdictions() -> list[dict]:
-    """Scan knowledge directory for available jurisdiction packs."""
+    """List city packs supported by the address-to-zoning project flow."""
     results: list[dict] = []
-
-    austin = KNOWLEDGE_BASE / "austin"
-    if austin.is_dir():
-        results.append(
-            {
-                "id": "austin_tx",
-                "label": "Austin, TX",
-                "state": "TX",
-                "city": "Austin",
-                "coverage_status": "active",
-            }
-        )
 
     for state_dir in sorted(KNOWLEDGE_BASE.glob("*/")):
         if not state_dir.is_dir() or state_dir.name == "austin":

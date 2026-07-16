@@ -22,16 +22,16 @@ export function Modal({ open, onClose, title, children, footer }: ModalProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/60 p-4"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5"
+        className="flex max-h-[calc(100vh-2rem)] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
       >
-        <div className="mb-4 flex items-center justify-between">
+        <div className="flex shrink-0 items-center justify-between border-b border-[var(--color-border)] px-5 py-4">
           <h2 className="text-lg font-semibold">{title}</h2>
           <button
             type="button"
@@ -42,8 +42,14 @@ export function Modal({ open, onClose, title, children, footer }: ModalProps) {
             <X size={18} />
           </button>
         </div>
-        <div className="text-sm text-[var(--color-muted)]">{children}</div>
-        {footer && <div className="mt-6 flex justify-end gap-2">{footer}</div>}
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 text-sm text-[var(--color-muted)]">
+          {children}
+        </div>
+        {footer && (
+          <div className="flex shrink-0 justify-end gap-2 border-t border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-4">
+            {footer}
+          </div>
+        )}
       </div>
     </div>
   );

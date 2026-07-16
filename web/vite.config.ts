@@ -18,6 +18,15 @@ function redirectAppTrailingSlash(): Plugin {
           res.end();
           return;
         }
+        if (
+          (pathname.startsWith("/projects/") || pathname === "/settings") &&
+          req.headers.accept?.includes("text/html")
+        ) {
+          const query = req.url?.includes("?") ? req.url.slice(req.url.indexOf("?")) : "";
+          res.writeHead(302, { Location: `/app${pathname}${query}` });
+          res.end();
+          return;
+        }
         if (pathname.startsWith("/app/") && !pathname.includes(".")) {
           req.url = "/app/index.html";
         }

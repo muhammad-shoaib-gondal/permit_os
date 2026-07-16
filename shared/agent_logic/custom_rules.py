@@ -52,6 +52,8 @@ async def evaluate_custom_rules(
             "category": r.get("category", "custom"),
             "severity": r.get("severity", "warning"),
             "area": r.get("area"),
+            "permit_type": r.get("permitType"),
+            "source": r.get("source"),
         }
         for r in enabled
     ]
@@ -85,7 +87,7 @@ async def evaluate_custom_rules(
                 CheckResult(
                     rule=src.get("rule") or item.get("rule", "Custom rule"),
                     status=_status(str(item.get("status", "warn"))),
-                    citation=item.get("citation") or "User-defined rule",
+                    citation=item.get("citation") or src.get("source") or "User-defined rule",
                     detail=item.get("detail", "No detail provided."),
                     category=src.get("category", "custom"),
                 )

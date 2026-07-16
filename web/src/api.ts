@@ -6,6 +6,7 @@ import type {
   CustomRule,
   Jurisdiction,
   Project,
+  ProjectPermit,
   ProjectTypeValue,
 } from "./types";
 
@@ -225,8 +226,8 @@ export async function createProject(data: Partial<Project>): Promise<Project> {
       name: data.name,
       address: data.address,
       projectType: data.projectType ?? "multifamily_residential",
-      jurisdiction: data.jurisdiction ?? "austin_tx",
-      area: data.area ?? null,
+      jurisdiction: data.jurisdiction ?? "kansas_city_mo",
+      scope: data.scope ?? {},
       customRules: data.customRules ?? [],
     }),
   });
@@ -240,6 +241,12 @@ export async function updateProject(id: string, data: Partial<Project>): Promise
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json();
+}
+
+export async function resolveProjectZoning(id: string): Promise<Project> {
+  const res = await fetch(`${API}/projects/${id}/resolve-zoning`, { method: "POST" });
   if (!res.ok) throw new Error(await parseError(res));
   return res.json();
 }
@@ -280,7 +287,8 @@ export async function getProjectRules(
   const data = await res.json();
   const groupsMap = new Map<string, BuiltinRuleGroup>();
   for (const rule of (data.builtinRules as BuiltinRule[])) {
-    const key = (rule.group || rule.category || "permits") as BuiltinRuleGroup["key"];
+    // District-specific group labels are descriptive, not analysis module keys.
+    const key = (rule.category || rule.group || "permits") as BuiltinRuleGroup["key"];
     if (!groupsMap.has(key)) {
       groupsMap.set(key, { key, label: groupLabel(key), rules: [] });
     }
@@ -296,6 +304,33 @@ export async function saveProjectRules(projectId: string, rules: CustomRule[]): 
     body: JSON.stringify(rules),
   });
   if (!res.ok) throw new Error(await parseError(res));
+}
+
+export async function createProjectPermit(
+  projectId: string,
+  data: Partial<ProjectPermit>
+): Promise<ProjectPermit> {
+  const res = await fetch(`${API}/projects/${projectId}/permits`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json();
+}
+
+export async function updateProjectPermit(
+  projectId: string,
+  permitId: string,
+  data: Partial<ProjectPermit>
+): Promise<ProjectPermit> {
+  const res = await fetch(`${API}/projects/${projectId}/permits/${permitId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json();
 }
 
 export async function analyzeProjectById(

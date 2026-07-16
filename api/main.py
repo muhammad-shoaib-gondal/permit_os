@@ -2,9 +2,9 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from api.routes.audit import router as audit_router
@@ -48,6 +48,18 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def redirect_spa_browser_routes(request: Request, call_next):
+    path = request.url.path
+    accepts_html = "text/html" in request.headers.get("accept", "")
+    if accepts_html and (path.startswith("/projects/") or path == "/settings"):
+        target = f"/app{path}"
+        if request.url.query:
+            target += f"?{request.url.query}"
+        return RedirectResponse(target, status_code=302)
+    return await call_next(request)
 
 app.include_router(cases_router)
 app.include_router(audit_router)

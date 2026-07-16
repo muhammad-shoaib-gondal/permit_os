@@ -11,8 +11,28 @@ export type ProjectTypeValue =
   | "single_family"
   | "commercial"
   | "commercial_tenant_improvement"
+  | "new_commercial_construction"
   | "mixed_use"
   | "industrial";
+
+export type ProjectScope = {
+  new_construction: boolean;
+  addition: boolean;
+  alteration: boolean;
+  repair: boolean;
+  demolition: boolean;
+  structural_work: boolean;
+  electrical_work: boolean;
+  plumbing_work: boolean;
+  mechanical_hvac_work: boolean;
+  fire_alarm_sprinkler_work: boolean;
+  signs: boolean;
+  change_use_occupancy: boolean;
+  grading_land_disturbance: boolean;
+  driveway_sidewalk_row: boolean;
+  solar_battery_generator_ev: boolean;
+  water_sewer_connections: boolean;
+};
 
 export type FileType =
   | "brief_json"
@@ -31,12 +51,14 @@ export type AnalysisModuleKey = "zoning" | "building" | "fire" | "site";
 
 export type CustomRule = {
   id: string;
-  category: "zoning" | "building" | "site" | "environmental" | "custom" | "permit";
+  category: "zoning" | "building" | "fire" | "site" | "environmental" | "custom" | "permit";
   rule: string;
   condition: string;
   severity: "blocker" | "warning" | "info";
   enabled: boolean;
   area?: string;
+  permitType?: string;
+  source?: string;
 };
 
 export type ProjectFile = {
@@ -57,6 +79,58 @@ export type AnalysisRun = {
   readiness?: string;
 };
 
+export type ProjectPermit = {
+  id: string;
+  projectId: string;
+  permitType: string;
+  permitName: string;
+  issuingAuthority: string;
+  jurisdiction: string;
+  requirementStatus: string;
+  lifecycleStatus: string;
+  origin: "system" | "manual";
+  reason?: string | null;
+  recommendationEvidence?: {
+    catalogRule?: {
+      permitId?: string;
+      permitName?: string;
+      supportedDevelopmentTypes?: string[];
+      defaultForDevelopmentTypes?: string[];
+      appliesWhenAny?: string[];
+    };
+    projectFacts?: {
+      jurisdiction?: string;
+      projectType?: string;
+      projectTypeMatchedAs?: string[];
+      selectedScope?: string[];
+      activeScopeAliases?: string[];
+    };
+    matchResult?: {
+      triggeredBy?: string[];
+      defaultMatch?: boolean;
+      developmentTypeMatch?: boolean;
+      classification?: string;
+    };
+  };
+  source?: string | null;
+  portalUrl?: string | null;
+  coverageStatus?: string | null;
+  parentPermitId?: string | null;
+  dependencies: string[];
+  requiredDocuments: string[];
+  missingDocumentCount: number;
+  assignedEmployee?: string | null;
+  assignedContractor?: string | null;
+  estimatedFeeUsd?: number | null;
+  actualFeeUsd?: number | null;
+  applicationNumber?: string | null;
+  issuedNumber?: string | null;
+  currentBlocker?: string | null;
+  nextAction?: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type Project = {
   id: string;
   name: string;
@@ -64,7 +138,43 @@ export type Project = {
   projectType: ProjectTypeValue;
   jurisdiction: string;
   area?: string | null;
+  zoningStatus?:
+    | "pending"
+    | "resolved"
+    | "resolved_with_warnings"
+    | "invalid_address"
+    | "zoning_not_found"
+    | "service_unavailable"
+    | "unsupported";
+  zoningProfile?: {
+    inputAddress?: string;
+    matchedAddress?: string;
+    matchScore?: number;
+    addressType?: string;
+    city?: string;
+    region?: string;
+    postalCode?: string;
+    latitude?: number;
+    longitude?: number;
+    district?: string;
+    districts?: string[];
+    districtName?: string;
+    landUse?: string;
+    ordinance?: string;
+    attributes?: Record<string, string>;
+    sourceName?: string;
+    sourceUrl?: string;
+    resolvedAt?: string;
+  };
+  zoningWarnings?: Array<{
+    code: string;
+    message: string;
+    action: string;
+    severity: "error" | "warning" | "info";
+  }>;
+  scope?: ProjectScope;
   files: ProjectFile[];
+  permits?: ProjectPermit[];
   customRules: CustomRule[];
   moduleRequirements?: Record<
     string,
@@ -98,6 +208,8 @@ export type BuiltinRule = {
   category: string;
   group?: string;
   rule: string;
+  condition?: string;
+  severity?: CustomRule["severity"] | "critical" | "major";
   source: string;
 };
 
@@ -181,8 +293,78 @@ export const PROJECT_TYPES = [
   { value: "single_family", label: "Single family" },
   { value: "commercial", label: "Commercial" },
   { value: "commercial_tenant_improvement", label: "Commercial tenant improvement" },
+  { value: "new_commercial_construction", label: "New commercial construction" },
   { value: "mixed_use", label: "Mixed use" },
   { value: "industrial", label: "Industrial" },
+] as const;
+
+export const PROJECT_SCOPE_OPTIONS = [
+  { value: "new_construction", label: "New construction" },
+  { value: "addition", label: "Addition" },
+  { value: "alteration", label: "Alteration" },
+  { value: "repair", label: "Repair" },
+  { value: "demolition", label: "Demolition" },
+  { value: "structural_work", label: "Structural work" },
+  { value: "electrical_work", label: "Electrical work" },
+  { value: "plumbing_work", label: "Plumbing work" },
+  { value: "mechanical_hvac_work", label: "Mechanical / HVAC work" },
+  { value: "fire_alarm_sprinkler_work", label: "Fire alarm or sprinkler work" },
+  { value: "signs", label: "Signs" },
+  { value: "change_use_occupancy", label: "Change of use or occupancy" },
+  { value: "grading_land_disturbance", label: "Grading / land disturbance" },
+  { value: "driveway_sidewalk_row", label: "Driveway, sidewalk, or right-of-way impact" },
+  { value: "solar_battery_generator_ev", label: "Solar, battery, generator, or EV charger" },
+  { value: "water_sewer_connections", label: "Water or sewer connections" },
+] as const;
+
+export const DEFAULT_PROJECT_SCOPE: ProjectScope = {
+  new_construction: false,
+  addition: false,
+  alteration: false,
+  repair: false,
+  demolition: false,
+  structural_work: false,
+  electrical_work: false,
+  plumbing_work: false,
+  mechanical_hvac_work: false,
+  fire_alarm_sprinkler_work: false,
+  signs: false,
+  change_use_occupancy: false,
+  grading_land_disturbance: false,
+  driveway_sidewalk_row: false,
+  solar_battery_generator_ev: false,
+  water_sewer_connections: false,
+};
+
+export const PERMIT_REQUIREMENT_STATUS_OPTIONS = [
+  { value: "suggested", label: "Suggested" },
+  { value: "required", label: "Required" },
+  { value: "likely_required", label: "Likely required" },
+  { value: "optional", label: "Optional" },
+  { value: "needs_confirmation", label: "Needs confirmation" },
+  { value: "not_required", label: "Not required" },
+  { value: "removed_by_user", label: "Removed by user" },
+  { value: "manual", label: "Manually added" },
+] as const;
+
+export const PERMIT_LIFECYCLE_STATUS_OPTIONS = [
+  { value: "not_started", label: "Not started" },
+  { value: "gathering_documents", label: "Gathering documents" },
+  { value: "blocked", label: "Blocked" },
+  { value: "ready_for_human_review", label: "Ready for human review" },
+  { value: "ready_to_submit", label: "Ready to submit" },
+  { value: "submitted", label: "Submitted" },
+  { value: "application_accepted", label: "Application accepted" },
+  { value: "in_review", label: "In review" },
+  { value: "corrections_requested", label: "Corrections requested" },
+  { value: "resubmitted", label: "Resubmitted" },
+  { value: "approved", label: "Approved" },
+  { value: "ready_for_issuance", label: "Ready for issuance" },
+  { value: "issued", label: "Issued" },
+  { value: "inspection_phase", label: "Inspection phase" },
+  { value: "finaled", label: "Finaled" },
+  { value: "cancelled", label: "Cancelled" },
+  { value: "expired", label: "Expired" },
 ] as const;
 
 export const FILE_TYPES = [
@@ -209,7 +391,9 @@ export const ANALYSIS_MODULES = [
 export const RULE_CATEGORIES = [
   { value: "zoning", label: "Zoning" },
   { value: "building", label: "Building" },
+  { value: "fire", label: "Fire / Life Safety" },
   { value: "site", label: "Site" },
   { value: "environmental", label: "Environmental" },
   { value: "custom", label: "Custom" },
+  { value: "permit", label: "Permit administration" },
 ] as const;

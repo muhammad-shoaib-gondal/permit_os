@@ -57,6 +57,13 @@ export function AnalysisTab({ project, onAnalysisComplete }: AnalysisTabProps) {
     ...(data?.site_report?.utility_checks ?? []),
   ];
   const customChecks = data?.custom_rules_report?.checks ?? [];
+  const reviewChecks = [
+    ...jurisdictionChecks,
+    ...buildingOnlyChecks,
+    ...fireChecks,
+    ...siteChecks,
+    ...customChecks,
+  ];
   const showAgentPanels = analyzing || !!data;
 
   useEffect(() => {
@@ -79,9 +86,9 @@ export function AnalysisTab({ project, onAnalysisComplete }: AnalysisTabProps) {
     try {
       const result = await runAnalysis(project.id, modules, () => {});
       onAnalysisComplete?.();
-      toast.success(`Analysis complete - ${result.case_summary?.readiness_score ?? "done"}`);
+      toast.success(`Review complete - ${result.case_summary?.readiness_score ?? "done"}`);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Analysis failed";
+      const msg = e instanceof Error ? e.message : "Review failed";
       setLocalError(msg);
       toast.error(msg);
     }
@@ -93,7 +100,7 @@ export function AnalysisTab({ project, onAnalysisComplete }: AnalysisTabProps) {
     try {
       await pollCase(caseId);
     } catch (e) {
-      setLocalError(e instanceof Error ? e.message : "Failed to load analysis");
+      setLocalError(e instanceof Error ? e.message : "Failed to load review");
     }
   }
 
@@ -127,20 +134,23 @@ export function AnalysisTab({ project, onAnalysisComplete }: AnalysisTabProps) {
     (module) => projectRequirements[module.value]?.canRun
   ).map((module) => module.value);
   const canRunAnything = runnableModules.length > 0;
+  const reviewPermits = (project.permits ?? []).filter(
+    (permit) => permit.requirementStatus !== "not_required"
+  );
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h2 className="text-lg font-semibold">Analysis</h2>
+          <h2 className="text-lg font-semibold">Permit review</h2>
           <p className="text-sm text-[var(--color-muted)]">
-            Run permitting pre-screen against jurisdiction rules and your custom rules.
+            Run AI checks against uploaded documents. These review areas support the permit bundle.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button onClick={() => handleRun(runnableModules)} disabled={loading || !canRunAnything}>
             <Play size={16} />
-            {loading ? "Analyzing..." : "Run All Available"}
+            {loading ? "Reviewing..." : "Review All Available"}
           </Button>
           {data && !loading && (
             <Button variant="secondary" onClick={() => downloadAnalysisReport(project, data)}>
@@ -150,67 +160,64 @@ export function AnalysisTab({ project, onAnalysisComplete }: AnalysisTabProps) {
         </div>
       </div>
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {ANALYSIS_MODULES.map((module) => {
-          const req = projectRequirements[module.value] ?? data?.module_requirements?.[module.value] ?? {
-            requiredMissing: [],
-            recommendedMissing: [],
-            requiredAnyOf: [],
-            canRun: false,
-            hasMappedFiles: false,
-            summary: "",
-          };
-          return (
-            <div key={module.value} className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
-              <div className="mb-3 flex items-center justify-between gap-2">
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {reviewPermits.length > 0 ? (
+          reviewPermits.map((permit) => (
+            <div
+              key={permit.id}
+              className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4"
+            >
+              <div className="mb-3 flex items-start justify-between gap-3">
                 <div>
-                  <h3 className="font-semibold">{module.label}</h3>
-                  <p className="text-xs text-[var(--color-muted)]">Run this section independently.</p>
+                  <h3 className="font-semibold">{permit.permitName}</h3>
+                  <p className="text-xs text-[var(--color-muted)]">{permit.issuingAuthority}</p>
                 </div>
                 <Button
                   size="sm"
                   variant="secondary"
-                  onClick={() => handleRun([module.value])}
-                  disabled={loading || !req.canRun}
+                  onClick={() => handleRun(runnableModules)}
+                  disabled={loading || !canRunAnything}
                 >
-                  <Play size={14} /> Run
+                  <Play size={14} /> Review
                 </Button>
               </div>
-              {req.summary ? <p className="mb-2 text-xs text-[var(--color-muted)]">{req.summary}</p> : null}
-              {req.requiredMissing?.length ? (
-                <p className="text-xs text-amber-200">
-                  Upload at least one of: {req.requiredMissing.join(", ")}
+              {permit.requiredDocuments.length ? (
+                <p className="text-xs text-[var(--color-muted)]">
+                  Expected docs: {permit.requiredDocuments.slice(0, 4).join(", ")}
+                  {permit.requiredDocuments.length > 4 ? "..." : ""}
                 </p>
               ) : (
-                <p className="text-xs text-emerald-300">
-                  Ready to run{req.hasMappedFiles ? " from mapped files" : ""}.
+                <p className="text-xs text-[var(--color-muted)]">No document checklist is configured yet.</p>
+              )}
+              {!canRunAnything && (
+                <p className="mt-2 rounded border border-amber-500/70 bg-amber-950 px-2 py-1 text-xs font-medium text-amber-50">
+                  Upload at least one relevant document before running review.
                 </p>
               )}
-              {req.recommendedMissing?.length ? (
-                <p className="mt-2 text-xs text-[var(--color-muted)]">
-                  Recommended files: {req.recommendedMissing.join(", ")}
-                </p>
-              ) : null}
             </div>
-          );
-        })}
+          ))
+        ) : (
+          <div className="rounded-xl border border-amber-500/70 bg-amber-950 p-4 text-sm font-medium text-amber-50">
+            No permits are in the bundle yet. Confirm project scope in Overview or add a permit from the Permits tab.
+          </div>
+        )}
       </section>
 
       {displayError && (
-        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+        <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-[var(--color-text)]">
           {displayError}
         </div>
       )}
 
       {!canRunAnything && (
-        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
-          Upload at least one relevant file before analysis. Each module will unlock as soon as it
+        <div className="rounded-lg border border-amber-500/70 bg-amber-950 px-4 py-3 text-sm font-medium text-amber-50">
+          Upload at least one relevant file before review. Each area will unlock as soon as it
           has enough supporting material.
         </div>
       )}
 
       {data?.stalled && data.stall_reason && (
-        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm">
+        <div className="rounded-lg border border-amber-500/70 bg-amber-950 px-4 py-3 text-sm font-medium text-amber-50">
           {data.stall_reason}
         </div>
       )}
@@ -237,7 +244,7 @@ export function AnalysisTab({ project, onAnalysisComplete }: AnalysisTabProps) {
 
       {project.analyses.length > 0 && (
         <section>
-          <h3 className="mb-2 text-sm font-medium text-[var(--color-muted)]">Analysis history</h3>
+          <h3 className="mb-2 text-sm font-medium text-[var(--color-muted)]">Review history</h3>
           <div className="flex flex-wrap gap-2">
             {project.analyses.map((a) => (
               <button
@@ -338,33 +345,12 @@ export function AnalysisTab({ project, onAnalysisComplete }: AnalysisTabProps) {
       )}
 
       {showAgentPanels && (
-        <div className="grid gap-4 lg:grid-cols-2">
-          <CheckList
-            checks={jurisdictionChecks}
-            title="Jurisdiction & zoning"
-            pending={analyzing && jurisdictionChecks.length === 0}
-            visible={showAgentPanels}
-          />
-          <CheckList
-            checks={buildingOnlyChecks}
-            title="Building"
-            pending={analyzing && buildingOnlyChecks.length === 0}
-            visible={showAgentPanels}
-          />
-          <CheckList
-            checks={fireChecks}
-            title="Fire / Life Safety"
-            pending={analyzing && fireChecks.length === 0}
-            visible={showAgentPanels}
-          />
-          <CheckList
-            checks={siteChecks}
-            title="Site & environmental"
-            pending={analyzing && siteChecks.length === 0}
-            visible={showAgentPanels}
-          />
-          {customChecks.length > 0 && <CheckList checks={customChecks} title="Custom rules" visible />}
-        </div>
+        <CheckList
+          checks={reviewChecks}
+          title="Permit review findings"
+          pending={analyzing && reviewChecks.length === 0}
+          visible={showAgentPanels}
+        />
       )}
 
       <PermitPackage data={data ?? ({} as CaseResults)} pending={analyzing && !data?.permit_package} />

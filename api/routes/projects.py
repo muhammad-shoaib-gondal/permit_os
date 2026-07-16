@@ -16,9 +16,13 @@ from api.services.project_service import (
     get_project_context,
     get_project,
     get_project_rules,
+    add_project_permit,
+    list_project_permits,
     list_projects,
+    refresh_project_zoning,
     save_project_rules,
     suggest_rules,
+    update_project_permit,
     update_project,
 )
 
@@ -32,14 +36,18 @@ class CustomRuleBody(BaseModel):
     condition: str = ""
     severity: str = "warning"
     enabled: bool = True
+    area: str | None = None
+    permitType: str | None = None
+    source: str | None = None
 
 
 class CreateProjectBody(BaseModel):
     name: str
     address: str
     projectType: str = "multifamily_residential"
-    jurisdiction: str = "austin_tx"
+    jurisdiction: str = "kansas_city_mo"
     area: str | None = None
+    scope: dict[str, bool] = Field(default_factory=dict)
     customRules: list[CustomRuleBody] = Field(default_factory=list)
 
 
@@ -49,11 +57,36 @@ class UpdateProjectBody(BaseModel):
     projectType: str | None = None
     jurisdiction: str | None = None
     area: str | None = None
+    scope: dict[str, bool] | None = None
     customRules: list[CustomRuleBody] | None = None
 
 
 class AnalyzeProjectBody(BaseModel):
     modules: list[str] = Field(default_factory=list)
+
+
+class ProjectPermitBody(BaseModel):
+    permitType: str | None = None
+    permitName: str | None = None
+    issuingAuthority: str | None = None
+    jurisdiction: str | None = None
+    requirementStatus: str | None = None
+    lifecycleStatus: str | None = None
+    reason: str | None = None
+    source: str | None = None
+    portalUrl: str | None = None
+    coverageStatus: str | None = None
+    parentPermitId: str | None = None
+    dependencies: list[str] | None = None
+    requiredDocuments: list[str] | None = None
+    assignedEmployee: str | None = None
+    assignedContractor: str | None = None
+    estimatedFeeUsd: int | None = None
+    actualFeeUsd: int | None = None
+    applicationNumber: str | None = None
+    issuedNumber: str | None = None
+    currentBlocker: str | None = None
+    nextAction: str | None = None
 
 
 @router.get("")
@@ -78,6 +111,14 @@ async def get_project_by_id(project_id: str):
 async def put_project(project_id: str, body: UpdateProjectBody):
     data = {k: v for k, v in body.model_dump().items() if v is not None}
     project = await update_project(project_id, data)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return project
+
+
+@router.post("/{project_id}/resolve-zoning")
+async def resolve_project_zoning(project_id: str):
+    project = await refresh_project_zoning(project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     return project
@@ -125,7 +166,10 @@ async def get_rules(project_id: str):
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     builtin = await get_builtin_rules_for_project(
-        project["jurisdiction"], area=project.get("area"), project_type=project.get("projectType")
+        project["jurisdiction"],
+        area=project.get("area"),
+        project_type=project.get("projectType"),
+        zoning_profile=project.get("zoningProfile"),
     )
     return {"customRules": rules, "builtinRules": builtin}
 
@@ -146,3 +190,27 @@ async def post_suggest_rules(project_id: str):
 @router.post("/{project_id}/analyze")
 async def run_analysis(project_id: str, body: AnalyzeProjectBody | None = None):
     return await analyze_project(project_id, modules=(body.modules if body else None))
+
+
+@router.get("/{project_id}/permits")
+async def get_permits(project_id: str):
+    permits = await list_project_permits(project_id)
+    if permits is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return {"permits": permits}
+
+
+@router.post("/{project_id}/permits")
+async def post_permit(project_id: str, body: ProjectPermitBody):
+    permit = await add_project_permit(project_id, body.model_dump(exclude_none=True))
+    if permit is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return permit
+
+
+@router.patch("/{project_id}/permits/{permit_id}")
+async def patch_permit(project_id: str, permit_id: str, body: ProjectPermitBody):
+    permit = await update_project_permit(project_id, permit_id, body.model_dump(exclude_none=True))
+    if permit is None:
+        raise HTTPException(status_code=404, detail="Permit not found")
+    return permit
