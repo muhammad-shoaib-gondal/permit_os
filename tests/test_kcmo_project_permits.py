@@ -181,10 +181,11 @@ def test_kcmo_scope_generates_permit_bundle():
     assert "electrical" in permit_types
     assert "plumbing" in permit_types
     assert "mechanical" in permit_types
-    assert "fire_protection" in permit_types
+    assert "fire_sprinkler" in permit_types
     assert "certificate_of_occupancy" in permit_types
     building = next(permit for permit in project.permits if permit.permit_type == "commercial_building")
-    assert building.recommendation_evidence["matchResult"]["triggeredBy"]
+    assert building.recommendation_evidence["router"] == "kcmo_permit_router"
+    assert building.reason
 
 
 def test_kcmo_new_commercial_defaults_generate_permits():
@@ -196,8 +197,8 @@ def test_kcmo_new_commercial_defaults_generate_permits():
     assert "commercial_building" in permit_types
     assert "certificate_of_occupancy" in permit_types
     building = next(permit for permit in project.permits if permit.permit_type == "commercial_building")
-    assert building.recommendation_evidence["projectFacts"]["projectType"] == "new_commercial_construction"
-    assert "commercial" in building.recommendation_evidence["projectFacts"]["projectTypeMatchedAs"]
+    assert building.recommendation_evidence["router"] == "kcmo_permit_router"
+    assert "Commercial building permit" in (building.reason or "")
 
 
 def test_seattle_ti_generates_default_and_trade_permits():

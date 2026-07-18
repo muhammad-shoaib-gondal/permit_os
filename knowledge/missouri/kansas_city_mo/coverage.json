@@ -1,0 +1,21 @@
+{
+  "jurisdiction_id": "kansas_city_mo",
+  "coverage_status": "active",
+  "supported_categories": ["single_family", "multifamily", "commercial"],
+  "modules": {
+    "permit_router": "active",
+    "zoning_feasibility": "active",
+    "document_checklists": "active",
+    "trade_permits": "active",
+    "floodplain_site": "active",
+    "occupancy_co": "active",
+    "fee_estimate": "rough_estimate",
+    "pdf_extraction": "optional_assist"
+  },
+  "known_gaps": [
+    "Exact Chapter 18 fee schedule formulas are not fully encoded; fee module may return DATA_GAP.",
+    "Allowed-use tables are partial; unknown districts return DATA_GAP.",
+    "Floodplain is intake/GIS-assisted; not a certified FEMA determination."
+  ],
+  "last_verified": "2026-07-18"
+}

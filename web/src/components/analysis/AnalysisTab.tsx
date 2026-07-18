@@ -133,10 +133,25 @@ export function AnalysisTab({ project, onAnalysisComplete }: AnalysisTabProps) {
   const runnableModules = ANALYSIS_MODULES.filter(
     (module) => projectRequirements[module.value]?.canRun
   ).map((module) => module.value);
-  const canRunAnything = runnableModules.length > 0;
+  const isKcmo = project.jurisdiction === "kansas_city_mo";
+  const canRunAnything = isKcmo || runnableModules.length > 0;
   const reviewPermits = (project.permits ?? []).filter(
     (permit) => permit.requirementStatus !== "not_required"
   );
+  const likelyPermits =
+    (data as CaseResults & { likely_permits?: Array<{ permit_name: string; reason?: string; requirement_status?: string }> })
+      ?.likely_permits ?? reviewPermits.map((p) => ({
+      permit_name: p.permitName,
+      reason: p.reason ?? undefined,
+      requirement_status: p.requirementStatus,
+    }));
+  const dataGaps: string[] =
+    data?.data_gaps ??
+    (data?.case_summary?.human_actions_required ?? []).map((item) =>
+      typeof item === "string" ? item : (item as { description?: string }).description ?? String(item)
+    );
+  const feeEstimate = (data as CaseResults & { fee_estimate?: { estimate_status?: string; warnings?: string[] } })
+    ?.fee_estimate;
 
   return (
     <div className="space-y-6">
@@ -144,13 +159,18 @@ export function AnalysisTab({ project, onAnalysisComplete }: AnalysisTabProps) {
         <div>
           <h2 className="text-lg font-semibold">Permit review</h2>
           <p className="text-sm text-[var(--color-muted)]">
-            Run AI checks against uploaded documents. These review areas support the permit bundle.
+            {isKcmo
+              ? "KCMO deterministic pre-screen from structured intake, zoning GIS, and Information Bulletins."
+              : "Run AI checks against uploaded documents. These review areas support the permit bundle."}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button onClick={() => handleRun(runnableModules)} disabled={loading || !canRunAnything}>
+          <Button
+            onClick={() => handleRun(isKcmo ? runnableModules.length ? runnableModules : ["zoning", "building", "fire", "site"] : runnableModules)}
+            disabled={loading || !canRunAnything}
+          >
             <Play size={16} />
-            {loading ? "Reviewing..." : "Review All Available"}
+            {loading ? "Reviewing..." : isKcmo ? "Run KCMO Pre-screen" : "Review All Available"}
           </Button>
           {data && !loading && (
             <Button variant="secondary" onClick={() => downloadAnalysisReport(project, data)}>
@@ -159,6 +179,62 @@ export function AnalysisTab({ project, onAnalysisComplete }: AnalysisTabProps) {
           )}
         </div>
       </div>
+
+      {!!data && (
+        <section className="space-y-4">
+          <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+            <h3 className="mb-3 font-semibold">Likely required permits</h3>
+            {likelyPermits.length === 0 ? (
+              <p className="text-sm text-[var(--color-muted)]">No permit recommendations in this run.</p>
+            ) : (
+              <ul className="space-y-3 text-sm">
+                {likelyPermits.map((permit, index) => (
+                  <li key={`${permit.permit_name}-${index}`} className="rounded-lg border border-[var(--color-border)] p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <strong>{permit.permit_name}</strong>
+                      {permit.requirement_status && (
+                        <StatusBadge status={permit.requirement_status} />
+                      )}
+                    </div>
+                    {permit.reason && (
+                      <p className="mt-1 text-[var(--color-muted)]">{permit.reason}</p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-5">
+            <h3 className="mb-3 font-semibold">Data gaps</h3>
+            {dataGaps.length === 0 ? (
+              <p className="text-sm text-[var(--color-muted)]">No open data gaps from this pre-screen.</p>
+            ) : (
+              <ul className="list-disc space-y-1 pl-5 text-sm">
+                {dataGaps.map((gap) => (
+                  <li key={gap}>{gap}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {feeEstimate && (
+            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+              <h3 className="mb-2 font-semibold">Fee estimate</h3>
+              <p className="text-sm text-[var(--color-muted)]">
+                Status: {feeEstimate.estimate_status ?? "unknown"}. Preliminary only — confirm in CompassKC.
+              </p>
+              {!!feeEstimate.warnings?.length && (
+                <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-[var(--color-muted)]">
+                  {feeEstimate.warnings.map((warning) => (
+                    <li key={warning}>{warning}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+        </section>
+      )}
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {reviewPermits.length > 0 ? (

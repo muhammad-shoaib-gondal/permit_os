@@ -31,6 +31,20 @@ load_dotenv(ROOT / ".env")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
+    try:
+        from shared.tools.kcmo.validate_pack import validate_kcmo_knowledge_pack
+
+        pack = validate_kcmo_knowledge_pack()
+        if not pack["ok"]:
+            import logging
+
+            logging.getLogger("api.main").warning(
+                "KCMO knowledge pack validation issues: %s", pack.get("errors")
+            )
+    except Exception as exc:  # noqa: BLE001
+        import logging
+
+        logging.getLogger("api.main").warning("KCMO pack validation skipped: %s", exc)
     yield
 
 

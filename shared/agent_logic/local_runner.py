@@ -368,6 +368,15 @@ async def run_local_case(
     module_requirements: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     logger.info("Running local in-process agents (tools + optional LLM) for %s", brief.case_id)
+    if (brief.jurisdiction or "").startswith("kansas_city"):
+        return await _run_kcmo_local_case(
+            brief,
+            on_progress=on_progress,
+            custom_rules=custom_rules,
+            selected_modules=selected_modules,
+            module_requirements=module_requirements,
+        )
+
     selected = set(selected_modules or ["zoning", "building", "fire", "site"])
     completed: list[str] = []
     module_requirements = module_requirements or {}
@@ -537,6 +546,120 @@ async def run_local_case(
         "agent_driven": True,
         "band_orchestrated": False,
         "local_fallback": True,
+        "selected_modules": list(selected),
+        "module_requirements": module_requirements,
+        "rule_groups": rule_groups,
+    }
+
+
+async def _run_kcmo_local_case(
+    brief: ProjectBrief,
+    on_progress=None,
+    custom_rules: list[dict[str, Any]] | None = None,
+    selected_modules: list[str] | None = None,
+    module_requirements: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Deterministic Kansas City, MO pre-screen path."""
+    from shared.schemas.kcmo_intake import KcmoIntake
+    from shared.tools.kcmo.kcmo_package_builder import build_kcmo_package
+
+    selected = set(selected_modules or ["zoning", "building", "fire", "site"])
+    module_requirements = module_requirements or {}
+    completed: list[str] = []
+
+    raw_intake = dict(brief.kcmo_intake or {})
+    zoning_profile = raw_intake.pop("_zoning_profile", None)
+    try:
+        intake = KcmoIntake.model_validate(raw_intake)
+    except Exception:
+        intake = KcmoIntake()
+
+    await _emit_progress(on_progress, brief, phase="waiting_jurisdiction", completed=completed)
+    package_payload = build_kcmo_package(brief, intake, zoning_profile=zoning_profile)
+    completed.extend(["jurisdiction", "building", "site"])
+    await _emit_progress(
+        on_progress,
+        brief,
+        phase="complete",
+        completed=completed,
+        jurisdiction_report=package_payload.get("jurisdiction_report"),
+        building_report=package_payload.get("building_report"),
+        site_report=package_payload.get("site_report"),
+        case_summary=package_payload.get("case_summary"),
+        permit_package=package_payload.get("permit_package"),
+        module_requirements=module_requirements,
+        selected_modules=list(selected),
+    )
+
+    custom_checks: list[CheckResult] = []
+    if custom_rules:
+        from shared.agent_logic.custom_rules import evaluate_custom_rules
+
+        custom_checks = await evaluate_custom_rules(brief, custom_rules)
+
+    activity = [
+        {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "agent": "kcmo_router",
+            "event_type": "complete",
+            "detail": f"{len(package_payload.get('likely_permits') or [])} likely permits routed",
+            "payload": {},
+        }
+    ]
+
+    j = package_payload.get("jurisdiction_report") or {}
+    b = package_payload.get("building_report") or {}
+    s = package_payload.get("site_report") or {}
+    rule_groups = [
+        {"key": "zoning", "label": "Zoning", "checks": j.get("checks") or []},
+        {
+            "key": "building",
+            "label": "Building",
+            "checks": [c for c in (b.get("checks") or []) if c.get("category") != "fire"],
+        },
+        {
+            "key": "fire",
+            "label": "Fire / Life Safety",
+            "checks": [c for c in (b.get("checks") or []) if c.get("category") == "fire"],
+        },
+        {
+            "key": "site",
+            "label": "Site / Floodplain",
+            "checks": (s.get("environmental_checks") or []) + (s.get("utility_checks") or []),
+        },
+        {
+            "key": "trade",
+            "label": "Trade Permits",
+            "checks": [c for c in (b.get("checks") or []) if c.get("category") == "trade"],
+        },
+        {
+            "key": "custom",
+            "label": "Custom Rules",
+            "checks": [c.model_dump(mode="json") for c in custom_checks],
+        },
+    ]
+
+    return {
+        "brief": brief.model_dump(mode="json"),
+        "jurisdiction_report": package_payload.get("jurisdiction_report"),
+        "building_report": package_payload.get("building_report"),
+        "site_report": package_payload.get("site_report"),
+        "custom_rules_report": {
+            "summary": f"{len(custom_checks)} custom rule(s) evaluated",
+            "checks": [c.model_dump(mode="json") for c in custom_checks],
+        },
+        "case_summary": package_payload.get("case_summary"),
+        "permit_package": package_payload.get("permit_package"),
+        "likely_permits": package_payload.get("likely_permits"),
+        "findings": package_payload.get("findings"),
+        "data_gaps": package_payload.get("data_gaps"),
+        "fee_estimate": package_payload.get("fee_estimate"),
+        "activity": activity,
+        "band_room_id": f"kcmo-{brief.case_id}",
+        "agent_driven": True,
+        "band_orchestrated": False,
+        "local_fallback": True,
+        "kcmo": True,
         "selected_modules": list(selected),
         "module_requirements": module_requirements,
         "rule_groups": rule_groups,

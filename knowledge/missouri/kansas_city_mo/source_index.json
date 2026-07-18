@@ -1,0 +1,107 @@
+{
+  "jurisdiction_id": "kansas_city_mo",
+  "sources": [
+    {
+      "id": "dev_guide",
+      "title": "KCMO Development Process Guide",
+      "url": "https://www.kcmo.gov/city-hall/departments/city-planning-development/development-management/development-guide",
+      "type": "official_guide"
+    },
+    {
+      "id": "ib_index",
+      "title": "KCMO Information Bulletin Index",
+      "url": "https://www.kcmo.gov/city-hall/departments/city-planning-development/information-bulletin-ib-index",
+      "type": "information_bulletin_index"
+    },
+    {
+      "id": "ib100",
+      "title": "IB100 — One- and Two-Family Plan Review Submittal",
+      "url": "https://www.kcmo.gov/city-hall/departments/city-planning-development/information-bulletin-ib-index",
+      "type": "information_bulletin"
+    },
+    {
+      "id": "ib107",
+      "title": "IB107 — Demolition",
+      "url": "https://www.kcmo.gov/city-hall/departments/city-planning-development/information-bulletin-ib-index",
+      "type": "information_bulletin"
+    },
+    {
+      "id": "ib110",
+      "title": "IB110 — Commercial Building Permit Submittal / Checklists / Forms",
+      "url": "https://www.kcmo.gov/city-hall/departments/city-planning-development/information-bulletin-ib-index",
+      "type": "information_bulletin"
+    },
+    {
+      "id": "ib116",
+      "title": "IB116 — Fire Sprinkler Permits",
+      "url": "https://www.kcmo.gov/city-hall/departments/city-planning-development/information-bulletin-ib-index",
+      "type": "information_bulletin"
+    },
+    {
+      "id": "ib120",
+      "title": "IB120 — Floodplain",
+      "url": "https://www.kcmo.gov/city-hall/departments/city-planning-development/information-bulletin-ib-index",
+      "type": "information_bulletin"
+    },
+    {
+      "id": "ib139",
+      "title": "IB139 — Certificates of Occupancy",
+      "url": "https://www.kcmo.gov/city-hall/departments/city-planning-development/information-bulletin-ib-index",
+      "type": "information_bulletin"
+    },
+    {
+      "id": "ib142",
+      "title": "IB142 — Multi-Family Projects and Firewall Construction",
+      "url": "https://www.kcmo.gov/city-hall/departments/city-planning-development/information-bulletin-ib-index",
+      "type": "information_bulletin"
+    },
+    {
+      "id": "ib146",
+      "title": "IB146 — Homeowner-Occupant Affidavit",
+      "url": "https://www.kcmo.gov/city-hall/departments/city-planning-development/information-bulletin-ib-index",
+      "type": "information_bulletin"
+    },
+    {
+      "id": "ib158",
+      "title": "IB158 — Multiple Building Data Sheet",
+      "url": "https://www.kcmo.gov/city-hall/departments/city-planning-development/information-bulletin-ib-index",
+      "type": "information_bulletin"
+    },
+    {
+      "id": "ib165",
+      "title": "IB165 — Request for Certificate of Occupancy",
+      "url": "https://www.kcmo.gov/city-hall/departments/city-planning-development/information-bulletin-ib-index",
+      "type": "information_bulletin"
+    },
+    {
+      "id": "chapter_18",
+      "title": "Chapter 18 — Building and Rehabilitation Code",
+      "url": "https://www.kcmo.gov/city-hall/departments/city-planning-development/codes-and-ordinances",
+      "type": "code"
+    },
+    {
+      "id": "chapter_28",
+      "title": "Chapter 28 — Floodplain Management",
+      "url": "https://www.kcmo.gov/city-hall/departments/city-planning-development/codes-and-ordinances",
+      "type": "code"
+    },
+    {
+      "id": "chapter_88",
+      "title": "Chapter 88 — Zoning and Development Code",
+      "url": "https://library.municode.com/mo/kansas_city/codes/zoning_and_development_code",
+      "type": "code"
+    },
+    {
+      "id": "compasskc",
+      "title": "CompassKC Permit Portal",
+      "url": "https://compasskc.kcmo.org/",
+      "type": "portal"
+    },
+    {
+      "id": "trade_permits",
+      "title": "Electrical, Plumbing and Mechanical Permits",
+      "url": "https://www.kcmo.gov/city-hall/departments/city-planning-development/electrical-plumbing-and-mechanical-permits",
+      "type": "official_guide"
+    }
+  ]
+}

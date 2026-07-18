@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Optional
+from typing import Any, Optional
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
@@ -46,6 +46,13 @@ class ProjectBrief(BaseModel):
     plan_pdf_url: Optional[str] = None
     notes: Optional[str] = None
     blocks: list[BlockSetback] = Field(default_factory=list)
+    # Structured KCMO intake (optional; used when jurisdiction == kansas_city_mo)
+    kcmo_intake: Optional[dict[str, Any]] = None
+    estimated_valuation_usd: Optional[int] = None
+    existing_use: Optional[str] = None
+    proposed_use: Optional[str] = None
+    floodplain_status: Optional[str] = None
+    owner_occupied: Optional[bool] = None
 
     @classmethod
     def riverside_residences_demo(cls) -> "ProjectBrief":

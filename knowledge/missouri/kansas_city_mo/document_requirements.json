@@ -1,0 +1,11 @@
+{
+  "commercial_building": ["Scope-of-work letter", "Architectural drawings", "Code summary", "Contractor information"],
+  "electrical": ["Electrical plans", "Contractor license", "Product specifications when applicable"],
+  "plumbing": ["Plumbing plans", "Contractor license", "Fixture schedule"],
+  "mechanical": ["Mechanical plans", "Equipment schedule", "Contractor license"],
+  "fire_protection": ["Fire alarm drawings", "Sprinkler drawings", "Product specifications"],
+  "certificate_of_occupancy": ["Approved permit record", "Final inspection approvals", "Life safety approvals"],
+  "land_disturbance": ["Land-disturbance plan", "Erosion-control plan", "Site plan"],
+  "right_of_way": ["Traffic-control plan", "Right-of-way drawings", "Contractor information"],
+  "sign": ["Sign drawings", "Site or elevation reference", "Contractor information"]
+}

@@ -218,21 +218,48 @@ export async function getProject(id: string): Promise<Project> {
   return res.json();
 }
 
-export async function createProject(data: Partial<Project>): Promise<Project> {
+export async function createProject(data: Partial<Project> & { intake?: Record<string, unknown> }): Promise<Project> {
   const res = await fetch(`${API}/projects`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       name: data.name,
       address: data.address,
-      projectType: data.projectType ?? "multifamily_residential",
+      projectType: data.projectType ?? "commercial",
       jurisdiction: data.jurisdiction ?? "kansas_city_mo",
       scope: data.scope ?? {},
+      intake: data.intake ?? {},
       customRules: data.customRules ?? [],
     }),
   });
   if (!res.ok) throw new Error(await parseError(res));
   return res.json();
+}
+
+export async function getProjectChecklist(projectId: string) {
+  const res = await fetch(`${API}/projects/${projectId}/checklist`);
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json() as Promise<{ items: import("./types").ChecklistItem[] }>;
+}
+
+export async function rebuildProjectChecklist(projectId: string) {
+  const res = await fetch(`${API}/projects/${projectId}/checklist/rebuild`, { method: "POST" });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json() as Promise<{ items: import("./types").ChecklistItem[] }>;
+}
+
+export async function updateChecklistItem(
+  projectId: string,
+  itemId: string,
+  data: Partial<{ status: string; notes: string; matchedFileId: string | null }>
+) {
+  const res = await fetch(`${API}/projects/${projectId}/checklist/${itemId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json() as Promise<import("./types").ChecklistItem>;
 }
 
 export async function updateProject(id: string, data: Partial<Project>): Promise<Project> {

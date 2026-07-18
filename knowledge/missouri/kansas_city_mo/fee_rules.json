@@ -1,0 +1,17 @@
+{
+  "jurisdiction_id": "kansas_city_mo",
+  "estimate_status_default": "rough_estimate",
+  "source": "KCMO Development Guide / Chapter 18 Development Fee Schedule",
+  "notes": [
+    "Plan check fee is described as one-half of the total building permit fee and is paid when plans are submitted for review.",
+    "Final fees must be confirmed in CompassKC calculators.",
+    "Exact valuation-based fee tables are not fully encoded in this MVP pack."
+  ],
+  "formulas": {
+    "plan_check_fraction_of_building_permit": 0.5
+  },
+  "placeholders": {
+    "require_valuation_for_numeric_estimate": true,
+    "if_missing_valuation": "data_gap"
+  }
+}

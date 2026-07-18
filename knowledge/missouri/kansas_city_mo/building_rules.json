@@ -1,0 +1,30 @@
+{
+  "jurisdiction_id": "kansas_city_mo",
+  "source": "KCMO Chapter 18 Building and Rehabilitation Code / Development Process Guide",
+  "rules": [
+    {
+      "id": "kcmo_building_permit_required",
+      "category": "building",
+      "rule": "Building permit required for regulated construction",
+      "condition": "New construction, additions, alterations, repairs, demolition, and occupancy changes generally require a permit application through CompassKC.",
+      "severity": "major",
+      "source": "KCMO Development Process Guide / Chapter 18"
+    },
+    {
+      "id": "kcmo_stories_data",
+      "category": "building",
+      "rule": "Number of stories required for plan review scoping",
+      "condition": "Provide number of stories so height and egress scoping can be evaluated.",
+      "severity": "warning",
+      "source": "IB100 / IB110"
+    },
+    {
+      "id": "kcmo_area_data",
+      "category": "building",
+      "rule": "Building area required for plan review scoping",
+      "condition": "Provide building area (sq ft) for fee and review scoping.",
+      "severity": "warning",
+      "source": "IB100 / IB110"
+    }
+  ]
+}

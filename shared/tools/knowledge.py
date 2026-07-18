@@ -10,7 +10,7 @@ KNOWLEDGE_BASE = Path(__file__).resolve().parents[2] / "knowledge"
 
 JURISDICTION_PATHS: dict[str, Path] = {
     "austin_tx": KNOWLEDGE_BASE / "austin",
-    "kansas_city_mo": KNOWLEDGE_BASE / "missouri" / "kansas_city",
+    "kansas_city_mo": KNOWLEDGE_BASE / "missouri" / "kansas_city_mo",
     "manhattan_ks": KNOWLEDGE_BASE / "kansas" / "manhattan",
     "seattle_wa": KNOWLEDGE_BASE / "washington" / "seattle",
 }
@@ -50,16 +50,24 @@ def list_jurisdictions() -> list[dict]:
             if meta_path.is_file():
                 with meta_path.open(encoding="utf-8") as f:
                     meta = json.load(f)
+            coverage = meta.get("coverage_status", "available")
+            if coverage in {"superseded", "archived"}:
+                continue
             jid = meta.get("jurisdiction_id", f"{city_dir.name}-{state_dir.name}").replace("-", "_")
             if jid == "manhattan_ks" or city_dir.name == "manhattan":
                 jid = "manhattan_ks"
+            if city_dir.name in {"kansas_city", "kansas_city_mo"} or jid.startswith("kansas_city"):
+                jid = "kansas_city_mo"
+            # De-dupe if both legacy and new folders somehow remain active
+            if any(item["id"] == jid for item in results):
+                continue
             results.append(
                 {
                     "id": jid,
                     "label": f"{meta.get('city', city_dir.name.title())}, {meta.get('state', state_dir.name.upper())}",
                     "state": meta.get("state", state_dir.name.upper()),
                     "city": meta.get("city", city_dir.name.title()),
-                    "coverage_status": meta.get("coverage_status", "available"),
+                    "coverage_status": coverage,
                 }
             )
 

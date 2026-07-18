@@ -67,6 +67,12 @@ def run_sqlite_migrations(conn: Connection) -> None:
             "zoning_warnings",
             "ALTER TABLE projects ADD COLUMN zoning_warnings JSON",
         )
+        _add_column_if_missing(
+            conn,
+            "projects",
+            "intake",
+            "ALTER TABLE projects ADD COLUMN intake JSON",
+        )
     if "project_files" in inspect(conn).get_table_names():
         _add_column_if_missing(
             conn,

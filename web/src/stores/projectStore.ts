@@ -9,7 +9,7 @@ type ProjectState = {
   error: string | null;
   fetchProjects: () => Promise<void>;
   fetchProject: (id: string) => Promise<Project | null>;
-  createProject: (data: Partial<Project>) => Promise<Project>;
+  createProject: (data: Partial<Project> & { intake?: Record<string, unknown> }) => Promise<Project>;
   updateProject: (id: string, data: Partial<Project>) => Promise<void>;
   resolveZoning: (id: string) => Promise<void>;
   deleteProject: (id: string) => Promise<void>;

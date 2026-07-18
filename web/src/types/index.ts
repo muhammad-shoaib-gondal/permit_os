@@ -15,6 +15,68 @@ export type ProjectTypeValue =
   | "mixed_use"
   | "industrial";
 
+export type ProjectCategory = "single_family" | "multifamily" | "commercial";
+
+export type ScopeTypeValue =
+  | "new_construction"
+  | "addition"
+  | "alteration"
+  | "repair"
+  | "tenant_finish"
+  | "change_of_use"
+  | "demolition";
+
+export type KcmoIntake = {
+  project_category: ProjectCategory;
+  scope_type: ScopeTypeValue;
+  parcel_lot_number?: string | null;
+  existing_use?: string | null;
+  proposed_use?: string | null;
+  estimated_valuation_usd?: number | null;
+  building_area_sqft?: number | null;
+  stories?: number | null;
+  floodplain_status?: "unknown" | "yes" | "no";
+  includes_electrical?: boolean;
+  includes_plumbing?: boolean;
+  includes_mechanical?: boolean;
+  includes_fire_sprinkler_alarm?: boolean;
+  affects_public_row?: boolean;
+  owner_occupied?: boolean | null;
+  dwelling_type?: "one_family" | "two_family" | null;
+  residential_work_type?: "addition" | "remodel" | "new_home" | null;
+  basement_finish?: boolean;
+  accessory_structure?: boolean;
+  driveway_work?: boolean;
+  dwelling_units?: number | null;
+  multifamily_form?: "apartments" | "townhomes" | "mixed_use_residential" | null;
+  fire_separation_involved?: boolean | null;
+  sprinklered?: "yes" | "no" | "unknown" | null;
+  change_in_unit_count?: boolean;
+  multiple_buildings?: boolean;
+  business_use_type?: string | null;
+  tenant_finish?: boolean;
+  shell_building?: boolean;
+  change_of_occupancy?: "yes" | "no" | "unknown" | null;
+  occupancy_group?: string | null;
+  construction_type?: string | null;
+  public_access?: boolean;
+  notes?: string | null;
+};
+
+export type ChecklistItem = {
+  id: string;
+  projectId: string;
+  itemKey: string;
+  label: string;
+  category: string;
+  requiredFor: string[];
+  sourceTitle?: string | null;
+  sourceUrl?: string | null;
+  status: "missing" | "uploaded" | "waived" | "not_applicable";
+  matchedFileId?: string | null;
+  notes?: string | null;
+};
+
 export type ProjectScope = {
   new_construction: boolean;
   addition: boolean;
@@ -173,6 +235,8 @@ export type Project = {
     severity: "error" | "warning" | "info";
   }>;
   scope?: ProjectScope;
+  intake?: KcmoIntake | Record<string, unknown>;
+  projectCategory?: ProjectCategory | null;
   files: ProjectFile[];
   permits?: ProjectPermit[];
   customRules: CustomRule[];
@@ -253,7 +317,28 @@ export type CaseResults = {
     conflicts: { issue: string; suggested_fix: string; severity: string }[];
     executive_summary?: string;
     status: string;
+    human_actions_required?: string[];
   };
+  likely_permits?: Array<{
+    permit_name: string;
+    reason?: string;
+    requirement_status?: string;
+    source?: string;
+  }>;
+  data_gaps?: string[];
+  fee_estimate?: {
+    estimate_status?: string;
+    warnings?: string[];
+    line_items?: Array<{ label: string; amount?: number | null; basis?: string; source?: string }>;
+  };
+  findings?: Array<{
+    status: string;
+    module: string;
+    finding: string;
+    explanation: string;
+    citation?: string;
+  }>;
+  kcmo?: boolean;
   permit_package?: {
     permits_required: { permit_name: string; agency: string; fee_usd: number; timeline_days: number }[];
     documents_required: { name: string; source_agent: string }[];
@@ -286,6 +371,43 @@ export type CaseResults = {
   stall_reason?: string;
   phase?: string;
   completed_agents?: string[];
+};
+
+export const PROJECT_CATEGORIES = [
+  { value: "single_family", label: "Single-family / one- and two-family residential" },
+  { value: "multifamily", label: "Multifamily" },
+  { value: "commercial", label: "Commercial" },
+] as const;
+
+export const SCOPE_TYPE_OPTIONS = [
+  { value: "new_construction", label: "New construction" },
+  { value: "addition", label: "Addition" },
+  { value: "alteration", label: "Alteration" },
+  { value: "repair", label: "Repair" },
+  { value: "tenant_finish", label: "Tenant finish" },
+  { value: "change_of_use", label: "Change of use" },
+  { value: "demolition", label: "Demolition" },
+] as const;
+
+export const DEFAULT_KCMO_INTAKE: KcmoIntake = {
+  project_category: "commercial",
+  scope_type: "alteration",
+  floodplain_status: "unknown",
+  includes_electrical: false,
+  includes_plumbing: false,
+  includes_mechanical: false,
+  includes_fire_sprinkler_alarm: false,
+  affects_public_row: false,
+  basement_finish: false,
+  accessory_structure: false,
+  driveway_work: false,
+  change_in_unit_count: false,
+  multiple_buildings: false,
+  tenant_finish: false,
+  shell_building: false,
+  public_access: false,
+  sprinklered: "unknown",
+  change_of_occupancy: "unknown",
 };
 
 export const PROJECT_TYPES = [

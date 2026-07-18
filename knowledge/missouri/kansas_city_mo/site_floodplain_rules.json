@@ -1,0 +1,32 @@
+{
+  "jurisdiction_id": "kansas_city_mo",
+  "source": "Chapter 28 Floodplain Management / IB120 / Development Process Guide",
+  "rules": [
+    {
+      "id": "floodplain_permit_if_mapped",
+      "status_if_yes": "warn",
+      "finding": "Floodplain Development Permit likely required",
+      "citation": "Chapter 28 / IB120",
+      "explanation": "If the parcel is in the KCMO regulatory floodplain, a Floodplain Development Permit Application is needed."
+    },
+    {
+      "id": "floodplain_unknown",
+      "status_if_unknown": "data_gap",
+      "finding": "Floodplain status could not be verified",
+      "citation": "IB120 / Parcel Viewer",
+      "explanation": "Confirm floodplain status in KCMO Parcel Viewer / floodplain mapping before filing."
+    },
+    {
+      "id": "row_impacts",
+      "finding": "Right-of-way / driveway / curb / sidewalk review may be required",
+      "citation": "KCMO Development Process Guide",
+      "explanation": "Work affecting curb, sidewalk, driveway approach, or public ROW typically needs separate public-works coordination."
+    },
+    {
+      "id": "public_improvements",
+      "finding": "Major public improvement plan review may be required",
+      "citation": "KCMO Development Process Guide",
+      "explanation": "Major public infrastructure plans are distinct from minor sidewalk/curb/driveway approach work."
+    }
+  ]
+}

@@ -1,9 +1,7 @@
 {
-  "jurisdiction_id": "kansas_city_mo",
+  "jurisdiction_id": "kansas_city_mo_legacy",
   "city": "Kansas City",
   "state": "MO",
-  "coverage_status": "mvp",
-  "portal_name": "CompassKC",
-  "portal_url": "https://compasskc.kcmo.org/",
-  "last_verified": "2026-07-13"
+  "coverage_status": "superseded",
+  "notes": "Superseded by knowledge/missouri/kansas_city_mo/"
 }

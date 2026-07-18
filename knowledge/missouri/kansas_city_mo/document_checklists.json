@@ -1,0 +1,137 @@
+{
+  "jurisdiction_id": "kansas_city_mo",
+  "match_keywords": {
+    "site_plan": ["site plan", "siteplan", "civil"],
+    "architectural_plans": ["architectural", "floor plan", "floorplan", "a-sheets", "plans"],
+    "mep": ["mep", "mechanical", "electrical", "plumbing", "hvac"],
+    "energy": ["energy", "comcheck", "rescheck"],
+    "survey": ["survey", "plat", "boundary"],
+    "structural": ["structural", "calcs", "calculations"],
+    "fire": ["fire", "sprinkler", "alarm", "life safety"],
+    "floodplain": ["floodplain", "flood", "elevation certificate"],
+    "affidavit": ["affidavit", "homeowner"],
+    "firewall": ["firewall", "fire separation", "ib142"],
+    "multiple_building": ["multiple building", "ib158", "building data"]
+  },
+  "items": [
+    {
+      "id": "kcmo_ib100_plan_package",
+      "label": "One-/two-family plan review package (IB100)",
+      "required_for": ["single_family"],
+      "source_title": "IB100",
+      "source_url": "https://www.kcmo.gov/city-hall/departments/city-planning-development/information-bulletin-ib-index",
+      "match_keys": ["architectural_plans", "site_plan"]
+    },
+    {
+      "id": "kcmo_ib121_zoning_docs",
+      "label": "Zoning requirements documentation for new one/two-family or addition (IB121)",
+      "required_for": ["single_family"],
+      "source_title": "IB121",
+      "source_url": "https://www.kcmo.gov/city-hall/departments/city-planning-development/information-bulletin-ib-index",
+      "match_keys": ["site_plan", "survey"]
+    },
+    {
+      "id": "kcmo_ib132_basement",
+      "label": "Basement finish submittal materials (IB132)",
+      "required_for": ["single_family"],
+      "when": {"basement_finish": true},
+      "source_title": "IB132",
+      "source_url": "https://www.kcmo.gov/city-hall/departments/city-planning-development/information-bulletin-ib-index",
+      "match_keys": ["architectural_plans"]
+    },
+    {
+      "id": "kcmo_ib146_affidavit",
+      "label": "Homeowner-occupant affidavit (IB146) if applicable",
+      "required_for": ["single_family"],
+      "when": {"owner_occupied": true},
+      "source_title": "IB146",
+      "source_url": "https://www.kcmo.gov/city-hall/departments/city-planning-development/information-bulletin-ib-index",
+      "match_keys": ["affidavit"]
+    },
+    {
+      "id": "kcmo_ib110_architectural",
+      "label": "Architectural plans (IB110)",
+      "required_for": ["commercial", "multifamily"],
+      "source_title": "IB110",
+      "source_url": "https://www.kcmo.gov/city-hall/departments/city-planning-development/information-bulletin-ib-index",
+      "match_keys": ["architectural_plans"]
+    },
+    {
+      "id": "kcmo_ib110_site_plan",
+      "label": "Site plan / civil drawings (IB110)",
+      "required_for": ["commercial", "multifamily"],
+      "source_title": "IB110",
+      "source_url": "https://www.kcmo.gov/city-hall/departments/city-planning-development/information-bulletin-ib-index",
+      "match_keys": ["site_plan", "survey"]
+    },
+    {
+      "id": "kcmo_ib110_mep",
+      "label": "MEP drawings when trade work is included (IB110)",
+      "required_for": ["commercial", "multifamily"],
+      "when": {"any_trade": true},
+      "source_title": "IB110",
+      "source_url": "https://www.kcmo.gov/city-hall/departments/city-planning-development/information-bulletin-ib-index",
+      "match_keys": ["mep"]
+    },
+    {
+      "id": "kcmo_ib110_application_forms",
+      "label": "Commercial application forms / checklists (IB110 Parts A-D)",
+      "required_for": ["commercial", "multifamily"],
+      "source_title": "IB110",
+      "source_url": "https://www.kcmo.gov/city-hall/departments/city-planning-development/information-bulletin-ib-index",
+      "match_keys": []
+    },
+    {
+      "id": "kcmo_ib142_firewall",
+      "label": "Multifamily firewall / fire-separation documentation (IB142)",
+      "required_for": ["multifamily"],
+      "source_title": "IB142",
+      "source_url": "https://www.kcmo.gov/city-hall/departments/city-planning-development/information-bulletin-ib-index",
+      "match_keys": ["firewall", "fire"]
+    },
+    {
+      "id": "kcmo_ib158_multi_building",
+      "label": "Multiple Building Data Sheet (IB158)",
+      "required_for": ["multifamily"],
+      "when": {"multiple_buildings": true},
+      "source_title": "IB158",
+      "source_url": "https://www.kcmo.gov/city-hall/departments/city-planning-development/information-bulletin-ib-index",
+      "match_keys": ["multiple_building"]
+    },
+    {
+      "id": "kcmo_ib116_sprinkler",
+      "label": "Fire sprinkler / alarm drawings (IB116)",
+      "required_for": ["commercial", "multifamily"],
+      "when": {"includes_fire_sprinkler_alarm": true},
+      "source_title": "IB116",
+      "source_url": "https://www.kcmo.gov/city-hall/departments/city-planning-development/information-bulletin-ib-index",
+      "match_keys": ["fire"]
+    },
+    {
+      "id": "kcmo_ib139_co",
+      "label": "Certificate of Occupancy request materials (IB139/IB165)",
+      "required_for": ["commercial", "multifamily"],
+      "source_title": "IB139/IB165",
+      "source_url": "https://www.kcmo.gov/city-hall/departments/city-planning-development/information-bulletin-ib-index",
+      "match_keys": []
+    },
+    {
+      "id": "kcmo_ib120_floodplain",
+      "label": "Floodplain Development Permit Application (IB120)",
+      "required_for": ["single_family", "multifamily", "commercial"],
+      "when": {"floodplain_yes": true},
+      "source_title": "IB120",
+      "source_url": "https://www.kcmo.gov/city-hall/departments/city-planning-development/information-bulletin-ib-index",
+      "match_keys": ["floodplain"]
+    },
+    {
+      "id": "kcmo_ib107_demolition",
+      "label": "Demolition permit package (IB107)",
+      "required_for": ["single_family", "multifamily", "commercial"],
+      "when": {"scope_demolition": true},
+      "source_title": "IB107",
+      "source_url": "https://www.kcmo.gov/city-hall/departments/city-planning-development/information-bulletin-ib-index",
+      "match_keys": []
+    }
+  ]
+}

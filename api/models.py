@@ -25,6 +25,7 @@ class Project(Base):
     zoning_profile: Mapped[dict] = mapped_column(JSON, default=dict)
     zoning_warnings: Mapped[list] = mapped_column(JSON, default=list)
     scope: Mapped[dict] = mapped_column(JSON, default=dict)
+    intake: Mapped[dict] = mapped_column(JSON, default=dict)
     custom_rules: Mapped[list] = mapped_column(JSON, default=list)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
@@ -36,6 +37,9 @@ class Project(Base):
     files: Mapped[list["ProjectFile"]] = relationship(back_populates="project", cascade="all, delete-orphan")
     cases: Mapped[list["PermitCase"]] = relationship(back_populates="project")
     permits: Mapped[list["ProjectPermit"]] = relationship(back_populates="project", cascade="all, delete-orphan")
+    checklist_items: Mapped[list["ProjectChecklistItem"]] = relationship(
+        back_populates="project", cascade="all, delete-orphan"
+    )
 
 
 class ProjectFile(Base):
@@ -96,6 +100,32 @@ class ProjectPermit(Base):
     )
 
     project: Mapped["Project"] = relationship(back_populates="permits")
+
+
+class ProjectChecklistItem(Base):
+    __tablename__ = "project_checklist_items"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    project_id: Mapped[str] = mapped_column(String(36), ForeignKey("projects.project_id"), index=True)
+    case_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    item_key: Mapped[str] = mapped_column(String(120), index=True)
+    label: Mapped[str] = mapped_column(String(512))
+    category: Mapped[str] = mapped_column(String(50), default="")
+    required_for: Mapped[list] = mapped_column(JSON, default=list)
+    source_title: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    source_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    source_section: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    status: Mapped[str] = mapped_column(String(50), default="missing")
+    matched_file_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+
+    project: Mapped["Project"] = relationship(back_populates="checklist_items")
 
 
 class PermitCase(Base):

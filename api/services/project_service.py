@@ -166,6 +166,8 @@ def _serialize_project(project: Project, cases: list[PermitCase] | None = None) 
         "zoningProfile": zoning_profile,
         "zoningWarnings": zoning_warnings,
         "scope": _normalized_scope(project.scope),
+        "intake": dict(project.intake or {}),
+        "projectCategory": (project.intake or {}).get("project_category"),
         "files": [
             {
                 "id": f.file_id,
@@ -234,26 +236,99 @@ async def get_project(project_id: str) -> dict[str, Any] | None:
         return _serialize_project(project)
 
 
+def _normalize_intake(
+    data: dict[str, Any] | None,
+    project_type: str | None = None,
+    scope: dict[str, bool] | None = None,
+) -> dict[str, Any]:
+    from shared.schemas.kcmo_intake import KcmoIntake
+
+    raw = dict(data or {})
+    if not raw.get("project_category"):
+        pt = project_type or "commercial"
+        if pt == "single_family":
+            raw["project_category"] = "single_family"
+        elif pt in {"multifamily_residential", "mixed_use"}:
+            raw["project_category"] = "multifamily"
+        else:
+            raw["project_category"] = "commercial"
+
+    # Bridge legacy boolean scope into structured intake when fields were not provided.
+    scope_flags = scope or {}
+    if "includes_electrical" not in raw and scope_flags.get("electrical_work"):
+        raw["includes_electrical"] = True
+    if "includes_plumbing" not in raw and scope_flags.get("plumbing_work"):
+        raw["includes_plumbing"] = True
+    if "includes_mechanical" not in raw and scope_flags.get("mechanical_hvac_work"):
+        raw["includes_mechanical"] = True
+    if "includes_fire_sprinkler_alarm" not in raw and scope_flags.get("fire_alarm_sprinkler_work"):
+        raw["includes_fire_sprinkler_alarm"] = True
+    if "affects_public_row" not in raw and scope_flags.get("driveway_sidewalk_row"):
+        raw["affects_public_row"] = True
+    if not raw.get("scope_type"):
+        for key, scope_type in (
+            ("demolition", "demolition"),
+            ("new_construction", "new_construction"),
+            ("addition", "addition"),
+            ("repair", "repair"),
+            ("change_use_occupancy", "change_of_use"),
+            ("alteration", "alteration"),
+        ):
+            if scope_flags.get(key):
+                raw["scope_type"] = scope_type
+                break
+        if raw.get("project_category") == "commercial" and (
+            pt := project_type or ""
+        ) == "commercial_tenant_improvement":
+            raw["scope_type"] = "tenant_finish"
+            raw["tenant_finish"] = True
+        if (project_type or "") == "new_commercial_construction":
+            raw["scope_type"] = "new_construction"
+
+    try:
+        intake = KcmoIntake.model_validate(raw)
+        return intake.model_dump(mode="json")
+    except Exception:
+        return raw
+
+
 async def create_project(data: dict[str, Any]) -> dict[str, Any]:
     project_id = str(uuid4())
     now = datetime.now(timezone.utc)
     jurisdiction = data.get("jurisdiction", "kansas_city_mo")
     if jurisdiction not in JURISDICTION_ZONING:
         raise HTTPException(status_code=400, detail=f"Unsupported jurisdiction: {jurisdiction}")
+    _validate_jurisdiction_address(jurisdiction, data["address"])
     resolution = await resolve_zoning(data["address"], jurisdiction)
+
+    scope = _normalized_scope(data.get("scope"))
+    intake = _normalize_intake(data.get("intake"), data.get("projectType"), scope)
+    project_type = data.get("projectType")
+    if jurisdiction == "kansas_city_mo" and intake:
+        from shared.schemas.kcmo_intake import KcmoIntake
+
+        try:
+            parsed = KcmoIntake.model_validate(intake)
+            project_type = parsed.category_to_project_type()
+            # Prefer structured intake → scope when intake was provided explicitly
+            if data.get("intake"):
+                scope = parsed.to_legacy_scope()
+        except Exception:
+            pass
 
     async with SessionLocal() as session:
         project = Project(
             project_id=project_id,
             name=data["name"],
             address=data["address"],
-            project_type=data.get("projectType", "multifamily_residential"),
+            project_type=project_type or "commercial",
             jurisdiction=jurisdiction,
             area=(resolution.get("profile") or {}).get("district"),
             zoning_status=resolution["status"],
             zoning_profile=resolution.get("profile") or {},
             zoning_warnings=resolution.get("warnings") or [],
-            scope=_normalized_scope(data.get("scope")),
+            scope=scope,
+            intake=intake,
             custom_rules=data.get("customRules", []),
             permits=[],
             created_at=now,
@@ -265,7 +340,14 @@ async def create_project(data: dict[str, Any]) -> dict[str, Any]:
         await session.commit()
         await session.refresh(project, ["files", "cases"])
         await session.refresh(project, ["permits"])
-        return _serialize_project(project)
+        serialized = _serialize_project(project)
+
+    if jurisdiction == "kansas_city_mo":
+        from api.services.checklist_service import rebuild_project_checklist
+
+        await rebuild_project_checklist(project_id)
+        return await get_project(project_id) or serialized
+    return serialized
 
 
 async def update_project(project_id: str, data: dict[str, Any]) -> dict[str, Any] | None:
@@ -292,7 +374,18 @@ async def update_project(project_id: str, data: dict[str, Any]) -> dict[str, Any
         address_context_changed = "address" in data or "jurisdiction" in data
         if address_context_changed:
             await _resolve_project_zoning(project)
-        if "scope" in data:
+        if "intake" in data and data["intake"] is not None:
+            intake = _normalize_intake(data["intake"], data.get("projectType") or project.project_type)
+            project.intake = intake
+            from shared.schemas.kcmo_intake import KcmoIntake
+
+            try:
+                parsed = KcmoIntake.model_validate(intake)
+                project.scope = parsed.to_legacy_scope()
+                project.project_type = parsed.category_to_project_type()
+            except Exception:
+                pass
+        if "scope" in data and "intake" not in data:
             project.scope = _normalized_scope(data["scope"])
         if "customRules" in data:
             project.custom_rules = data["customRules"]
@@ -300,7 +393,15 @@ async def update_project(project_id: str, data: dict[str, Any]) -> dict[str, Any
         _sync_project_permit_recommendations(project)
         await session.commit()
         await session.refresh(project, ["files", "cases", "permits"])
-        return _serialize_project(project)
+        serialized = _serialize_project(project)
+        project_id_out = project.project_id
+        jurisdiction_out = project.jurisdiction
+    if jurisdiction_out == "kansas_city_mo":
+        from api.services.checklist_service import rebuild_project_checklist
+
+        await rebuild_project_checklist(project_id_out)
+        return await get_project(project_id_out) or serialized
+    return serialized
 
 
 async def refresh_project_zoning(project_id: str) -> dict[str, Any] | None:
@@ -392,17 +493,23 @@ async def add_project_file(
         )
         session.add(pf)
         project.updated_at = datetime.now(timezone.utc)
+        jurisdiction = project.jurisdiction
         await session.commit()
-        return {
+        payload = {
             "id": pf.file_id,
             "name": pf.name,
             "type": pf.file_type,
             "label": pf.document_label,
             "size": pf.size,
             "sections": pf.file_sections or [],
-            "uploadedAt": pf.uploaded_at.isoformat(),
+            "uploadedAt": pf.uploaded_at.isoformat() if pf.uploaded_at else None,
             "isPrimaryBrief": pf.is_primary_brief,
         }
+    if jurisdiction == "kansas_city_mo":
+        from api.services.checklist_service import rebuild_project_checklist
+
+        await rebuild_project_checklist(project_id)
+    return payload
 
 
 async def delete_project_file(project_id: str, file_id: str) -> bool:
@@ -632,6 +739,17 @@ def _candidate_permit_recommendations(project: Project) -> list[dict[str, Any]]:
     if project.jurisdiction not in JURISDICTION_PATHS:
         return []
 
+    if project.jurisdiction == "kansas_city_mo":
+        from shared.schemas.kcmo_intake import KcmoIntake
+        from shared.tools.kcmo.kcmo_permit_router import route_kcmo_permits
+
+        intake_data = _normalize_intake(project.intake, project.project_type, project.scope)
+        try:
+            intake = KcmoIntake.model_validate(intake_data)
+        except Exception:
+            intake = KcmoIntake()
+        return route_kcmo_permits(intake, dict(project.zoning_profile or {}))
+
     try:
         catalog = load_json("permit_catalog.json", project.jurisdiction)
     except Exception:
@@ -806,17 +924,40 @@ def _sync_project_permit_recommendations(project: Project) -> None:
 
 
 def _build_brief_from_project(project: Project) -> ProjectBrief:
+    intake = _normalize_intake(project.intake, project.project_type, project.scope)
+    units = int(intake.get("dwelling_units") or 0)
+    stories = int(intake.get("stories") or 0)
+    area = int(intake.get("building_area_sqft") or 0)
+    try:
+        project_type = ProjectType(project.project_type)
+    except ValueError:
+        project_type = ProjectType.COMMERCIAL
     return ProjectBrief(
         project_name=project.name,
         address=project.address,
         jurisdiction=project.jurisdiction,
-        project_type=ProjectType(project.project_type),
-        units=0,
-        stories=0,
-        gross_sqft=0,
+        project_type=project_type,
+        units=units,
+        stories=stories,
+        gross_sqft=area,
         lot_sqft=0,
         parking_spaces=0,
         notes=f"Area: {project.area}" if project.area else None,
+        kcmo_intake=intake,
+        estimated_valuation_usd=intake.get("estimated_valuation_usd"),
+        existing_use=intake.get("existing_use"),
+        proposed_use=intake.get("proposed_use"),
+        floodplain_status=intake.get("floodplain_status"),
+        owner_occupied=intake.get("owner_occupied"),
+        fire_alarm_work=bool(intake.get("includes_fire_sprinkler_alarm")),
+        sprinkler_work=intake.get("sprinklered") == "yes",
+        right_of_way_impacts=bool(intake.get("affects_public_row") or intake.get("driveway_work")),
+        change_of_use=bool(
+            intake.get("scope_type") == "change_of_use"
+            or intake.get("change_of_occupancy") == "yes"
+        ),
+        occupancy_type=intake.get("occupancy_group"),
+        use_description=intake.get("proposed_use") or intake.get("business_use_type"),
     )
 
 
@@ -861,15 +1002,30 @@ async def analyze_project(project_id: str, modules: list[str] | None = None) -> 
                 None,
             )
         path = Path(brief_file.storage_path) if brief_file else None
-        project_type = ProjectType(project.project_type)
+        try:
+            project_type = ProjectType(project.project_type)
+        except ValueError:
+            project_type = ProjectType.COMMERCIAL
         jurisdiction = project.jurisdiction
         project_name = project.name
         project_address = project.address
         project_area = project.area
         project_zoning_profile = dict(project.zoning_profile or {})
+        project_intake = _normalize_intake(project.intake, project.project_type)
         custom_rules = _usable_custom_rules(project.custom_rules)
         files = list(project.files or [])
         brief_filename = brief_file.name if brief_file else "generated-project-brief.json"
+        # Snapshot ORM fields before commit/expiry for brief generation outside the session.
+        project_snapshot = Project(
+            project_id=project.project_id,
+            name=project.name,
+            address=project.address,
+            project_type=project.project_type,
+            jurisdiction=project.jurisdiction,
+            area=project.area,
+            intake=project_intake,
+            scope=project.scope or {},
+        )
         project.updated_at = datetime.now(timezone.utc)
         await session.commit()
 
@@ -886,8 +1042,9 @@ async def analyze_project(project_id: str, modules: list[str] | None = None) -> 
         brief.jurisdiction = jurisdiction
         brief.project_name = project_name
         brief.address = project_address
+        brief.kcmo_intake = project_intake
     else:
-        brief = _build_brief_from_project(project)
+        brief = _build_brief_from_project(project_snapshot)
 
     if project_area:
         brief.notes = f"{brief.notes or ''}\nArea: {project_area}".strip()
@@ -917,18 +1074,29 @@ async def analyze_project(project_id: str, modules: list[str] | None = None) -> 
 
     selected_modules = [m for m in (modules or list(ANALYSIS_MODULES.keys())) if m in ANALYSIS_MODULES]
     requirements = _module_requirements_payload(files)
-    blocked_modules = [requirements[m]["label"] for m in selected_modules if not requirements[m]["canRun"]]
-    if blocked_modules:
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                "Upload at least one relevant file before running "
-                + ", ".join(blocked_modules)
-                + " analysis."
-            ),
-        )
+    # KCMO MVP scores from structured intake; files enrich the checklist but are not required to analyze.
+    if jurisdiction != "kansas_city_mo":
+        blocked_modules = [requirements[m]["label"] for m in selected_modules if not requirements[m]["canRun"]]
+        if blocked_modules:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Upload at least one relevant file before running "
+                    + ", ".join(blocked_modules)
+                    + " analysis."
+                ),
+            )
+    else:
+        for key in requirements:
+            requirements[key]["canRun"] = True
     if not selected_modules:
         raise HTTPException(status_code=400, detail="No runnable analysis modules selected.")
+    # Attach zoning profile for KCMO local runner via brief notes/intake side channel
+    if jurisdiction == "kansas_city_mo" and project_zoning_profile:
+        brief.kcmo_intake = {
+            **(brief.kcmo_intake or project_intake or {}),
+            "_zoning_profile": project_zoning_profile,
+        }
     return await start_case_async(
         brief,
         project_id=project_id,

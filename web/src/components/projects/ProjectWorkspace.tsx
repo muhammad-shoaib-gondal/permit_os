@@ -17,6 +17,7 @@ import { FileUploader } from "../files/FileUploader";
 import { FileList } from "../files/FileList";
 import { AnalysisTab } from "../analysis/AnalysisTab";
 import { PermitBundleTab } from "../permits/PermitBundleTab";
+import { ChecklistTab } from "../checklist/ChecklistTab";
 import { Badge } from "../common/Badge";
 import { formatDate } from "../../lib/utils";
 import { useProjectStore } from "../../stores/projectStore";
@@ -25,6 +26,7 @@ import { toast } from "../../stores/toastStore";
 const TABS = [
   { id: "overview", label: "Overview" },
   { id: "permits", label: "Permits" },
+  { id: "checklist", label: "Checklist" },
   { id: "documents", label: "Documents" },
   { id: "review", label: "Review" },
   { id: "activity", label: "Activity" },
@@ -397,6 +399,8 @@ export function ProjectWorkspace({ project }: ProjectWorkspaceProps) {
           />
         </div>
       )}
+
+      {tab === "checklist" && <ChecklistTab project={project} />}
 
       {tab === "review" && (
         <AnalysisTab

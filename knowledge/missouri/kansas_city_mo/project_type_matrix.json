@@ -1,0 +1,23 @@
+{
+  "jurisdiction_id": "kansas_city_mo",
+  "categories": {
+    "single_family": {
+      "label": "Single-family / one- and two-family residential",
+      "default_building_permit": "residential_building",
+      "primary_sources": ["IB100", "IB104", "IB121", "IB132", "IB146"],
+      "always_consider": ["residential_building"]
+    },
+    "multifamily": {
+      "label": "Multifamily",
+      "default_building_permit": "multifamily_building_review",
+      "primary_sources": ["IB110", "IB142", "IB158", "IB116", "IB139"],
+      "always_consider": ["multifamily_building_review", "certificate_of_occupancy"]
+    },
+    "commercial": {
+      "label": "Commercial",
+      "default_building_permit": "commercial_building",
+      "primary_sources": ["IB110", "IB139", "IB165", "IB116", "IB107"],
+      "always_consider": ["commercial_building"]
+    }
+  }
+}

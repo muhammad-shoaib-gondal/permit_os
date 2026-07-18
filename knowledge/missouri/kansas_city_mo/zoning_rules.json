@@ -1,0 +1,94 @@
+{
+  "jurisdiction_id": "kansas_city_mo",
+  "source": "Kansas City Zoning and Development Code, Chapter 88, Sections 88-130-05 and 88-130-06",
+  "source_url": "https://library.municode.com/mo/kansas_city/codes/zoning_and_development_code?nodeId=ZODECOKAMI_100_SERIESBAZODI_88-130DODI",
+  "last_verified": "2026-07-14",
+  "districts": {
+    "DC-15": {
+      "name": "Downtown Core 15",
+      "code_section": "88-130",
+      "rules": [
+        {
+          "id": "dc15-max-far",
+          "category": "zoning",
+          "rule": "DC-15 maximum floor area ratio: 15.0",
+          "condition": "Divide total gross floor area by lot area. The resulting floor area ratio must not exceed 15.0.",
+          "severity": "blocker",
+          "source": "KCMO Zoning and Development Code 88-130-05, Table 130-2"
+        },
+        {
+          "id": "dc15-residential-density",
+          "category": "zoning",
+          "rule": "DC-15 single-purpose residential minimum lot area per dwelling unit: 100 sq ft",
+          "condition": "For a single-purpose residential building, divide lot area by dwelling-unit count. The result must be at least 100 square feet per dwelling unit. This minimum does not apply to residential units above the ground floor in a mixed-use building.",
+          "severity": "blocker",
+          "source": "KCMO Zoning and Development Code 88-130-05, Table 130-2"
+        },
+        {
+          "id": "dc15-height",
+          "category": "zoning",
+          "rule": "DC-15 has no base maximum building height",
+          "condition": "Do not apply a base-district height cap under Table 130-2. Independently evaluate any mapped airport-height restriction, overlay, approved development plan, or site-specific ordinance returned for the parcel.",
+          "severity": "info",
+          "source": "KCMO Zoning and Development Code 88-130-05, Table 130-2"
+        },
+        {
+          "id": "dc15-front-setback",
+          "category": "zoning",
+          "rule": "DC-15 front setback when abutting a residential district",
+          "condition": "If the lot abuts an R-zoned lot with frontage on the same street, the front setback must match the existing building setback on that R-zoned lot. If no building exists there, provide at least 50% of the front setback required for that R-zoned lot. Otherwise, no base front setback applies.",
+          "severity": "blocker",
+          "source": "KCMO Zoning and Development Code 88-130-05, Table 130-2 note 1"
+        },
+        {
+          "id": "dc15-rear-setback",
+          "category": "zoning",
+          "rule": "DC-15 rear setback when abutting a residential district",
+          "condition": "If the rear lot line abuts an R-zoned district, the rear setback must equal 25% of lot depth, capped at 30 feet. Otherwise, no base rear setback applies.",
+          "severity": "blocker",
+          "source": "KCMO Zoning and Development Code 88-130-05, Table 130-2"
+        },
+        {
+          "id": "dc15-side-setback",
+          "category": "zoning",
+          "rule": "DC-15 side setback when abutting a residential district",
+          "condition": "If a side lot line abuts an R-zoned lot, provide the same side setback required for that abutting R-zoned lot. Otherwise, no base side setback applies.",
+          "severity": "blocker",
+          "source": "KCMO Zoning and Development Code 88-130-05, Table 130-2 note 2"
+        },
+        {
+          "id": "dc15-ground-floor-height",
+          "category": "zoning",
+          "rule": "Downtown new-construction ground-floor ceiling height minimum: 13 ft",
+          "condition": "For new construction in a D district, nonresidential and nonparking ground-floor space must have a floor-to-ceiling height of at least 13 feet. Rehabilitation and renovation projects are excluded.",
+          "severity": "blocker",
+          "source": "KCMO Zoning and Development Code 88-130-06"
+        },
+        {
+          "id": "dc15-ground-floor-area-under-50",
+          "category": "zoning",
+          "rule": "Downtown ground-floor commercial area for frontage under 50 ft",
+          "condition": "For applicable new construction with lot frontage under 50 feet, qualifying ground-floor commercial space must be at least the greater of 800 square feet or 25% of lot area.",
+          "severity": "blocker",
+          "source": "KCMO Zoning and Development Code 88-130-06-A"
+        },
+        {
+          "id": "dc15-ground-floor-area-50-plus",
+          "category": "zoning",
+          "rule": "Downtown ground-floor commercial area for frontage of 50 ft or more",
+          "condition": "For applicable new construction with lot frontage of at least 50 feet, qualifying ground-floor commercial space must be at least 20% of lot area.",
+          "severity": "blocker",
+          "source": "KCMO Zoning and Development Code 88-130-06-B"
+        },
+        {
+          "id": "dc15-principal-building",
+          "category": "zoning",
+          "rule": "One principal building per lot unless otherwise approved",
+          "condition": "The lot may contain only one principal building and customary accessory uses unless an approval authorizes additional principal buildings.",
+          "severity": "warning",
+          "source": "KCMO Zoning and Development Code 88-130-05-C"
+        }
+      ]
+    }
+  }
+}

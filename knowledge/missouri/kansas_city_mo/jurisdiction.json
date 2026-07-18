@@ -1,0 +1,17 @@
+{
+  "jurisdiction_id": "kansas_city_mo",
+  "city": "Kansas City",
+  "state": "MO",
+  "label": "Kansas City, MO",
+  "coverage_status": "active",
+  "portal_name": "CompassKC",
+  "portal_url": "https://compasskc.kcmo.org/",
+  "parcel_viewer_url": "https://maps.kcmo.org/apps/parcelviewer/",
+  "development_guide_url": "https://www.kcmo.gov/city-hall/departments/city-planning-development/development-management/development-guide",
+  "ib_index_url": "https://www.kcmo.gov/city-hall/departments/city-planning-development/information-bulletin-ib-index",
+  "codes_url": "https://www.kcmo.gov/city-hall/departments/city-planning-development/codes-and-ordinances",
+  "permits_url": "https://www.kcmo.gov/city-hall/departments/city-planning-development/permits-division/",
+  "supported_categories": ["single_family", "multifamily", "commercial"],
+  "last_verified": "2026-07-18",
+  "disclaimer": "Pre-screening assistance only. Not legal, engineering, or architectural advice. Confirm all requirements in CompassKC and with licensed professionals."
+}

@@ -1,0 +1,14 @@
+{
+  "jurisdiction_id": "kansas_city_mo",
+  "source": "https://www.kcmo.gov/city-hall/departments/city-planning-development/electrical-plumbing-and-mechanical-permits",
+  "rules": {
+    "licensed_contractor_required_for": ["multifamily", "commercial", "two_family"],
+    "homeowner_occupant_exception_categories": ["single_family"],
+    "trade_depends_on_building_permit_for": ["multifamily", "commercial"],
+    "notes": [
+      "Most electrical, plumbing, or heating/ventilating work requires a permit before work begins.",
+      "For multifamily and commercial buildings, trade permits are typically issued only after building plans are approved and the building permit is issued.",
+      "Single-family homeowner occupants may qualify for an affidavit path for their personal permanent residence (IB146) — verify with KCMO."
+    ]
+  }
+}

@@ -44,10 +44,11 @@ class CustomRuleBody(BaseModel):
 class CreateProjectBody(BaseModel):
     name: str
     address: str
-    projectType: str = "multifamily_residential"
+    projectType: str = "commercial"
     jurisdiction: str = "kansas_city_mo"
     area: str | None = None
     scope: dict[str, bool] = Field(default_factory=dict)
+    intake: dict[str, Any] = Field(default_factory=dict)
     customRules: list[CustomRuleBody] = Field(default_factory=list)
 
 
@@ -58,7 +59,14 @@ class UpdateProjectBody(BaseModel):
     jurisdiction: str | None = None
     area: str | None = None
     scope: dict[str, bool] | None = None
+    intake: dict[str, Any] | None = None
     customRules: list[CustomRuleBody] | None = None
+
+
+class ChecklistPatchBody(BaseModel):
+    status: str | None = None
+    notes: str | None = None
+    matchedFileId: str | None = None
 
 
 class AnalyzeProjectBody(BaseModel):
@@ -214,3 +222,33 @@ async def patch_permit(project_id: str, permit_id: str, body: ProjectPermitBody)
     if permit is None:
         raise HTTPException(status_code=404, detail="Permit not found")
     return permit
+
+
+@router.get("/{project_id}/checklist")
+async def get_checklist(project_id: str):
+    from api.services.checklist_service import list_project_checklist
+
+    items = await list_project_checklist(project_id)
+    if items is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return {"items": items}
+
+
+@router.post("/{project_id}/checklist/rebuild")
+async def rebuild_checklist(project_id: str):
+    from api.services.checklist_service import rebuild_project_checklist
+
+    items = await rebuild_project_checklist(project_id)
+    if items is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return {"items": items}
+
+
+@router.patch("/{project_id}/checklist/{item_id}")
+async def patch_checklist_item(project_id: str, item_id: str, body: ChecklistPatchBody):
+    from api.services.checklist_service import update_checklist_item
+
+    item = await update_checklist_item(project_id, item_id, body.model_dump(exclude_none=True))
+    if item is None:
+        raise HTTPException(status_code=404, detail="Checklist item not found")
+    return item

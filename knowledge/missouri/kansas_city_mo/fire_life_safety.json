@@ -1,0 +1,23 @@
+{
+  "jurisdiction_id": "kansas_city_mo",
+  "rules": [
+    {
+      "id": "kcmo_ib116_sprinkler",
+      "rule": "Fire sprinkler / alarm permit when scope includes fire protection work",
+      "source": "IB116",
+      "applies_when": "includes_fire_sprinkler_alarm"
+    },
+    {
+      "id": "kcmo_ib142_firewall",
+      "rule": "Multifamily firewall / fire-separation review",
+      "source": "IB142",
+      "applies_when": "category_multifamily"
+    },
+    {
+      "id": "kcmo_sprinkler_unknown",
+      "rule": "Confirm sprinkler status for multifamily/commercial",
+      "source": "IB116 / IB110",
+      "applies_when": "sprinklered_unknown"
+    }
+  ]
+}
