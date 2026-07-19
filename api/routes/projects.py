@@ -39,6 +39,8 @@ class CustomRuleBody(BaseModel):
     area: str | None = None
     permitType: str | None = None
     source: str | None = None
+    builtinRuleId: str | None = None
+    systemManaged: bool = False
 
 
 class CreateProjectBody(BaseModel):

@@ -1,22 +1,23 @@
 # Landing Page — Design & Handoff Notes
 
-Context for any agent working on the EstatePermit / PermitOS **marketing landing page**.
+Context for work on the EstatePermit **marketing landing page**.
 Last updated: **final v1** — single terracotta theme, redesign shipped & pushed; naming research added.
 
 ---
 
 ## 1. What this product is (quick context)
 
-- **Product:** PermitOS (marketed as **EstatePermit** on the landing page — name under review, see §8).
-- **What it does:** Multi-agent permit pre-screening for real estate developers, GCs, and
-  architects. Upload a project + plans → 5 specialized AI agents (coordinated via the Band SDK)
-  check zoning, building code, site/environmental, and utilities → returns a **cited compliance
-  report**, fee estimate, and permit package, with a **human approval gate + audit trail**.
+- **Product:** EstatePermit (marketed as **EstatePermit** on the landing page — name under review, see §8).
+- **What it does:** A construction team creates a project, selects the work planned on site,
+  and uploads the project files. EstatePermit identifies the applicable permits, loads the rules
+  and document requirements for each permit, and uses LLM review to check the uploaded files.
+  The final output is a cited, **submission-ready permit document bundle** with blockers and
+  missing items clearly identified for human review.
 - **Domain tone:** Regulated, high-stakes, B2B. Design should read **trustworthy, precise,
   premium** — not playful.
 - **Disclaimer is mandatory** on the site: pre-screening only, not legal/engineering/architectural
   advice. Keep it in the footer.
-- Full product spec: [`docs/PermitOS-Project-Document.md`](./PermitOS-Project-Document.md).
+- Product workflow: [`docs/EstatePermit_KCMO_Five_Step_Implementation_Plan.md`](./EstatePermit_KCMO_Five_Step_Implementation_Plan.md).
   Pricing rationale: [`contacts/PRICING.md`](../contacts/PRICING.md).
   Competitor research: [`contacts/COMPETITORS.md`](../contacts/COMPETITORS.md) +
   [`contacts/COMPETITORS_DEEP_DIVE.md`](../contacts/COMPETITORS_DEEP_DIVE.md).
@@ -64,7 +65,7 @@ cd web && npm install && npm run dev
 ### Design highlights (vs the original landing)
 - Warm **terracotta** palette (accent `#c45c26`), gradient-mesh hero, pill eyebrow, accent span on H1.
 - Hero email form is **inline** (input + button), stacks on mobile; inline confirmation on submit.
-- **Stats strip** under the hero (200+ ordinances / ~3 min / 4 specialists / 100% cited).
+- **Stats strip** under the hero (applicable permits / rule review / submission bundle / cited findings).
 - Cards (value/steps/features/audience) have hover lift + softer shadows.
 - FAQ = bordered cards, keyboard/AX accessible (`aria-expanded`, single-open).
 - No inline `style=` colors in sections; sticky header border on scroll; `scroll-margin-top` anchors.
@@ -85,9 +86,9 @@ removed. To rebrand colors, edit the token values in `:root` directly.
 
 ## 5. Page structure (sections in order)
 
-`header` → `hero` → `stat-strip` → `#value` (dark band) → `#how` (steps) →
+`header` → `hero` → `stat-strip` → `#value` (dark strip) → `#how` (steps) →
 `#fit` (before/after) → `#features` (alt bg) → `#audience` (dark cards) →
-`#pricing` (alt bg, placeholder) → `#faq` → CTA band → `footer`.
+`#pricing` (alt bg, placeholder) → `#faq` → CTA panel → `footer`.
 
 ### `#fit` — Before / after comparison
 Competitor-informed. The product's wedge = a developer-facing pre-screen between code-research

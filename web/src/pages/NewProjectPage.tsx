@@ -35,8 +35,15 @@ export function NewProjectPage() {
         setJurisdictions([
           {
             id: "kansas_city_mo",
-            label: "Kansas City, MO",
+            label: "Kansas City, Missouri",
             state: "MO",
+            city: "Kansas City",
+            coverage_status: "active",
+          },
+          {
+            id: "kansas_city_ks",
+            label: "Kansas City, Kansas",
+            state: "KS",
             city: "Kansas City",
             coverage_status: "active",
           },
@@ -103,7 +110,11 @@ export function NewProjectPage() {
             label="Full project address"
             value={address}
             onChange={(e) => setAddress(e.target.value)}
-            placeholder="414 E 12th St, Kansas City, MO 64106"
+            placeholder={
+              jurisdiction === "kansas_city_ks"
+                ? "701 N 7th St, Kansas City, KS 66101"
+                : "414 E 12th St, Kansas City, MO 64106"
+            }
             required
           />
           <p className="-mt-2 text-xs text-[var(--color-muted)]">

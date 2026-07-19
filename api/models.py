@@ -107,7 +107,6 @@ class PermitCase(Base):
     status: Mapped[str] = mapped_column(String(50), default="INTAKE")
     brief: Mapped[dict] = mapped_column(JSON)
     results: Mapped[dict | None] = mapped_column(JSON, nullable=True)
-    band_room_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     audit_hash: Mapped[str | None] = mapped_column(String(128), nullable=True)
     approved_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -126,7 +125,7 @@ class AuditLogEntry(Base):
     timestamp: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
-    agent_id: Mapped[str] = mapped_column(String(100))
+    source: Mapped[str | None] = mapped_column(String(100), nullable=True)
     event_type: Mapped[str] = mapped_column(String(100))
     payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     message_id: Mapped[str | None] = mapped_column(String(255), nullable=True)

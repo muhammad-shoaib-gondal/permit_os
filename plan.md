@@ -1,8 +1,8 @@
-# PermitOS Dashboard MVP Plan
+# EstatePermit Dashboard MVP Plan
 
 ## Goal
 
-Build the next version of PermitOS as a `project-first dashboard` with `auto-generated permit cards` for one city and one narrow project scope.
+Build the next version of EstatePermit as a `project-first dashboard` with `auto-generated permit cards` for one city and one narrow project scope.
 
 This MVP should answer four questions for a user:
 
@@ -46,7 +46,7 @@ The repo already has a strong starting point:
 - Project workspace with tabs for `Overview`, `Files`, `Rules`, and `Analysis`
 - Backend project and analysis routes in `api/routes/projects.py`
 - Stored project, file, and case models in `api/models.py`
-- Existing multi-agent analysis flow and permit package output
+- Existing permit analysis flow and permit package output
 
 This means we should `extend the current dashboard`, not replace it.
 
@@ -71,7 +71,7 @@ After implementation, a user should be able to:
 
 ### 1. Dashboard Structure
 
-We will shift from a mostly agent-report view to a `permit workspace`.
+We will shift from a mostly automated-report view to a `permit workspace`.
 
 Main project page layout:
 

@@ -4,6 +4,8 @@ from typing import Any
 
 from shared.schemas.permit_review import CandidatePermit, PermitDocumentRequirement, ProjectFact, ProjectSummary
 from shared.schemas.project_brief import ProjectBrief, ProjectType
+from shared.tools.kcmo_permits import match_kcmo_applications
+from shared.tools.kck_permits import match_kck_applications
 from shared.tools.knowledge import load_json
 
 
@@ -65,6 +67,32 @@ def detect_candidate_permits(brief: ProjectBrief) -> list[CandidatePermit]:
                 confidence=1.0 if permit_applies_directly(brief, permit) else 0.75,
             )
         )
+    if brief.jurisdiction == "kansas_city_mo":
+        for application in match_kcmo_applications(
+            _brief_scope(brief),
+            brief.project_type.value,
+            {"fire_alarm": brief.fire_alarm_work},
+        ):
+            detected.append(
+                CandidatePermit(
+                    permit_key=f"compass_{application['application_kind']}_{application['id']}",
+                    label=application["name"],
+                    agency="Kansas City, Missouri",
+                    reason=application["reason"],
+                    confidence=1.0 if application["requirement_status"] == "required" else 0.75,
+                )
+            )
+    elif brief.jurisdiction == "kansas_city_ks":
+        for application in match_kck_applications(_brief_scope(brief), brief.project_type.value):
+            detected.append(
+                CandidatePermit(
+                    permit_key=f"kck_{application['id']}",
+                    label=application["name"],
+                    agency=application["authority"],
+                    reason=application["reason"],
+                    confidence=1.0 if application["requirement_status"] == "required" else 0.75,
+                )
+            )
     return detected
 
 
@@ -75,7 +103,7 @@ def get_required_documents(jurisdiction: str, permit_key: str) -> list[PermitDoc
 
 
 def permit_applies_directly(brief: ProjectBrief, permit: dict[str, Any]) -> bool:
-    applies_when = set(permit.get("applies_when", []))
+    applies_when = set(permit.get("applies_when_any") or permit.get("applies_when") or [])
     if brief.project_type == ProjectType.COMMERCIAL_TENANT_IMPROVEMENT and "commercial_tenant_improvement" in applies_when:
         return True
     if brief.change_of_use and "change_of_use" in applies_when:
@@ -103,8 +131,30 @@ def _permit_reason(brief: ProjectBrief, permit: dict[str, Any]) -> str | None:
     if permit_applies_directly(brief, permit):
         return f"{permit_name} applies based on the project scope and declared trade work."
 
-    applies_when = set(permit.get("applies_when", []))
+    applies_when = set(permit.get("applies_when_any") or permit.get("applies_when") or [])
     if brief.project_type == ProjectType.COMMERCIAL_TENANT_IMPROVEMENT and "interior_alteration" in applies_when:
-        return f"{permit_name} is a standard review track for Seattle commercial tenant improvement work."
+        return f"{permit_name} is a standard review track for commercial tenant improvement work."
     return None
 
+
+def _brief_scope(brief: ProjectBrief) -> dict[str, bool]:
+    trades = {trade.casefold() for trade in brief.trade_scopes}
+    scope = (brief.scope_of_work or "").casefold()
+    return {
+        "new_construction": "new construction" in scope,
+        "addition": "addition" in scope,
+        "alteration": any(word in scope for word in ("alteration", "remodel", "renovation", "tenant finish")),
+        "repair": "repair" in scope,
+        "demolition": "demolition" in scope or "demo" in scope,
+        "structural_work": "structural" in trades or "structural" in scope,
+        "electrical_work": "electrical" in trades,
+        "plumbing_work": "plumbing" in trades,
+        "mechanical_hvac_work": bool(trades.intersection({"mechanical", "hvac", "kitchen_hood"})),
+        "fire_alarm_sprinkler_work": brief.fire_alarm_work or brief.sprinkler_work,
+        "signs": "sign" in trades or "signage" in scope,
+        "change_use_occupancy": brief.change_of_use,
+        "grading_land_disturbance": bool(trades.intersection({"grading", "land_disturbance"})),
+        "driveway_sidewalk_row": brief.right_of_way_impacts,
+        "solar_battery_generator_ev": bool(trades.intersection({"solar", "battery", "generator", "ev"})),
+        "water_sewer_connections": bool(trades.intersection({"water", "sewer", "utility"})),
+    }

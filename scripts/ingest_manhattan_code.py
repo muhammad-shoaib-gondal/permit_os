@@ -57,7 +57,7 @@ RULE_ID_RE = re.compile(r"^(\d+-\d+[A-Z]?-\d+)")
 
 def fetch_chapter(n: int) -> str:
     url = SOURCE_BASE.format(n=n)
-    req = urllib.request.Request(url, headers={"User-Agent": "PermitOS-ingest/1.0"})
+    req = urllib.request.Request(url)
     with urllib.request.urlopen(req, timeout=120) as resp:
         return resp.read().decode("utf-8", errors="replace")
 

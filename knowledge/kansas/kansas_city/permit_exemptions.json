@@ -1,0 +1,11 @@
+{
+  "jurisdiction_id":"kansas_city_ks",
+  "last_verified":"2026-07-18",
+  "warning":"An exemption from a building permit does not waive zoning, historic, floodplain, right-of-way, utility, fire-code, contractor-licensing, or other approvals.",
+  "exemptions":[
+    {"id":"minor_repairs","rule":"Ordinary minor repairs may be exempt only when they do not include regulated structural, electrical, gas, mechanical, plumbing, or fire/life-safety work.","source_id":"building_code"},
+    {"id":"interior_plot_plan","rule":"Interior alteration or repair with no change to the building footprint does not require a residential plot plan; the underlying work may still require a permit.","source_id":"building_permits"},
+    {"id":"sign_repaint","rule":"Repainting or reposting the surface of an outdoor sign is exempt from the sign building-permit requirement when there is no regulated alteration or rebuilding.","source_id":"building_code"},
+    {"id":"demolition_burial","rule":"Only brick, stone, rock, or similar inorganic demolition material may be buried onsite as allowed by the demolition requirements; organic or prohibited waste may not be buried.","source_id":"demolition_requirements"}
+  ]
+}

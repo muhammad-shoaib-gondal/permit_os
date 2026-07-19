@@ -214,7 +214,11 @@ def _classify_component(component: str) -> tuple[str, int | None]:
     return "unknown", None
 
 
-def build_kcmo_rules(classification: str | None, zoning_profile: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+def build_kcmo_rules(
+    classification: str | None,
+    zoning_profile: dict[str, Any] | None = None,
+    project_type: str | None = None,
+) -> list[dict[str, Any]]:
     """Generate applicable base-district and overlay rules without user thresholds."""
     value = str(classification or "").strip().upper()
     if not value:
@@ -254,7 +258,21 @@ def build_kcmo_rules(classification: str | None, zoning_profile: dict[str, Any] 
     deduplicated: dict[str, dict[str, Any]] = {}
     for rule in rules:
         deduplicated[rule["id"]] = rule
-    return list(deduplicated.values())
+    output = list(deduplicated.values())
+    commercial_only = project_type in {
+        "commercial",
+        "commercial_tenant_improvement",
+        "new_commercial_construction",
+        "industrial",
+    }
+    if commercial_only:
+        output = [
+            rule
+            for rule in output
+            if not rule["id"].endswith("-unit-area")
+            and rule["rule"] != "Mixed-use building height"
+        ]
+    return output
 
 
 def has_kcmo_rule_coverage(classification: str | None) -> bool:

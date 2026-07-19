@@ -1,1 +1,1 @@
-"""PermitOS shared package."""
+"""EstatePermit shared package."""

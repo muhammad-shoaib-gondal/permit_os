@@ -1,0 +1,6 @@
+{
+  "jurisdiction_id":"kansas_city_ks",
+  "default":["completed application","owner authorization when applicant is not owner","contractor and license information","scope and valuation","plans and supporting documents required by the exact workflow"],
+  "submission":{"building_inspection_email":"buildinginspection@wycokck.org","email_attachment_limit_mb":25,"inspection_phone":"913-573-8620","inspection_notice_hours":24},
+  "planning_common":["fee","owner authorization","legal description in editable Word format","digital photographs","dimensioned site/floor/landscape plans as applicable","civil engineering as applicable","elevations and material information as applicable"]
+}

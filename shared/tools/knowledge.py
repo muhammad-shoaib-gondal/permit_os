@@ -11,6 +11,7 @@ KNOWLEDGE_BASE = Path(__file__).resolve().parents[2] / "knowledge"
 JURISDICTION_PATHS: dict[str, Path] = {
     "austin_tx": KNOWLEDGE_BASE / "austin",
     "kansas_city_mo": KNOWLEDGE_BASE / "missouri" / "kansas_city",
+    "kansas_city_ks": KNOWLEDGE_BASE / "kansas" / "kansas_city",
     "manhattan_ks": KNOWLEDGE_BASE / "kansas" / "manhattan",
     "seattle_wa": KNOWLEDGE_BASE / "washington" / "seattle",
 }
@@ -53,10 +54,14 @@ def list_jurisdictions() -> list[dict]:
             jid = meta.get("jurisdiction_id", f"{city_dir.name}-{state_dir.name}").replace("-", "_")
             if jid == "manhattan_ks" or city_dir.name == "manhattan":
                 jid = "manhattan_ks"
+            label = {
+                "kansas_city_mo": "Kansas City, Missouri",
+                "kansas_city_ks": "Kansas City, Kansas",
+            }.get(jid, f"{meta.get('city', city_dir.name.title())}, {meta.get('state', state_dir.name.upper())}")
             results.append(
                 {
                     "id": jid,
-                    "label": f"{meta.get('city', city_dir.name.title())}, {meta.get('state', state_dir.name.upper())}",
+                    "label": label,
                     "state": meta.get("state", state_dir.name.upper()),
                     "city": meta.get("city", city_dir.name.title()),
                     "coverage_status": meta.get("coverage_status", "available"),

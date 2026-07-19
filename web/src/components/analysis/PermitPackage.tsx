@@ -14,7 +14,7 @@ export function PermitPackage({ data, pending }: PermitPackageProps) {
     return (
       <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
         <h3 className="mb-2 text-base font-semibold">Permit package</h3>
-        <p className="text-sm text-[var(--color-muted)]">Waiting for agent…</p>
+        <p className="text-sm text-[var(--color-muted)]">Preparing the permit bundle…</p>
       </div>
     );
   }

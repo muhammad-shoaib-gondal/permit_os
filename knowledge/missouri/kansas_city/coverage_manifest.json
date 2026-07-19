@@ -1,0 +1,55 @@
+{
+  "jurisdiction_id": "kansas_city_mo",
+  "snapshot_date": "2026-07-18",
+  "catalog": {
+    "permit_applications": 108,
+    "plan_applications": 88,
+    "electrical_permit_applications": 8,
+    "permit_categories": {
+      "Building - Commercial": 3,
+      "Building - Electrical": 8,
+      "Building - Fire Protection": 4,
+      "Building - Mechanical": 6,
+      "Building - Plumbing": 8,
+      "Building - Residential": 6,
+      "Building - Signs": 4,
+      "Demolition": 8,
+      "Street - Construction Staging and Restoration (Parkways and Boulevards)": 4,
+      "Street - Construction Street Plates": 1,
+      "Street - Curbs/Sidewalks/Drive Approach - REPAIRS": 1,
+      "Street - Dumpster/Storage Pod/Trailer": 2,
+      "Street - Encroachments": 5,
+      "Street - Excavation (Parkways and Boulevards)": 3,
+      "Street - Excavations": 11,
+      "Street - Hauling Vehicles": 3,
+      "Street - Infrastructure (Parkways and Boulevards)": 5,
+      "Street - Loading and Dropoffs": 2,
+      "Street - Parking": 1,
+      "Street - Pole Attachments": 6,
+      "Street - Traffic Control": 5,
+      "Street - Trees": 1,
+      "Streetcar Zone Access": 1,
+      "Water - Service Lines": 1,
+      "Water - Sewer-Storm - Service Lines": 6,
+      "Water - Transfer Water Connections": 1,
+      "Zoning": 2
+    }
+  },
+  "required_files": [
+    "compass_catalog.json",
+    "permit_catalog.json",
+    "permit_rules.json",
+    "permit_exemptions.json",
+    "source_registry.json",
+    "document_requirements.json",
+    "zoning_rules.json"
+  ],
+  "quality_gates": [
+    "Every CompassKC application has a unique numeric ID, exact name, category, and deterministic portal URL.",
+    "Every permit category resolves to at least one cited category-rule family.",
+    "Selecting electrical returns all eight electrical permit candidates before project-fact narrowing.",
+    "Electrical service size, voltage, solar, generator, battery, fire pump, transformer, wind turbine, ATS, reconnect, limited-service, fire-alarm, and security-alarm branches are encoded.",
+    "Vector retrieval is non-authoritative and cannot add, remove, or classify required permits.",
+    "Source records point to official Kansas City or codified-law pages."
+  ]
+}

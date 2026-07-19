@@ -1,0 +1,15 @@
+{
+  "jurisdiction_id": "kansas_city_ks",
+  "snapshot_date": "2026-07-18",
+  "selection_policy": "Every application in every selected scope category is returned deterministically; no vector or LLM filtering is allowed.",
+  "authorities": ["UG Building Inspection","UG Planning + Urban Design","UG Public Works","Kansas City Kansas Fire Prevention","Kansas City Board of Public Utilities","UG Water Pollution Control"],
+  "required_files": ["application_catalog.json","permit_catalog.json","permit_rules.json","permit_exemptions.json","document_requirements.json","source_registry.json","zoning_rules.json"],
+  "coverage_contract": {
+    "building_and_trade": 19,
+    "planning_and_land_use": 31,
+    "public_works_and_utilities": 17,
+    "fire_prevention": 6,
+    "total_exact_workflows": 73
+  },
+  "notes": "The UG publishes forms and department workflows rather than one enumerable self-service catalog. EstatePermit normalizes the official workflows without treating semantic retrieval as an applicability decision. State/federal permits and permits issued by separate municipalities in Wyandotte County are outside the Kansas City, Kansas jurisdiction pack."
+}

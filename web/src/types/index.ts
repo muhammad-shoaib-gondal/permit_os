@@ -59,6 +59,8 @@ export type CustomRule = {
   area?: string;
   permitType?: string;
   source?: string;
+  builtinRuleId?: string;
+  systemManaged?: boolean;
 };
 
 export type ProjectFile = {
@@ -97,6 +99,11 @@ export type ProjectPermit = {
       supportedDevelopmentTypes?: string[];
       defaultForDevelopmentTypes?: string[];
       appliesWhenAny?: string[];
+      ruleFamilyId?: string;
+      applicationId?: string;
+      category?: string;
+      ruleIds?: string[];
+      sourceIds?: string[];
     };
     projectFacts?: {
       jurisdiction?: string;
@@ -110,6 +117,8 @@ export type ProjectPermit = {
       defaultMatch?: boolean;
       developmentTypeMatch?: boolean;
       classification?: string;
+      policy?: string;
+      usesVectorOrLlm?: boolean;
     };
   };
   source?: string | null;
@@ -205,12 +214,15 @@ export type Jurisdiction = {
 };
 
 export type BuiltinRule = {
+  id?: string;
   category: string;
   group?: string;
   rule: string;
   condition?: string;
   severity?: CustomRule["severity"] | "critical" | "major";
   source: string;
+  permitTypes?: string[];
+  ruleFamilyIds?: string[];
 };
 
 export type BuiltinRuleGroup = {
@@ -222,7 +234,7 @@ export type BuiltinRuleGroup = {
 
 export type ActivityEvent = {
   timestamp: string;
-  agent: string;
+  source: string;
   event_type: string;
   detail: string;
   payload?: Record<string, unknown>;
@@ -230,7 +242,6 @@ export type ActivityEvent = {
 
 export type CaseResults = {
   case_id: string;
-  band_room_id?: string;
   brief?: Record<string, unknown>;
   jurisdiction_report?: {
     summary: string;
@@ -256,7 +267,7 @@ export type CaseResults = {
   };
   permit_package?: {
     permits_required: { permit_name: string; agency: string; fee_usd: number; timeline_days: number }[];
-    documents_required: { name: string; source_agent: string }[];
+    documents_required: { name: string; source_section: string }[];
     total_fees_estimate_usd: number;
     estimated_timeline_days: number;
     filing_sequence: string[];
@@ -285,7 +296,7 @@ export type CaseResults = {
   stalled?: boolean;
   stall_reason?: string;
   phase?: string;
-  completed_agents?: string[];
+  completed_sections?: string[];
 };
 
 export const PROJECT_TYPES = [

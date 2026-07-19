@@ -15,7 +15,7 @@ class PermitRequirement(BaseModel):
 
 class DocumentRequirement(BaseModel):
     name: str
-    source_agent: str
+    source_section: str
     status: str = "required"
 
 

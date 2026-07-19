@@ -3,6 +3,7 @@ import { FileText, MapPin, Trash2 } from "lucide-react";
 import type { Project } from "../../types";
 import { Badge } from "../common/Badge";
 import { formatDate, readinessVariant } from "../../lib/utils";
+import { jurisdictionLabel } from "../../lib/jurisdictions";
 
 export function ProjectCard({
   project,
@@ -38,7 +39,7 @@ export function ProjectCard({
           <span className="truncate">{project.address}</span>
         </p>
         <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--color-muted)]">
-          <Badge>{project.jurisdiction.replace("_", ", ").toUpperCase()}</Badge>
+          <Badge>{jurisdictionLabel(project.jurisdiction)}</Badge>
           {project.area && <Badge>{project.area}</Badge>}
           <span className="flex items-center gap-1">
             <FileText size={12} />

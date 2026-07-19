@@ -12,8 +12,8 @@ import { StatusBadge } from "./StatusBadge";
 import { downloadAnalysisReport } from "../../lib/pdfExport";
 import { formatDate } from "../../lib/utils";
 
-const SEC_PER_AGENT = 120;
-const TOTAL_AGENTS = 4;
+const SEC_PER_REVIEW_STAGE = 120;
+const TOTAL_REVIEW_STAGES = 4;
 
 function formatDuration(totalSec: number): string {
   const m = Math.floor(totalSec / 60);
@@ -22,10 +22,10 @@ function formatDuration(totalSec: number): string {
 }
 
 function estimateRemainingSec(elapsed: number, completedCount: number): number {
-  const agentsLeft = Math.max(0, TOTAL_AGENTS - completedCount);
-  if (agentsLeft === 0) return 0;
-  const budget = agentsLeft * SEC_PER_AGENT;
-  const spentOnCurrent = elapsed - completedCount * SEC_PER_AGENT;
+  const stagesLeft = Math.max(0, TOTAL_REVIEW_STAGES - completedCount);
+  if (stagesLeft === 0) return 0;
+  const budget = stagesLeft * SEC_PER_REVIEW_STAGE;
+  const spentOnCurrent = elapsed - completedCount * SEC_PER_REVIEW_STAGE;
   return Math.max(30, budget - Math.max(0, spentOnCurrent));
 }
 
@@ -46,7 +46,7 @@ export function AnalysisTab({ project, onAnalysisComplete }: AnalysisTabProps) {
 
   const data = activeCase;
   const projectRequirements = project.moduleRequirements ?? {};
-  const completedCount = data?.completed_agents?.length ?? 0;
+  const completedCount = data?.completed_sections?.length ?? 0;
   const analyzing = loading;
   const jurisdictionChecks = data?.jurisdiction_report?.checks ?? [];
   const buildingChecks = data?.building_report?.checks ?? [];
@@ -64,7 +64,7 @@ export function AnalysisTab({ project, onAnalysisComplete }: AnalysisTabProps) {
     ...siteChecks,
     ...customChecks,
   ];
-  const showAgentPanels = analyzing || !!data;
+  const showReviewPanels = analyzing || !!data;
 
   useEffect(() => {
     if (!loading) {
@@ -235,7 +235,7 @@ export function AnalysisTab({ project, onAnalysisComplete }: AnalysisTabProps) {
             <div
               className="h-full bg-[var(--color-accent)] transition-all"
               style={{
-                width: `${Math.min(100, (completedCount / TOTAL_AGENTS) * 100 + ((elapsedSec % SEC_PER_AGENT) / SEC_PER_AGENT / TOTAL_AGENTS) * 100)}%`,
+                width: `${Math.min(100, (completedCount / TOTAL_REVIEW_STAGES) * 100 + ((elapsedSec % SEC_PER_REVIEW_STAGE) / SEC_PER_REVIEW_STAGE / TOTAL_REVIEW_STAGES) * 100)}%`,
               }}
             />
           </div>
@@ -344,12 +344,12 @@ export function AnalysisTab({ project, onAnalysisComplete }: AnalysisTabProps) {
         </section>
       )}
 
-      {showAgentPanels && (
+      {showReviewPanels && (
         <CheckList
           checks={reviewChecks}
           title="Permit review findings"
           pending={analyzing && reviewChecks.length === 0}
-          visible={showAgentPanels}
+          visible={showReviewPanels}
         />
       )}
 

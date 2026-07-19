@@ -1,4 +1,4 @@
-# PermitOS project workspace structure audit
+# EstatePermit project workspace structure audit
 
 ## Scope
 

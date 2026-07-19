@@ -46,6 +46,21 @@ JURISDICTION_ZONING = {
         "ordinance_field": "ORD_NO",
         "extra_fields": [],
     },
+    "kansas_city_ks": {
+        "city": "Kansas City",
+        "city_aliases": {"kansas city", "kck"},
+        "regions": {"Kansas", "KS"},
+        "source_name": "Unified Government Kansas City, Kansas Zoning GIS",
+        "source_url": "https://gisweb.wycokck.org/arcgis/rest/services/GISPUB/Kansas_City_Ks_Zoning/FeatureServer/0",
+        "query_url": "https://gisweb.wycokck.org/arcgis/rest/services/GISPUB/Kansas_City_Ks_Zoning/FeatureServer/0/query",
+        "out_fields": "ZONEDIST,ZONENAME,ORD_NO1,ORD_NO2,ORD_NO3,SPLIT_ZONE,HISTORIC,ENVIRONS,ZONING_LABEL",
+        "district_field": "ZONEDIST",
+        "district_name_field": "ZONENAME",
+        "land_use_field": "ZONENAME",
+        "ordinance_field": "ORD_NO1",
+        "extra_fields": ["ORD_NO2", "ORD_NO3", "SPLIT_ZONE", "HISTORIC", "ENVIRONS", "ZONING_LABEL"],
+        "advisory": "The Unified Government GIS layer is a planning reference; confirm the official zoning classification before filing.",
+    },
     "seattle_wa": {
         "city": "Seattle",
         "city_aliases": {"seattle"},
@@ -165,7 +180,7 @@ async def resolve_zoning(address: str, jurisdiction: str) -> dict[str, Any]:
                 _warning(
                     "unsupported_jurisdiction",
                     "Automatic zoning is not configured for this city.",
-                    "Choose Manhattan, Kansas City, Missouri, or Seattle.",
+                    "Choose Kansas City, Kansas; Kansas City, Missouri; Manhattan; or Seattle.",
                     "error",
                 )
             ],

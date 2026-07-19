@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CheckCircle2, ExternalLink, Plus, XCircle } from "lucide-react";
+import { CheckCircle2, ChevronRight, CircleAlert, ExternalLink, Minimize2, Plus, XCircle } from "lucide-react";
 import type { Project, ProjectPermit } from "../../types";
 import {
   PERMIT_LIFECYCLE_STATUS_OPTIONS,
@@ -10,7 +10,9 @@ import { toast } from "../../stores/toastStore";
 import { Badge } from "../common/Badge";
 import { Button } from "../common/Button";
 import { Input, Select } from "../common/Input";
+import { Modal } from "../common/Modal";
 import { PermitReviewRules } from "./PermitReviewRules";
+import { jurisdictionAuthority, jurisdictionLabel } from "../../lib/jurisdictions";
 
 type PermitBundleTabProps = {
   project: Project;
@@ -53,11 +55,12 @@ export function PermitBundleTab({ project }: PermitBundleTabProps) {
   const [savingId, setSavingId] = useState<string | null>(null);
   const [manualOpen, setManualOpen] = useState(false);
   const [manualName, setManualName] = useState("");
-  const [manualAuthority, setManualAuthority] = useState("Kansas City, Missouri");
+  const [manualAuthority, setManualAuthority] = useState(jurisdictionAuthority(project.jurisdiction));
   const [manualDocs, setManualDocs] = useState("");
   const [manualReason, setManualReason] = useState("");
   const [manualSaving, setManualSaving] = useState(false);
-  const [openReviewIds, setOpenReviewIds] = useState<Set<string>>(new Set());
+  const [expandedPermitId, setExpandedPermitId] = useState<string | null>(null);
+  const [reviewPermit, setReviewPermit] = useState<ProjectPermit | null>(null);
 
   const permits = project.permits ?? [];
   const activePermits = permits.filter((permit) => permit.requirementStatus !== "not_required");
@@ -97,7 +100,7 @@ export function PermitBundleTab({ project }: PermitBundleTabProps) {
           .filter(Boolean),
       });
       setManualName("");
-      setManualAuthority("Kansas City, Missouri");
+      setManualAuthority(jurisdictionAuthority(project.jurisdiction));
       setManualDocs("");
       setManualReason("");
       setManualOpen(false);
@@ -189,180 +192,217 @@ export function PermitBundleTab({ project }: PermitBundleTabProps) {
 
       {permits.length === 0 && (
         <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-[var(--color-text)]">
-          No permit recommendations yet. For KCMO, set the jurisdiction to Kansas City, MO and select the project scope.
+          No permit recommendations yet. Confirm {jurisdictionLabel(project.jurisdiction)} and select the project scope.
         </div>
       )}
 
-      <section className="space-y-4">
-        {permits.map((permit) => (
-          <article
-            key={permit.id}
-            className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5"
-          >
-            <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <div className="mb-2 flex flex-wrap items-center gap-2">
-                  <h3 className="text-base font-semibold">{permit.permitName}</h3>
-                  <Badge variant={statusVariant(permit.requirementStatus)}>
-                    {labelFor(requirementLabels, permit.requirementStatus)}
-                  </Badge>
-                  <Badge variant={statusVariant(permit.lifecycleStatus)}>
-                    {labelFor(lifecycleLabels, permit.lifecycleStatus)}
-                  </Badge>
-                  <Badge>{permit.origin}</Badge>
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {activePermits.map((permit) => {
+          const expanded = expandedPermitId === permit.id;
+          if (!expanded) {
+            const RequiredIcon = permit.requirementStatus === "required" ? CheckCircle2 : CircleAlert;
+            return (
+              <button
+                key={permit.id}
+                type="button"
+                onClick={() => setExpandedPermitId(permit.id)}
+                className="group flex min-h-28 cursor-pointer items-start justify-between gap-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 text-left transition hover:border-[var(--color-accent)]/60 hover:bg-[var(--color-surface2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]"
+                aria-label={`Open ${permit.permitName}`}
+              >
+                <div className="flex min-w-0 items-start gap-3">
+                  <RequiredIcon
+                    size={19}
+                    className={
+                      permit.requirementStatus === "required"
+                        ? "mt-0.5 shrink-0 text-[var(--color-pass)]"
+                        : "mt-0.5 shrink-0 text-[var(--color-warn)]"
+                    }
+                    role="img"
+                    aria-label={labelFor(requirementLabels, permit.requirementStatus)}
+                  />
+                  <div className="min-w-0">
+                    <h3 className="line-clamp-3 text-sm font-semibold leading-5 text-[var(--color-text)]">
+                      {permit.permitName}
+                    </h3>
+                  </div>
                 </div>
-                <p className="text-sm text-[var(--color-muted)]">{permit.issuingAuthority || "Authority not set"}</p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  disabled={savingId === permit.id || permit.requirementStatus === "required"}
-                  onClick={() =>
-                    savePermit(
-                      permit,
-                      { requirementStatus: "required", lifecycleStatus: "gathering_documents" },
-                      "Permit confirmed as required"
-                    )
-                  }
-                >
-                  <CheckCircle2 size={14} /> Confirm
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  disabled={savingId === permit.id || permit.requirementStatus === "not_required"}
-                  onClick={() =>
-                    savePermit(
-                      permit,
-                      { requirementStatus: "not_required", lifecycleStatus: "not_started" },
-                      "Permit marked not applicable"
-                    )
-                  }
-                >
-                  <XCircle size={14} /> Not applicable
-                </Button>
-              </div>
-            </div>
+                <ChevronRight
+                  size={17}
+                  className="mt-0.5 shrink-0 text-[var(--color-muted)] transition group-hover:translate-x-0.5 group-hover:text-[var(--color-accent)]"
+                  aria-hidden="true"
+                />
+              </button>
+            );
+          }
 
-            <details
-              className="mb-4 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface2)]"
-              onToggle={(event) => {
-                const isOpen = event.currentTarget.open;
-                setOpenReviewIds((current) => {
-                  const next = new Set(current);
-                  if (isOpen) next.add(permit.id);
-                  else next.delete(permit.id);
-                  return next;
-                });
-              }}
+          return (
+            <article
+              key={permit.id}
+              className="rounded-xl border border-[var(--color-accent)]/50 bg-[var(--color-surface)] p-5 shadow-lg shadow-black/10 sm:col-span-2 xl:col-span-3"
             >
-              <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium">
-                Review checks
-              </summary>
-              <div className="border-t border-[var(--color-border)] p-4">
-                {openReviewIds.has(permit.id) && <PermitReviewRules project={project} permit={permit} />}
-              </div>
-            </details>
-
-            <details className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface2)]">
-              <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium">
-                Permit tracking
-              </summary>
-              <div className="border-t border-[var(--color-border)] p-4">
-                <p className="mb-4 text-sm text-[var(--color-muted)]">
-                  These fields are maintained by your team. EstatePermit does not automatically confirm city portal status, assignments, or application numbers.
-                </p>
-                <div className="grid gap-4 lg:grid-cols-3">
-              <Select
-                label="City filing status"
-                value={permit.lifecycleStatus}
-                options={PERMIT_LIFECYCLE_STATUS_OPTIONS.map((option) => ({
-                  value: option.value,
-                  label: option.label,
-                }))}
-                disabled={savingId === permit.id}
-                onChange={(event) =>
-                  savePermit(permit, { lifecycleStatus: event.target.value }, "Lifecycle updated")
-                }
-              />
-              <Input
-                label="Internal owner"
-                defaultValue={permit.assignedEmployee ?? ""}
-                placeholder="Internal owner"
-                onBlur={(event) =>
-                  event.target.value !== (permit.assignedEmployee ?? "") &&
-                  savePermit(permit, { assignedEmployee: event.target.value }, "Owner updated")
-                }
-              />
-              <Input
-                label="Responsible consultant / contractor"
-                defaultValue={permit.assignedContractor ?? ""}
-                placeholder="Architect, MEP, GC..."
-                onBlur={(event) =>
-                  event.target.value !== (permit.assignedContractor ?? "") &&
-                  savePermit(permit, { assignedContractor: event.target.value }, "Contractor updated")
-                }
-              />
-              <Input
-                label="Application number"
-                defaultValue={permit.applicationNumber ?? ""}
-                placeholder="CompassKC number"
-                onBlur={(event) =>
-                  event.target.value !== (permit.applicationNumber ?? "") &&
-                  savePermit(permit, { applicationNumber: event.target.value }, "Application number updated")
-                }
-              />
-              <Input
-                label="Current blocker (if any)"
-                defaultValue={permit.currentBlocker ?? ""}
-                placeholder="Missing signed/sealed drawings"
-                onBlur={(event) =>
-                  event.target.value !== (permit.currentBlocker ?? "") &&
-                  savePermit(permit, { currentBlocker: event.target.value }, "Blocker updated")
-                }
-              />
-              <Input
-                label="Next action"
-                defaultValue={permit.nextAction ?? ""}
-                placeholder="Collect documents, submit, respond..."
-                onBlur={(event) =>
-                  event.target.value !== (permit.nextAction ?? "") &&
-                  savePermit(permit, { nextAction: event.target.value }, "Next action updated")
-                }
-              />
+              <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <div className="mb-2 flex flex-wrap items-center gap-2">
+                    <h3 className="text-lg font-semibold">{permit.permitName}</h3>
+                    <Badge variant={statusVariant(permit.requirementStatus)}>
+                      {labelFor(requirementLabels, permit.requirementStatus)}
+                    </Badge>
+                    <Badge variant={statusVariant(permit.lifecycleStatus)}>
+                      {labelFor(lifecycleLabels, permit.lifecycleStatus)}
+                    </Badge>
+                    <Badge>{permit.origin}</Badge>
+                  </div>
+                  <p className="text-sm text-[var(--color-muted)]">
+                    {permit.issuingAuthority || "Authority not set"}
+                  </p>
+                  {permit.reason && <p className="mt-2 max-w-4xl text-sm text-[var(--color-muted)]">{permit.reason}</p>}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" variant="secondary" onClick={() => setReviewPermit(permit)}>
+                    Review checks
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={savingId === permit.id || permit.requirementStatus === "required"}
+                    onClick={() =>
+                      savePermit(
+                        permit,
+                        { requirementStatus: "required", lifecycleStatus: "gathering_documents" },
+                        "Permit confirmed as required"
+                      )
+                    }
+                  >
+                    <CheckCircle2 size={14} /> Confirm
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={savingId === permit.id || permit.requirementStatus === "not_required"}
+                    onClick={() =>
+                      savePermit(
+                        permit,
+                        { requirementStatus: "not_required", lifecycleStatus: "not_started" },
+                        "Permit marked not applicable"
+                      )
+                    }
+                  >
+                    <XCircle size={14} /> Not applicable
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setExpandedPermitId(null)}>
+                    <Minimize2 size={14} /> Close details
+                  </Button>
                 </div>
               </div>
-            </details>
 
-            <div className="mt-4 grid gap-4 lg:grid-cols-2">
-              <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface2)] p-3">
-                <p className="mb-2 text-xs uppercase tracking-wide text-[var(--color-muted)]">Required documents</p>
-                <pre className="whitespace-pre-wrap text-sm text-[var(--color-text)]">
-                  {documentText(permit.requiredDocuments)}
-                </pre>
-              </div>
-              <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface2)] p-3 text-sm">
-                <p className="mb-2 text-xs uppercase tracking-wide text-[var(--color-muted)]">Filing details</p>
-                <div className="space-y-2 text-[var(--color-muted)]">
-                  <p>Dependencies: {permit.dependencies.length ? permit.dependencies.join(", ") : "None listed"}</p>
-                  <p>Estimated fee: {permit.estimatedFeeUsd ? `$${permit.estimatedFeeUsd.toLocaleString()}` : "Not listed"}</p>
-                  {permit.portalUrl && (
-                    <a
-                      className="inline-flex cursor-pointer items-center gap-1 text-[var(--color-accent)] hover:underline"
-                      href={permit.portalUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Open portal <ExternalLink size={13} />
-                    </a>
-                  )}
+              <div className="grid gap-4 lg:grid-cols-2">
+                <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface2)] p-4">
+                  <p className="mb-2 text-xs uppercase tracking-wide text-[var(--color-muted)]">Required documents</p>
+                  <pre className="whitespace-pre-wrap font-sans text-sm text-[var(--color-text)]">
+                    {documentText(permit.requiredDocuments)}
+                  </pre>
+                </div>
+                <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface2)] p-4 text-sm">
+                  <p className="mb-2 text-xs uppercase tracking-wide text-[var(--color-muted)]">Filing details</p>
+                  <div className="space-y-2 text-[var(--color-muted)]">
+                    <p>Dependencies: {permit.dependencies.length ? permit.dependencies.join(", ") : "None listed"}</p>
+                    <p>Estimated fee: {permit.estimatedFeeUsd ? `$${permit.estimatedFeeUsd.toLocaleString()}` : "Not listed"}</p>
+                    {permit.portalUrl && (
+                      <a
+                        className="inline-flex cursor-pointer items-center gap-1 text-[var(--color-accent)] hover:underline"
+                        href={permit.portalUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Open portal <ExternalLink size={13} />
+                      </a>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          </article>
-        ))}
+
+              <details className="mt-4 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface2)]">
+                <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium">
+                  Permit tracking
+                </summary>
+                <div className="border-t border-[var(--color-border)] p-4">
+                  <p className="mb-4 text-sm text-[var(--color-muted)]">
+                    These fields are maintained by your team. EstatePermit does not automatically confirm city portal status, assignments, or application numbers.
+                  </p>
+                  <div className="grid gap-4 lg:grid-cols-3">
+                    <Select
+                      label="City filing status"
+                      value={permit.lifecycleStatus}
+                      options={PERMIT_LIFECYCLE_STATUS_OPTIONS.map((option) => ({
+                        value: option.value,
+                        label: option.label,
+                      }))}
+                      disabled={savingId === permit.id}
+                      onChange={(event) =>
+                        savePermit(permit, { lifecycleStatus: event.target.value }, "Lifecycle updated")
+                      }
+                    />
+                    <Input
+                      label="Internal owner"
+                      defaultValue={permit.assignedEmployee ?? ""}
+                      placeholder="Internal owner"
+                      onBlur={(event) =>
+                        event.target.value !== (permit.assignedEmployee ?? "") &&
+                        savePermit(permit, { assignedEmployee: event.target.value }, "Owner updated")
+                      }
+                    />
+                    <Input
+                      label="Responsible consultant / contractor"
+                      defaultValue={permit.assignedContractor ?? ""}
+                      placeholder="Architect, MEP, GC..."
+                      onBlur={(event) =>
+                        event.target.value !== (permit.assignedContractor ?? "") &&
+                        savePermit(permit, { assignedContractor: event.target.value }, "Contractor updated")
+                      }
+                    />
+                    <Input
+                      label="Application number"
+                      defaultValue={permit.applicationNumber ?? ""}
+                      placeholder={project.jurisdiction === "kansas_city_mo" ? "CompassKC number" : "UG application number"}
+                      onBlur={(event) =>
+                        event.target.value !== (permit.applicationNumber ?? "") &&
+                        savePermit(permit, { applicationNumber: event.target.value }, "Application number updated")
+                      }
+                    />
+                    <Input
+                      label="Current blocker (if any)"
+                      defaultValue={permit.currentBlocker ?? ""}
+                      placeholder="Missing signed/sealed drawings"
+                      onBlur={(event) =>
+                        event.target.value !== (permit.currentBlocker ?? "") &&
+                        savePermit(permit, { currentBlocker: event.target.value }, "Blocker updated")
+                      }
+                    />
+                    <Input
+                      label="Next action"
+                      defaultValue={permit.nextAction ?? ""}
+                      placeholder="Collect documents, submit, respond..."
+                      onBlur={(event) =>
+                        event.target.value !== (permit.nextAction ?? "") &&
+                        savePermit(permit, { nextAction: event.target.value }, "Next action updated")
+                      }
+                    />
+                  </div>
+                </div>
+              </details>
+            </article>
+          );
+        })}
       </section>
+
+      <Modal
+        open={Boolean(reviewPermit)}
+        onClose={() => setReviewPermit(null)}
+        title={reviewPermit ? `Review checks — ${reviewPermit.permitName}` : "Review checks"}
+        size="full"
+      >
+        {reviewPermit && <PermitReviewRules project={project} permit={reviewPermit} />}
+      </Modal>
     </div>
   );
 }

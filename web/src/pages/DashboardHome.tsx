@@ -107,7 +107,7 @@ export function DashboardHome() {
           <FolderOpen className="mx-auto mb-4 text-[var(--color-muted)]" size={48} />
           <h2 className="mb-2 text-lg font-semibold">Create your first project</h2>
           <p className="mb-6 text-sm text-[var(--color-muted)]">
-            Upload your project brief, select a jurisdiction, and run AI-powered permitting pre-screen.
+            Define the work planned on site, upload project files, and build your permit-ready bundle.
           </p>
           <Link to="/projects/new">
             <Button>

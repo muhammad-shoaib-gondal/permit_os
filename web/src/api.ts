@@ -52,7 +52,7 @@ function progressFingerprint(data: {
   return JSON.stringify({
     status: data.status,
     phase: r?.phase,
-    completed: r?.completed_agents,
+    completed: r?.completed_sections,
     last: r?.last_progress_at,
     stale: data.is_stale,
   });
@@ -85,7 +85,7 @@ function partialFromPoll(
 
 export async function pollCase(
   case_id: string,
-  onProgress?: (partial: CaseResults & { status?: string; completed_agents?: string[] }) => void
+  onProgress?: (partial: CaseResults & { status?: string; completed_sections?: string[] }) => void
 ): Promise<CaseResults> {
   const deadline = Date.now() + 11 * 60 * 1000;
   let lastFp = "";
@@ -157,7 +157,7 @@ export async function analyzeUpload(
   file: File,
   projectType: ProjectTypeValue,
   jurisdiction: string,
-  onProgress?: (partial: CaseResults & { status?: string; completed_agents?: string[] }) => void
+  onProgress?: (partial: CaseResults & { status?: string; completed_sections?: string[] }) => void
 ): Promise<CaseResults> {
   const form = new FormData();
   form.append("file", file);

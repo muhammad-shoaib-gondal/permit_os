@@ -8,9 +8,10 @@ type ModalProps = {
   title: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
+  size?: "default" | "wide" | "full";
 };
 
-export function Modal({ open, onClose, title, children, footer }: ModalProps) {
+export function Modal({ open, onClose, title, children, footer, size = "default" }: ModalProps) {
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -26,7 +27,9 @@ export function Modal({ open, onClose, title, children, footer }: ModalProps) {
       onClick={onClose}
     >
       <div
-        className="flex max-h-[calc(100vh-2rem)] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]"
+        className={`flex max-h-[calc(100vh-2rem)] w-full flex-col overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] ${
+          size === "full" ? "max-w-[min(96vw,90rem)]" : size === "wide" ? "max-w-5xl" : "max-w-2xl"
+        }`}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"

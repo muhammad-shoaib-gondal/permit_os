@@ -17,7 +17,7 @@ export function CheckList({
     return (
       <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
         <h3 className="mb-2 text-base font-semibold">{title}</h3>
-        <p className="text-sm text-[var(--color-muted)]">{pending ? "Waiting for agent…" : "—"}</p>
+        <p className="text-sm text-[var(--color-muted)]">{pending ? "Reviewing uploaded files…" : "—"}</p>
       </div>
     );
   }

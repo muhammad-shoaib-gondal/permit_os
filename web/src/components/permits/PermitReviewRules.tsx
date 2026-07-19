@@ -25,6 +25,33 @@ function relevantGroups(permit: ProjectPermit): BuiltinRuleGroup["key"][] {
   return ["building"];
 }
 
+function ruleAppliesToPermit(rule: BuiltinRule, permit: ProjectPermit) {
+  if (!rule.permitTypes?.length && !rule.ruleFamilyIds?.length) return true;
+  const catalog = permit.recommendationEvidence?.catalogRule;
+  const candidates = new Set(
+    [permit.permitType, catalog?.permitId, catalog?.ruleFamilyId, catalog?.applicationId].filter(
+      (value): value is string => Boolean(value)
+    )
+  );
+  return [...(rule.permitTypes ?? []), ...(rule.ruleFamilyIds ?? [])].some(
+    (value) => value === "*" || candidates.has(value)
+  );
+}
+
+function applicableBuiltinGroups(
+  groups: BuiltinRuleGroup[],
+  permit: ProjectPermit
+): BuiltinRuleGroup[] {
+  const keys = new Set(relevantGroups(permit));
+  return groups
+    .filter((group) => keys.has(group.key))
+    .map((group) => ({
+      ...group,
+      rules: group.rules.filter((rule) => ruleAppliesToPermit(rule, permit)),
+    }))
+    .filter((group) => group.rules.length > 0);
+}
+
 function conditionForRule(project: Project, rule: BuiltinRule): { condition: string; actionable: boolean } {
   const title = rule.rule.trim();
   if (rule.condition?.trim()) {
@@ -101,6 +128,8 @@ function draftRule(project: Project, permit: ProjectPermit, group: BuiltinRuleGr
     enabled: actionable,
     permitType: permit.permitType,
     source: rule.source,
+    builtinRuleId: rule.id,
+    systemManaged: true,
   };
 }
 
@@ -131,30 +160,47 @@ export function PermitReviewRules({ project, permit }: PermitReviewRulesProps) {
     getProjectRules(project.id)
       .then(({ customRules, builtinGroups }) => {
         if (cancelled) return;
-        const saved = customRules.filter((rule) => rule.permitType === permit.permitType);
-        if (saved.length) {
-          const builtinByTitle = new Map(
-            builtinGroups.flatMap((group) => group.rules).map((rule) => [rule.rule, rule])
-          );
-          setRules(
-            saved.map((savedRule) => {
-              if (!savedRule.condition.startsWith("Verify the available project information against:")) {
-                return savedRule;
-              }
-              const builtin = builtinByTitle.get(savedRule.rule);
-              if (!builtin) return savedRule;
-              const resolved = conditionForRule(project, builtin);
-              return { ...savedRule, condition: resolved.condition, enabled: resolved.actionable };
-            })
-          );
-          return;
-        }
-
-        const keys = new Set(relevantGroups(permit));
-        const drafts = builtinGroups
-          .filter((group) => keys.has(group.key))
-          .flatMap((group) => group.rules.map((rule) => draftRule(project, permit, group, rule)));
-        setRules(drafts);
+        const applicableGroups = applicableBuiltinGroups(builtinGroups, permit);
+        const applicableIds = new Set(
+          applicableGroups.flatMap((group) => group.rules).map((rule) => rule.id).filter(Boolean)
+        );
+        const applicableTitles = new Set(
+          applicableGroups.flatMap((group) => group.rules).map((rule) => rule.rule)
+        );
+        const legacyManagedSource = /KCMO|zoning rules pack|IBC snippets|permit catalog|CompassKC/i;
+        const saved = customRules
+          .filter((rule) => rule.permitType === permit.permitType)
+          .filter((rule) => {
+            if (rule.builtinRuleId) return applicableIds.has(rule.builtinRuleId);
+            if (rule.systemManaged) return applicableTitles.has(rule.rule);
+            if (rule.source && legacyManagedSource.test(rule.source)) {
+              return applicableTitles.has(rule.rule);
+            }
+            return true;
+          });
+        const builtinByTitle = new Map(
+          applicableGroups.flatMap((group) => group.rules).map((rule) => [rule.rule, rule])
+        );
+        const hydratedSaved = saved.map((savedRule) => {
+          if (!savedRule.condition.startsWith("Verify the available project information against:")) {
+            return savedRule;
+          }
+          const builtin = builtinByTitle.get(savedRule.rule);
+          if (!builtin) return savedRule;
+          const resolved = conditionForRule(project, builtin);
+          return { ...savedRule, condition: resolved.condition, enabled: resolved.actionable };
+        });
+        const savedBuiltinIds = new Set(hydratedSaved.map((rule) => rule.builtinRuleId).filter(Boolean));
+        const savedTitles = new Set(hydratedSaved.map((rule) => rule.rule));
+        const drafts = applicableGroups.flatMap((group) =>
+          group.rules
+            .filter(
+              (rule) =>
+                !(rule.id && savedBuiltinIds.has(rule.id)) && !savedTitles.has(rule.rule)
+            )
+            .map((rule) => draftRule(project, permit, group, rule))
+        );
+        setRules([...hydratedSaved, ...drafts]);
       })
       .catch((error) => {
         if (!cancelled) toast.error(error instanceof Error ? error.message : "Failed to load review checks");
@@ -165,7 +211,7 @@ export function PermitReviewRules({ project, permit }: PermitReviewRulesProps) {
     return () => {
       cancelled = true;
     };
-  }, [project.id, permit.id, permit.permitType]);
+  }, [project.id, project.projectType, project.area, permit.id, permit.permitType]);
 
   function updateRule(index: number, next: CustomRule) {
     setRules((current) => current.map((rule, i) => (i === index ? next : rule)));

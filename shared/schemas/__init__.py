@@ -1,6 +1,5 @@
-"""PermitOS shared Pydantic schemas."""
+"""EstatePermit shared Pydantic schemas."""
 
-from shared.schemas.band_message import BandMessage, Citation, MessageType
 from shared.schemas.case import (
     AuditEvent,
     CaseStatus,
@@ -37,21 +36,18 @@ from shared.schemas.reports import (
 
 __all__ = [
     "AuditEvent",
-    "BandMessage",
     "BlockSetback",
     "BuildingSafetyReport",
     "CandidatePermit",
     "CaseStatus",
     "CheckResult",
     "CheckStatus",
-    "Citation",
     "Conflict",
     "CrossPermitIssue",
     "DocumentRequirement",
     "HumanAction",
     "JurisdictionInfo",
     "JurisdictionReport",
-    "MessageType",
     "PermitCardStatus",
     "PermitCaseSummary",
     "PermitDocumentMatch",

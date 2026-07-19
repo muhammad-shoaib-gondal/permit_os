@@ -38,7 +38,6 @@ class ZoningInfo(BaseModel):
 
 
 class JurisdictionReport(BaseModel):
-    agent: str = "jurisdiction"
     case_id: UUID
     summary: str
     readiness_impact: ReadinessImpact
@@ -50,7 +49,6 @@ class JurisdictionReport(BaseModel):
 
 
 class BuildingSafetyReport(BaseModel):
-    agent: str = "building"
     case_id: UUID
     summary: str
     readiness_impact: ReadinessImpact
@@ -60,7 +58,6 @@ class BuildingSafetyReport(BaseModel):
 
 
 class SiteEnvironmentalReport(BaseModel):
-    agent: str = "site"
     case_id: UUID
     summary: str
     readiness_impact: ReadinessImpact

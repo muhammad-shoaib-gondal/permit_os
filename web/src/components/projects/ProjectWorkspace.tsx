@@ -19,6 +19,7 @@ import { AnalysisTab } from "../analysis/AnalysisTab";
 import { PermitBundleTab } from "../permits/PermitBundleTab";
 import { Badge } from "../common/Badge";
 import { formatDate } from "../../lib/utils";
+import { jurisdictionLabel } from "../../lib/jurisdictions";
 import { useProjectStore } from "../../stores/projectStore";
 import { toast } from "../../stores/toastStore";
 
@@ -147,7 +148,7 @@ export function ProjectWorkspace({ project }: ProjectWorkspaceProps) {
             <p className="text-[var(--color-muted)]">{project.address}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Badge>{project.jurisdiction.replace("_", ", ").toUpperCase()}</Badge>
+            <Badge>{jurisdictionLabel(project.jurisdiction)}</Badge>
             {project.area && <Badge>Zone {project.area}</Badge>}
             <Badge>{project.projectType.replace(/_/g, " ")}</Badge>
             {project.readinessScore && <Badge variant="ready">{project.readinessScore}</Badge>}

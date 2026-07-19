@@ -6,6 +6,7 @@ from api.services.kcmo_zoning_rules import build_kcmo_rules
 from api.services.manhattan_zoning_rules import build_manhattan_rules
 from api.services.project_service import (
     _build_kcmo_rule_library,
+    _build_kcmo_permit_review_rules,
     _build_manhattan_rule_library,
     _sync_project_permit_recommendations,
     _validate_jurisdiction_address,
@@ -45,6 +46,68 @@ def test_dc15_rules_are_loaded_with_authoritative_conditions():
     assert any(rule["rule"] == "Maximum floor area ratio" for rule in rules)
     assert any("must not exceed 15" in rule["condition"] for rule in rules)
     assert all(rule["condition"] for rule in rules)
+
+
+def test_commercial_project_excludes_residential_density_checks():
+    rules = _build_kcmo_rule_library(area="B2-2", project_type="commercial")
+    searchable = " ".join(
+        f"{rule['rule']} {rule.get('condition', '')}" for rule in rules
+    ).casefold()
+
+    assert "single-purpose residential" not in searchable
+    assert "lot area per dwelling unit" not in searchable
+    assert "maximum floor area ratio" in searchable
+
+
+@pytest.mark.parametrize(
+    ("family_id", "category", "minimum_count"),
+    [
+        ("electrical", "building", 10),
+        ("plumbing", "building", 4),
+        ("fire_protection", "fire", 1),
+        ("certificate_of_occupancy", "building", 5),
+    ],
+)
+def test_kcmo_trade_and_occupancy_review_checks_are_populated(
+    family_id: str, category: str, minimum_count: int
+):
+    rules = [
+        rule
+        for rule in _build_kcmo_permit_review_rules()
+        if family_id in rule.get("permitTypes", [])
+    ]
+
+    assert len(rules) >= minimum_count
+    assert all(rule["category"] == category for rule in rules)
+    assert all(rule["condition"] and rule["source"] for rule in rules)
+
+
+def test_every_kansas_city_permit_family_has_review_rules():
+    from api.services.project_service import _build_kck_permit_review_rules
+
+    kcmo_rules = _build_kcmo_permit_review_rules()
+    kck_rules = _build_kck_permit_review_rules()
+    kcmo_types = {
+        "commercial_building", "electrical", "plumbing", "mechanical",
+        "fire_protection", "certificate_of_occupancy", "land_disturbance",
+        "right_of_way", "sign",
+    }
+    kck_types = {
+        "building_permit", "electrical", "plumbing", "mechanical", "demolition",
+        "fire_protection", "certificate_of_occupancy", "land_disturbance",
+        "right_of_way", "utility_service", "sign", "planning_entitlement",
+    }
+
+    assert not {
+        permit_type
+        for permit_type in kcmo_types
+        if not any(permit_type in rule.get("permitTypes", []) for rule in kcmo_rules)
+    }
+    assert not {
+        permit_type
+        for permit_type in kck_types
+        if not any(permit_type in rule.get("permitTypes", []) for rule in kck_rules)
+    }
 
 
 @pytest.mark.parametrize(

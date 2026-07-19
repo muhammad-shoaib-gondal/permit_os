@@ -24,6 +24,8 @@ from api.services.zoning_service import (
     resolve_zoning,
 )
 from shared.schemas.project_brief import ProjectBrief, ProjectType
+from shared.tools.kcmo_permits import match_kcmo_applications, rule_family_for_category
+from shared.tools.kck_permits import match_kck_applications
 from shared.tools.knowledge import JURISDICTION_PATHS, jurisdiction_context, load_json
 
 PROJECT_UPLOAD_ROOT = Path(__file__).resolve().parents[2] / "uploads" / "projects"
@@ -105,6 +107,168 @@ BUILTIN_RULE_GROUPS = {
         {"rule": "Water/sewer capacity review", "source": "Utility requirements"},
     ],
     "permits": [],
+}
+
+KCMO_PERMIT_RULE_CATEGORIES = {
+    "commercial_building": "building",
+    "residential_building": "building",
+    "electrical": "building",
+    "mechanical": "building",
+    "plumbing": "building",
+    "demolition": "building",
+    "fire_protection": "fire",
+    "certificate_of_occupancy": "building",
+    "signs": "zoning",
+    "zoning": "zoning",
+    "street_and_row": "site",
+    "major_infrastructure": "site",
+    "water_service": "site",
+}
+
+KCMO_PERMIT_TYPE_ALIASES = {
+    "signs": ["sign"],
+    "street_and_row": ["right_of_way"],
+    "major_infrastructure": ["land_disturbance"],
+}
+
+KCMO_RULE_EXACT_TARGETS = {
+    "commercial_building": [
+        ["compass_permit_618"],
+        ["compass_permit_567"],
+        ["compass_permit_587"],
+        ["compass_permit_567", "compass_permit_587", "compass_permit_618"],
+    ],
+    "electrical": [
+        ["compass_permit_576"],
+        ["compass_permit_583", "compass_permit_767"],
+        ["compass_permit_576", "compass_permit_583", "compass_permit_767"],
+        ["compass_permit_576", "compass_permit_583", "compass_permit_767"],
+        ["compass_permit_576", "compass_permit_583", "compass_permit_767"],
+        ["compass_permit_576", "compass_permit_583", "compass_permit_767"],
+        ["compass_permit_576", "compass_permit_583", "compass_permit_767"],
+        ["compass_permit_583", "compass_permit_767"],
+        ["compass_permit_434"],
+        ["compass_permit_430", "compass_permit_431"],
+        ["compass_permit_772"],
+        ["compass_permit_432"],
+        ["compass_permit_576", "compass_permit_583", "compass_permit_767", "compass_permit_434", "compass_permit_430", "compass_permit_431", "compass_permit_772", "compass_permit_432"],
+    ],
+    "fire_protection": [
+        ["compass_permit_435", "compass_permit_436"],
+        ["compass_permit_592", "compass_permit_591"],
+        ["compass_permit_435", "compass_permit_436", "compass_permit_592", "compass_permit_591", "compass_plan_652"],
+    ],
+    "mechanical": [
+        ["compass_permit_584", "compass_permit_585", "compass_permit_768"],
+        ["compass_permit_584"],
+        ["compass_permit_438"],
+        ["compass_permit_439", "compass_permit_440"],
+    ],
+    "plumbing": [
+        ["compass_permit_608", "compass_permit_609", "compass_permit_769"],
+        ["compass_permit_608"],
+        ["compass_permit_445"],
+        ["compass_permit_442", "compass_permit_443", "compass_permit_873", "compass_permit_441"],
+        ["compass_permit_608", "compass_permit_609", "compass_permit_769", "compass_permit_445"],
+    ],
+    "residential_building": [
+        ["compass_permit_566", "compass_permit_589", "compass_permit_590"],
+        ["compass_permit_446", "compass_permit_573", "compass_permit_588", "compass_permit_566", "compass_permit_589", "compass_permit_590"],
+        ["compass_permit_446", "compass_permit_573", "compass_permit_588", "compass_permit_566", "compass_permit_589", "compass_permit_590"],
+        ["compass_permit_573"],
+        ["compass_permit_446"],
+        ["compass_permit_588"],
+    ],
+    "certificate_of_occupancy": [
+        ["certificate_of_occupancy"],
+        ["certificate_of_occupancy"],
+        ["certificate_of_occupancy"],
+        ["certificate_of_occupancy"],
+        ["certificate_of_occupancy"],
+    ],
+}
+
+KCMO_EXEMPTION_EXACT_TARGETS = {
+    "electrical": [
+        ["compass_permit_576", "compass_permit_583", "compass_permit_767", "compass_permit_434", "compass_permit_430", "compass_permit_431", "compass_permit_772", "compass_permit_432"],
+        ["compass_permit_576", "compass_permit_583", "compass_permit_767", "compass_permit_434", "compass_permit_430", "compass_permit_431", "compass_permit_772", "compass_permit_432"],
+        ["compass_permit_576", "compass_permit_583", "compass_permit_767", "compass_permit_434", "compass_permit_430", "compass_permit_431", "compass_permit_772", "compass_permit_432"],
+        ["compass_permit_576", "compass_permit_583", "compass_permit_767", "compass_permit_434", "compass_permit_430", "compass_permit_431", "compass_permit_772", "compass_permit_432"],
+        ["compass_permit_432"],
+    ],
+}
+
+KCMO_GENERIC_RULE_INDICES = {
+    "commercial_building": {1, 4},
+    "electrical": {3, 4, 5, 6, 7, 13},
+    "fire_protection": {3},
+    "mechanical": {1, 2},
+    "plumbing": {1, 2, 5},
+    "certificate_of_occupancy": {1, 2, 3, 4, 5},
+}
+
+KCMO_GENERIC_EXEMPTION_INDICES = {
+    "electrical": {1, 2, 3, 4},
+}
+
+KCMO_COMMERCIAL_RULE_OVERRIDES = {
+    ("electrical", 3): "Any commercial electrical service of 400 amps or larger requires the completed IB160 submission identified by CompassKC.",
+    ("electrical", 4): "Service equipment rated 800 through 1199 amps requires a sealed one-line drawing plan case under IB160.",
+    ("electrical", 6): "Transformers, generators, battery systems, fire pumps, wind turbines, and automatic transfer switches require the IB160 plan or one-line-drawing path.",
+    ("mechanical", 1): "Use Mechanical General - Commercial for general mechanical work in commercial and multifamily buildings.",
+    ("plumbing", 1): "Use Plumbing General - Commercial for general plumbing work in commercial and multifamily buildings.",
+    ("plumbing", 4): "Commercial gas test or reconnect work uses its separate commercial application route.",
+    ("demolition", 1): "Commercial demolition work has separate complete, interior, partial, and pre-demolition-inspection application routes.",
+}
+
+KCMO_RESIDENTIAL_EXACT_TYPES = {
+    "compass_permit_583", "compass_permit_767", "compass_permit_434",
+    "compass_permit_431", "compass_permit_432", "compass_permit_436",
+    "compass_permit_591", "compass_permit_585", "compass_permit_768",
+    "compass_permit_438", "compass_permit_439", "compass_permit_440",
+    "compass_permit_609", "compass_permit_769", "compass_permit_445",
+    "compass_permit_443", "compass_permit_873", "compass_permit_441",
+    "compass_permit_446", "compass_permit_573", "compass_permit_588",
+    "compass_permit_566", "compass_permit_589", "compass_permit_590",
+}
+
+KCK_APPLICATION_GENERIC_ALIASES = {
+    "residential_building": ["building_permit"],
+    "commercial_building_non_drc": ["building_permit"],
+    "commercial_building_drc": ["building_permit"],
+    "commercial_building_drc_floodplain": ["building_permit"],
+    "phased_building_approval": ["building_permit"],
+    "electrical": ["electrical"],
+    "temporary_electrical": ["electrical"],
+    "mechanical": ["mechanical"],
+    "plumbing": ["plumbing"],
+    "gas_pressure_test": ["plumbing"],
+    "demolition": ["demolition"],
+    "certificate_of_occupancy": ["certificate_of_occupancy"],
+    "sign_incidental": ["sign"],
+    "sign_flag": ["sign"],
+    "sign_attached": ["sign"],
+    "sign_detached": ["sign"],
+    "billboard_under_300": ["sign"],
+    "billboard_300_or_more": ["sign"],
+    "land_disturbance": ["land_disturbance"],
+    "right_of_way": ["right_of_way"],
+    "street_excavation": ["right_of_way"],
+    "driveway": ["right_of_way"],
+    "sidewalk_curb": ["right_of_way"],
+    "street_closure": ["right_of_way"],
+    "dumpster_row": ["right_of_way"],
+    "hauling": ["right_of_way"],
+    "sanitary_sewer_tap": ["utility_service"],
+    "sewer_line_row": ["utility_service"],
+    "sewer_abandonment": ["utility_service"],
+    "bpu_water_service": ["utility_service"],
+    "bpu_electric_service": ["utility_service"],
+    "bpu_disconnect": ["utility_service"],
+    "bpu_temporary_service": ["utility_service"],
+    "fire_sprinkler": ["fire_protection"],
+    "fire_alarm": ["fire_protection"],
+    "commercial_cooking_suppression": ["fire_protection"],
 }
 
 MANHATTAN_DISTRICT_TOKENS = {
@@ -240,6 +404,7 @@ async def create_project(data: dict[str, Any]) -> dict[str, Any]:
     jurisdiction = data.get("jurisdiction", "kansas_city_mo")
     if jurisdiction not in JURISDICTION_ZONING:
         raise HTTPException(status_code=400, detail=f"Unsupported jurisdiction: {jurisdiction}")
+    _validate_jurisdiction_address(jurisdiction, data["address"])
     resolution = await resolve_zoning(data["address"], jurisdiction)
 
     async with SessionLocal() as session:
@@ -322,6 +487,7 @@ async def refresh_project_zoning(project_id: str) -> dict[str, Any] | None:
 
 
 async def _resolve_project_zoning(project: Project) -> None:
+    _validate_jurisdiction_address(project.jurisdiction, project.address)
     resolution = await resolve_zoning(project.address, project.jurisdiction)
     project.zoning_status = resolution["status"]
     project.zoning_profile = resolution.get("profile") or {}
@@ -581,12 +747,24 @@ def _validate_jurisdiction_address(jurisdiction: str, address: str) -> None:
         "kansas city, ks" in normalized
         or "kansas city ks" in normalized
         or ", ks" in normalized
+        or re.search(r",\s*kansas(?:\s+\d{5}(?:-\d{4})?)?\s*$", normalized)
         or normalized.endswith(" ks")
         or normalized.endswith(", kansas")
     ):
         raise HTTPException(
             status_code=400,
             detail="Kansas City, Kansas addresses cannot be evaluated with Kansas City, Missouri rules.",
+        )
+    if jurisdiction == "kansas_city_ks" and (
+        "kansas city, mo" in normalized
+        or "kansas city mo" in normalized
+        or ", mo" in normalized
+        or re.search(r",\s*missouri(?:\s+\d{5}(?:-\d{4})?)?\s*$", normalized)
+        or normalized.endswith(" mo")
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Kansas City, Missouri addresses cannot be evaluated with Kansas City, Kansas rules.",
         )
 
 
@@ -712,8 +890,120 @@ def _candidate_permit_recommendations(project: Project) -> list[dict[str, Any]]:
                 "next_action": "Confirm whether this permit belongs in the working permit bundle.",
             }
         )
+    if project.jurisdiction == "kansas_city_mo":
+        recommendations.extend(_exact_kcmo_application_recommendations(project, scope))
+    elif project.jurisdiction == "kansas_city_ks":
+        recommendations.extend(_exact_kck_application_recommendations(project, scope))
 
     return recommendations
+
+
+def _exact_kck_application_recommendations(
+    project: Project, scope: dict[str, bool]
+) -> list[dict[str, Any]]:
+    exact: list[dict[str, Any]] = []
+    sources = load_json("source_registry.json", "kansas_city_ks")
+    source_map = {item["id"]: item for item in sources.get("sources", [])}
+    for application in match_kck_applications(scope, project.project_type):
+        source = source_map.get(application["source_id"], {})
+        status = application["requirement_status"]
+        exact.append(
+            {
+                "permit_type": f"kck_{application['id']}",
+                "permit_name": application["name"],
+                "issuing_authority": application["authority"],
+                "jurisdiction": project.jurisdiction,
+                "requirement_status": status,
+                "lifecycle_status": "gathering_documents" if status == "required" else "not_started",
+                "origin": "system",
+                "reason": application["reason"],
+                "recommendation_evidence": {
+                    "catalogRule": {
+                        "applicationId": application["id"],
+                        "category": application["category"],
+                        "ruleIds": application["rule_ids"],
+                        "sourceIds": application["source_ids"],
+                    },
+                    "projectFacts": {
+                        "jurisdiction": project.jurisdiction,
+                        "projectType": project.project_type,
+                        "selectedScope": [key for key, value in scope.items() if value],
+                    },
+                    "matchResult": {
+                        "classification": status,
+                        "policy": "complete-category deterministic match",
+                        "usesVectorOrLlm": False,
+                    },
+                },
+                "source": source.get("title", "Official KCK source registry"),
+                "portal_url": source.get("url"),
+                "coverage_status": "official_sources_normalized_2026_07_18",
+                "dependencies": [],
+                "required_documents": list(application.get("documents", [])),
+                "estimated_fee_usd": None,
+                "next_action": (
+                    "Prepare this exact KCK application."
+                    if status == "required"
+                    else "Confirm the listed condition with the issuing authority; keep this workflow visible until excluded."
+                ),
+            }
+        )
+    return exact
+
+
+def _exact_kcmo_application_recommendations(
+    project: Project, scope: dict[str, bool]
+) -> list[dict[str, Any]]:
+    exact: list[dict[str, Any]] = []
+    for application in match_kcmo_applications(scope, project.project_type):
+        family = rule_family_for_category(application["category"]) or {}
+        application_kind = application["application_kind"]
+        application_id = application["id"]
+        status = application["requirement_status"]
+        required_documents = list(family.get("required_documents", []))
+        evidence = {
+            "catalogRule": {
+                "compassApplicationId": application_id,
+                "applicationKind": application_kind,
+                "category": application["category"],
+                "ruleFamilyId": application.get("rule_family_id"),
+                "sourceIds": application.get("sources", []),
+            },
+            "projectFacts": {
+                "jurisdiction": project.jurisdiction,
+                "projectType": project.project_type,
+                "selectedScope": [key for key, value in scope.items() if value],
+            },
+            "matchResult": {
+                "classification": status,
+                "policy": "complete-category deterministic match",
+            },
+        }
+        exact.append(
+            {
+                "permit_type": f"compass_{application_kind}_{application_id}",
+                "permit_name": application["name"],
+                "issuing_authority": "Kansas City, Missouri",
+                "jurisdiction": project.jurisdiction,
+                "requirement_status": status,
+                "lifecycle_status": "gathering_documents" if status == "required" else "not_started",
+                "origin": "system",
+                "reason": application["reason"],
+                "recommendation_evidence": evidence,
+                "source": "CompassKC Application Assistant",
+                "portal_url": application["portal_url"],
+                "coverage_status": "live_catalog_snapshot_2026_07_18",
+                "dependencies": [],
+                "required_documents": required_documents,
+                "estimated_fee_usd": None,
+                "next_action": (
+                    "Prepare this exact CompassKC application."
+                    if status == "required"
+                    else "Answer the subtype questions to confirm or exclude this exact application."
+                ),
+            }
+        )
+    return exact
 
 
 def _development_type_candidates(development_type: str) -> set[str]:
@@ -954,7 +1244,7 @@ async def suggest_rules(project_id: str) -> list[dict[str, Any]]:
             "jurisdiction": project.jurisdiction,
         }
 
-    from shared.agent_logic.local_runner import _make_llm, _skip_llm
+    from shared.analysis.runner import _make_llm
 
     fallback = [
         {
@@ -989,9 +1279,6 @@ async def suggest_rules(project_id: str) -> list[dict[str, Any]]:
             }
             for r in rules
         ]
-
-    if _skip_llm():
-        return with_ids(fallback)
 
     from langchain_core.messages import HumanMessage
 
@@ -1052,7 +1339,13 @@ async def get_builtin_rules_for_project(
     zoning_profile: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     if jurisdiction == "kansas_city_mo":
-        return _build_kcmo_rule_library(area=area, zoning_profile=zoning_profile)
+        return _build_kcmo_rule_library(
+            area=area,
+            project_type=project_type,
+            zoning_profile=zoning_profile,
+        ) + _build_kcmo_permit_review_rules(project_type)
+    if jurisdiction == "kansas_city_ks":
+        return _build_kck_permit_review_rules()
     if jurisdiction != "manhattan_ks":
         return await get_builtin_rules(jurisdiction)
 
@@ -1067,9 +1360,137 @@ async def get_builtin_rules_for_project(
 def _build_kcmo_rule_library(
     *,
     area: str | None = None,
+    project_type: str | None = None,
     zoning_profile: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
-    return build_kcmo_rules(area, zoning_profile)
+    return build_kcmo_rules(area, zoning_profile, project_type)
+
+
+def _build_kcmo_permit_review_rules(project_type: str | None = None) -> list[dict[str, Any]]:
+    payload = load_json("permit_rules.json", "kansas_city_mo")
+    output: list[dict[str, Any]] = []
+    for family in payload.get("category_rules", []):
+        family_id = family["id"]
+        category = KCMO_PERMIT_RULE_CATEGORIES.get(family_id, "permits")
+        label = family_id.replace("_", " ").title()
+        source = ", ".join(family.get("sources", [])) or "KCMO permit rules"
+        generic_types = [family_id, *KCMO_PERMIT_TYPE_ALIASES.get(family_id, [])]
+        rule_targets = KCMO_RULE_EXACT_TARGETS.get(family_id, [])
+        for index, condition in enumerate(family.get("rules", []), start=1):
+            if project_type in {
+                "commercial", "commercial_tenant_improvement",
+                "new_commercial_construction", "industrial",
+            }:
+                condition = KCMO_COMMERCIAL_RULE_OVERRIDES.get((family_id, index), condition)
+            exact_targets = rule_targets[index - 1] if index <= len(rule_targets) else []
+            permit_types = list(exact_targets)
+            if not exact_targets or (
+                index in KCMO_GENERIC_RULE_INDICES.get(family_id, set())
+                and _kcmo_targets_support_project(exact_targets, project_type)
+            ):
+                permit_types.extend(generic_types)
+            output.append(
+                {
+                    "id": f"kcmo-permit-{family_id}-{index}",
+                    "category": category,
+                    "group": category,
+                    "rule": f"{label} requirement {index}",
+                    "condition": condition,
+                    "severity": "major",
+                    "source": source,
+                    "permitTypes": permit_types,
+                    "ruleFamilyIds": [] if exact_targets else [family_id],
+                }
+            )
+        exemption_targets = KCMO_EXEMPTION_EXACT_TARGETS.get(family_id, [])
+        for index, condition in enumerate(family.get("exemptions", []), start=1):
+            exact_targets = exemption_targets[index - 1] if index <= len(exemption_targets) else []
+            permit_types = list(exact_targets)
+            if not exact_targets or (
+                index in KCMO_GENERIC_EXEMPTION_INDICES.get(family_id, set())
+                and _kcmo_targets_support_project(exact_targets, project_type)
+            ):
+                permit_types.extend(generic_types)
+            output.append(
+                {
+                    "id": f"kcmo-permit-{family_id}-exemption-{index}",
+                    "category": category,
+                    "group": category,
+                    "rule": f"{label} exemption {index}",
+                    "condition": condition,
+                    "severity": "info",
+                    "source": source,
+                    "permitTypes": permit_types,
+                    "ruleFamilyIds": [] if exact_targets else [family_id],
+                }
+            )
+    return output
+
+
+def _kcmo_targets_support_project(targets: list[str], project_type: str | None) -> bool:
+    if not project_type or project_type == "mixed_use":
+        return True
+    residential_project = project_type in {"single_family", "multifamily_residential"}
+    residential_targets = [target for target in targets if target in KCMO_RESIDENTIAL_EXACT_TYPES]
+    if residential_project:
+        return bool(residential_targets)
+    return len(residential_targets) < len(targets)
+
+
+def _build_kck_permit_review_rules() -> list[dict[str, Any]]:
+    rules_payload = load_json("permit_rules.json", "kansas_city_ks")
+    catalog = load_json("application_catalog.json", "kansas_city_ks")
+    applications = {item["id"]: item for item in catalog.get("applications", [])}
+    category_ids: dict[str, list[str]] = {}
+    for application in applications.values():
+        category_ids.setdefault(application["category"], []).append(application["id"])
+
+    category_to_group = {
+        "Building and Trade": "building",
+        "Planning and Land Use": "zoning",
+        "Public Works and Utilities": "site",
+        "Fire Prevention": "fire",
+    }
+    output: list[dict[str, Any]] = []
+    for rule in rules_payload.get("rules", []):
+        application_ids: set[str] = set()
+        matched_categories: set[str] = set()
+        for target in rule.get("applies_to", []):
+            if target in category_ids:
+                matched_categories.add(target)
+                application_ids.update(category_ids[target])
+            elif target in applications:
+                application_ids.add(target)
+                matched_categories.add(applications[target]["category"])
+
+        permit_types = set(application_ids)
+        for application_id in application_ids:
+            permit_types.update(KCK_APPLICATION_GENERIC_ALIASES.get(application_id, []))
+        if "Planning and Land Use" in matched_categories:
+            permit_types.add("planning_entitlement")
+
+        group = "building"
+        if len(matched_categories) == 1:
+            group = category_to_group.get(next(iter(matched_categories)), "building")
+        elif "Fire Prevention" in matched_categories:
+            group = "fire"
+        elif "Public Works and Utilities" in matched_categories:
+            group = "site"
+
+        output.append(
+            {
+                "id": f"kck-permit-{rule['id']}",
+                "category": group,
+                "group": group,
+                "rule": rule["id"].replace("_", " ").title(),
+                "condition": rule["rule"],
+                "severity": "major",
+                "source": ", ".join(rule.get("source_ids", [])) or "KCK official permit rules",
+                "permitTypes": sorted(permit_types),
+                "ruleFamilyIds": [],
+            }
+        )
+    return output
 
 
 def _build_manhattan_rule_library(

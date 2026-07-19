@@ -1,5 +1,4 @@
 .env
-agent_config.yaml
 .git
 __pycache__
 *.pyc

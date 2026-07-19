@@ -41,8 +41,8 @@ export function SettingsPage() {
       <section className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
         <h2 className="mb-4 font-semibold">About EstatePermit</h2>
         <p className="mb-4 text-sm text-[var(--color-muted)]">
-          AI-powered permitting intelligence for real estate development. Pre-screen permits before
-          you file — zoning, building code, environmental review, and permit packaging.
+          Permit-readiness software for construction teams. EstatePermit identifies the permits and
+          rules that apply, reviews uploaded project files, and prepares a submission-ready bundle.
         </p>
         <h3 className="mb-2 text-sm font-medium">Disclaimer</h3>
         <p className="text-sm text-[var(--color-muted)]">{disclaimer}</p>

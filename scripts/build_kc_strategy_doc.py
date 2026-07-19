@@ -8,7 +8,7 @@ from docx.oxml.ns import qn
 from docx.enum.style import WD_STYLE_TYPE
 from pathlib import Path
 
-OUT = Path(r"C:\Users\HP\projects\permitos\docs\PermitOS_Kansas_City_MVP_and_Go_to_Market.docx")
+OUT = Path(r"C:\Users\HP\projects\EstatePermit\docs\EstatePermit_Kansas_City_MVP_and_Go_to_Market.docx")
 OUT.parent.mkdir(parents=True, exist_ok=True)
 
 NAVY = "17324D"; BLUE = "246B9E"; PALE = "E8F1F7"; LIGHT = "F4F6F8"
@@ -106,24 +106,24 @@ def page_break(): doc.add_page_break()
 
 # Header/footer
 hdr=sec.header.paragraphs[0]; hdr.alignment=WD_ALIGN_PARAGRAPH.RIGHT
-r=hdr.add_run("PERMITOS  |  KANSAS CITY MVP STRATEGY"); font(r,8.5,True,GRAY)
+r=hdr.add_run("EstatePermit  |  KANSAS CITY MVP STRATEGY"); font(r,8.5,True,GRAY)
 ftr=sec.footer.paragraphs[0]; ftr.alignment=WD_ALIGN_PARAGRAPH.CENTER
 r=ftr.add_run("Working strategy - July 2026"); font(r,8.2,False,GRAY)
 
 # Cover
 doc.add_paragraph().paragraph_format.space_after=Pt(55)
-p("PERMITOS", color=BLUE, size=12, align=WD_ALIGN_PARAGRAPH.CENTER, after=12)
+p("EstatePermit", color=BLUE, size=12, align=WD_ALIGN_PARAGRAPH.CENTER, after=12)
 title=p("Kansas City MVP and Go-to-Market Playbook", color=NAVY, size=28, align=WD_ALIGN_PARAGRAPH.CENTER, after=10)
 title.runs[0].bold=True
 p("What to build, how to validate it, and who to approach first", color=GRAY, size=14, align=WD_ALIGN_PARAGRAPH.CENTER, after=28)
 callout("Core decision", "Build a credible permit-readiness MVP for Kansas City, Missouri; validate it with Kansas State University reviewers and friendly practitioners; then run free concierge pilots with small and mid-size contractors before expanding across the metro or to St. Louis.")
-p("Prepared for the PermitOS founding team", color=GRAY, size=10, align=WD_ALIGN_PARAGRAPH.CENTER, after=4)
+p("Prepared for the EstatePermit founding team", color=GRAY, size=10, align=WD_ALIGN_PARAGRAPH.CENTER, after=4)
 p("Research date: July 11, 2026", color=GRAY, size=9.5, align=WD_ALIGN_PARAGRAPH.CENTER, after=0)
 page_break()
 
 doc.add_heading("Executive direction", level=1)
 p("The proposed sequence is sound: first produce a stable MVP, test it with trusted reviewers who understand design and construction, then begin structured discovery and free pilots with Kansas City companies. The product should not initially claim to replace architects, engineers, code officials, or experienced permit expediters. It should make the administrative and preflight work faster, clearer, and more traceable.")
-callout("The first commercial promise", "Give us the project facts and documents. PermitOS identifies the likely permit path, organizes required materials, flags missing or inconsistent information, produces a reviewable readiness report, and keeps every action visible. A qualified human remains responsible for technical judgments and final filing.", "EAF5EF", GREEN)
+callout("The first commercial promise", "Give us the project facts and documents. EstatePermit identifies the likely permit path, organizes required materials, flags missing or inconsistent information, produces a reviewable readiness report, and keeps every action visible. A qualified human remains responsible for technical judgments and final filing.", "EAF5EF", GREEN)
 doc.add_heading("Scope decision", level=2)
 table(["Now", "Next", "Later"], [[
     "Kansas City, Missouri; one or two repeatable project types; readiness and packet preparation",
@@ -140,7 +140,7 @@ for x in [
 ]: bullet(x)
 
 doc.add_heading("Part I - Product and MVP specification", level=1)
-doc.add_heading("1. What PermitOS already has", level=2)
+doc.add_heading("1. What EstatePermit already has", level=2)
 p("The repository is more than a concept. It contains a working project-first React interface, FastAPI persistence, file handling, jurisdiction packs, multi-module analysis, report packaging, and an audit-oriented approval workflow.")
 table(["Current capability", "Observed implementation", "MVP assessment"], [
     ["Project workspace", "Create/edit/delete projects; address, type, jurisdiction, area", "Keep"],
@@ -223,7 +223,7 @@ page_break()
 doc.add_heading("Part II - Kansas City market and permitting playbook", level=1)
 doc.add_heading("6. KCMO permitting process", level=2)
 p("Kansas City, Missouri administers permits, contractor licensing, plan review, inspections, and certificates through City Planning and Development. CompassKC is the principal online system for submitting plans and permits, checking records, and requesting inspections.")
-table(["Stage", "Operational reality", "PermitOS opportunity"], [
+table(["Stage", "Operational reality", "EstatePermit opportunity"], [
     ["1. Scope and zoning", "Confirm work, property, use, zoning, and whether separate approvals apply", "Guided intake; parcel/source links; uncertainty flags"],
     ["2. Licensed party", "Many structural and trade permits require appropriately licensed KCMO contractors", "License field and validation reminder; never impersonate applicant"],
     ["3. Application", "Applicant creates the relevant CompassKC record and enters project information", "Field checklist; reusable fact sheet; reviewed copy/paste packet"],
@@ -244,7 +244,7 @@ for x in [
     "New or remodeled structures cannot be occupied until the required certificate or written approval is issued.",
     "KCMO information bulletins are critical sources and carry different update dates; source freshness must be recorded."
 ]: bullet(x)
-callout("Important boundary", "PermitOS should help the licensed applicant prepare, organize, and track work. It should not submit under another party's license, certify plans, or make technical representations that require a licensed professional.", "FBEAEA", RED)
+callout("Important boundary", "EstatePermit should help the licensed applicant prepare, organize, and track work. It should not submit under another party's license, certify plans, or make technical representations that require a licensed professional.", "FBEAEA", RED)
 
 doc.add_heading("7. Recommended first KCMO wedge", level=2)
 p("The best first wedge is not a complex commercial tenant improvement. It is a repeated administrative workflow performed by licensed contractors with enough permit volume to feel the pain and enough internal simplicity to try a free pilot.")
@@ -320,7 +320,7 @@ for x in [
 ]: bullet(x)
 
 doc.add_heading("Suggested outreach message", level=3)
-callout("Email or LinkedIn", "Hi [Name] - we are a Kansas-based computer science team building PermitOS, a tool that organizes KCMO permit requirements, project documents, and correction follow-up for small contractors. We are not selling a finished platform or claiming to replace licensed professionals. We are interviewing a small number of companies that regularly work through CompassKC. Would you be open to a 10-minute conversation about how your team currently prepares and tracks permits? We can also run one project through our pilot at no cost in exchange for candid feedback.", "F4F6F8", NAVY)
+callout("Email or LinkedIn", "Hi [Name] - we are a Kansas-based computer science team building EstatePermit, a tool that organizes KCMO permit requirements, project documents, and correction follow-up for small contractors. We are not selling a finished platform or claiming to replace licensed professionals. We are interviewing a small number of companies that regularly work through CompassKC. Would you be open to a 10-minute conversation about how your team currently prepares and tracks permits? We can also run one project through our pilot at no cost in exchange for candid feedback.", "F4F6F8", NAVY)
 doc.add_heading("Interview questions", level=3)
 for x in [
     "Who prepares and submits permits today, and how much time does that person spend per permit?",
@@ -434,8 +434,8 @@ for t in doc.tables:
         trPr=row._tr.get_or_add_trPr(); cant=OxmlElement("w:cantSplit"); trPr.append(cant)
     trPr=t.rows[0]._tr.get_or_add_trPr(); hdr=OxmlElement("w:tblHeader"); hdr.set(qn("w:val"),"true"); trPr.append(hdr)
 
-doc.core_properties.title="PermitOS Kansas City MVP and Go-to-Market Playbook"
+doc.core_properties.title="EstatePermit Kansas City MVP and Go-to-Market Playbook"
 doc.core_properties.subject="Product specification, KCMO permitting research, target market, and outreach plan"
-doc.core_properties.author="PermitOS"
+doc.core_properties.author="EstatePermit"
 doc.save(OUT)
 print(OUT)

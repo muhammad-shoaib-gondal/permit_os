@@ -8,8 +8,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from api.models import AuditLogEntry, Base, PermitCase
-from shared.band_client.config import load_settings
-from shared.llm.backends import orchestration_hint
+from shared.config import load_settings
+from shared.llm.zenmux import orchestration_hint
 from shared.schemas.project_brief import ProjectBrief
 from shared.tools.workflow import run_workflow_with_activity_async
 
@@ -29,8 +29,7 @@ async def init_db() -> None:
 
 
 async def create_case(brief: ProjectBrief, demo: bool = False) -> dict[str, Any]:
-    band_room_id = f"permit-case-{brief.case_id}"
-    results = await run_workflow_with_activity_async(brief, band_room_id=band_room_id)
+    results = await run_workflow_with_activity_async(brief)
     await _save_case_results(brief, results)
     return results
 
@@ -42,7 +41,7 @@ async def start_case_async(
     selected_modules: list[str] | None = None,
     module_requirements: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Create case row and run Band pipeline in background (avoids HTTP timeout)."""
+    """Create a case row and run analysis in the background."""
     import asyncio
 
     case_id = str(brief.case_id)
@@ -55,7 +54,6 @@ async def start_case_async(
                 status="ANALYZING",
                 brief=brief.model_dump(mode="json"),
                 results=None,
-                band_room_id=None,
             )
         )
         await session.commit()
@@ -71,7 +69,7 @@ async def start_case_async(
     return {
         "case_id": case_id,
         "status": "ANALYZING",
-        "message": "Band agents are analyzing. Poll GET /cases/{case_id} for results.",
+        "message": "Analysis is running. Poll GET /cases/{case_id} for results.",
         "selected_modules": selected_modules or [],
         "module_requirements": module_requirements or {},
     }
@@ -98,7 +96,6 @@ async def _update_case_progress(case_id: str, partial: dict[str, Any]) -> None:
         merged = dict(case.results or {})
         merged.update(partial)
         case.results = merged
-        case.band_room_id = partial.get("band_room_id") or case.band_room_id
         await session.commit()
 
 
@@ -109,18 +106,12 @@ async def _run_case_background(
     module_requirements: dict[str, Any] | None = None,
 ) -> None:
     case_id = str(brief.case_id)
-    existing_room: str | None = None
     try:
-        case = await get_case(case_id)
-        if case and case.band_room_id and not case.band_room_id.startswith("local-"):
-            existing_room = case.band_room_id
-
         async def on_progress(partial: dict[str, Any]) -> None:
             await _update_case_progress(case_id, partial)
 
         results = await run_workflow_with_activity_async(
             brief,
-            band_room_id=existing_room,
             on_progress=on_progress,
             custom_rules=custom_rules,
             selected_modules=selected_modules,
@@ -163,14 +154,13 @@ async def _save_case_results(brief: ProjectBrief, results: dict[str, Any]) -> No
             session.add(case)
         case.status = str((results.get("case_summary") or {}).get("status", "AWAITING_APPROVAL"))
         case.results = results
-        case.band_room_id = results.get("band_room_id") or case.band_room_id
         pkg = results.get("permit_package") or {}
         case.audit_hash = pkg.get("audit_hash")
         for evt in results.get("activity", []):
             session.add(
                 AuditLogEntry(
                     case_id=case_id,
-                    agent_id=evt["agent"],
+                    source=evt["source"],
                     event_type=evt["event_type"],
                     detail=evt.get("detail"),
                     payload=evt.get("payload"),
@@ -195,7 +185,7 @@ async def get_audit_log(case_id: str) -> list[dict[str, Any]]:
             {
                 "id": e.id,
                 "timestamp": e.timestamp.isoformat() if e.timestamp else None,
-                "agent_id": e.agent_id,
+                "source": e.source,
                 "event_type": e.event_type,
                 "detail": e.detail,
                 "payload": e.payload,
@@ -217,14 +207,14 @@ async def simulate_rfi(case_id: str, rfi_text: str) -> dict[str, Any] | None:
         "fire apparatus access route along the east property line with 20'-0\" clear width "
         "per Austin Fire Code 503.1.1. A supplemental access diagram is attached showing "
         "turning radii and hydrant locations.\n\n"
-        "Submitted for review,\nEstatePermit Packager Agent"
+        "Submitted for review,\nEstatePermit"
     )
 
     async with SessionLocal() as session:
         session.add(
             AuditLogEntry(
                 case_id=case_id,
-                agent_id="packager",
+                source="packaging",
                 event_type="rfi_draft",
                 detail=rfi_text,
                 payload={"draft": draft},
@@ -248,7 +238,7 @@ async def approve_case(case_id: str, approved_by: str = "human-reviewer") -> dic
         session.add(
             AuditLogEntry(
                 case_id=case_id,
-                agent_id="human",
+                source="human",
                 event_type="approved",
                 detail=f"Approved by {approved_by}",
                 payload={"audit_hash": case.audit_hash},

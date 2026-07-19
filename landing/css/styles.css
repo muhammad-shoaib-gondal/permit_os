@@ -687,19 +687,19 @@ section {
   margin: 0;
 }
 
-/* —— Value band (dark) —— */
-.value-band {
+/* Dark value strip */
+.value-strip {
   background:
     radial-gradient(ellipse 60% 80% at 80% -10%, color-mix(in srgb, var(--accent) 22%, transparent) 0%, transparent 60%),
     linear-gradient(160deg, var(--bg-dark) 0%, var(--bg-dark-soft) 100%);
   color: var(--text-on-dark);
 }
 
-.value-band .section-label {
+.value-strip .section-label {
   color: var(--accent-2);
 }
 
-.value-band .section-title {
+.value-strip .section-title {
   color: #fff;
 }
 
@@ -1054,7 +1054,7 @@ section {
 }
 
 /* —— CTA —— */
-.cta-band {
+.cta-panel {
   background:
     radial-gradient(ellipse 50% 80% at 50% -20%, color-mix(in srgb, var(--accent) 30%, transparent) 0%, transparent 60%),
     linear-gradient(135deg, var(--bg-dark) 0%, var(--bg-dark-soft) 100%);
@@ -1066,19 +1066,19 @@ section {
   max-width: calc(var(--max) + 2rem);
 }
 
-.cta-band h2 {
+.cta-panel h2 {
   font-size: clamp(1.9rem, 3.2vw, 2.5rem);
   margin: 0 0 1rem;
   color: #fff;
 }
 
-.cta-band p {
+.cta-panel p {
   color: var(--text-on-dark-muted);
   max-width: 34rem;
   margin: 0 auto 2rem;
 }
 
-.cta-band .form-note {
+.cta-panel .form-note {
   margin-top: 1.5rem;
 }
 
@@ -1275,7 +1275,7 @@ section {
     width: 100%;
   }
 
-  .cta-band {
+  .cta-panel {
     margin-inline: 0;
     border-radius: 0;
     padding-inline: 1.25rem;

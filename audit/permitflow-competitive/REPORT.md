@@ -4,7 +4,7 @@ Date: 2026-07-11
 
 ## Executive conclusion
 
-PermitFlow is presently positioned as an outsourced permitting operation delivered through software, not merely a compliance-analysis product. Its public workflow spans intake, jurisdiction/AHJ research, application preparation and filing, coordination during review, issuance, inspections, and closeout. PermitOS has promising differentiated pre-submission intelligence—multi-agent compliance checks, citations, cross-discipline conflict detection, human approval, and audit hashes—but the current product stops before the operational work customers buy PermitFlow to eliminate.
+PermitFlow is presently positioned as an outsourced permitting operation delivered through software, not merely a compliance-analysis product. Its public workflow spans intake, jurisdiction/AHJ research, application preparation and filing, coordination during review, issuance, inspections, and closeout. EstatePermit has promising differentiated pre-submission intelligence—permit-specific rule checks, cited findings, cross-permit conflict detection, human approval, and submission-ready document bundling—but the current product stops before the operational work customers buy PermitFlow to eliminate.
 
 The fastest credible strategy is not to copy PermitFlow screen-for-screen. Build a clean-room, differentiated "permit readiness and orchestration" product, then add operational execution in narrow vertical and jurisdiction slices. The defensible wedge is evidence-backed preflight quality plus transparent reasoning; the table stakes to add are lifecycle status, assignments, communications, revision cycles, portal operations, inspections, and integrations.
 
@@ -12,28 +12,28 @@ The fastest credible strategy is not to copy PermitFlow screen-for-screen. Build
 
 - Public PermitFlow pages and current marketing claims were inspected on 2026-07-11.
 - PermitFlow's authenticated application was not accessed; internal dashboard behavior is therefore inferred only where explicitly identified.
-- The local PermitOS implementation was inspected from source. The in-app browser could not reach the host-local Vite server, so no local screenshot was accepted as audit evidence.
+- The local EstatePermit implementation was inspected from source. The in-app browser could not reach the host-local Vite server, so no local screenshot was accepted as audit evidence.
 - Marketing performance claims were not independently verified.
 - This is product research and legal issue-spotting, not legal advice or a freedom-to-operate opinion.
 
 ## Observed PermitFlow lifecycle
 
-1. Intake Agent — imports project data from CRM, contracts, and files.
-2. Research Agent — searches a proprietary permitting dataset and AHJ portals for requirements, fees, and timelines.
-3. Submission Agent — completes forms, attaches supporting documents, and files with the AHJ.
-4. Coordination Agent — tracks AHJ updates, comments, follow-ups, owners, and stakeholders.
-5. Issuance Agent — receives permits and moves projects into construction.
+1. Intake workflow — imports project data from CRM, contracts, and files.
+2. Research workflow — searches a proprietary permitting dataset and AHJ portals for requirements, fees, and timelines.
+3. Submission workflow — completes forms, attaches supporting documents, and files with the AHJ.
+4. Coordination workflow — tracks AHJ updates, comments, follow-ups, owners, and stakeholders.
+5. Issuance workflow — receives permits and moves projects into construction.
 6. Inspection workflow — researches inspection requirements, schedules appointments, tracks AHJ outcomes and comments.
-7. Closeout Agent — compiles results and final documents, submits closeout materials, and completes the project.
+7. Closeout workflow — compiles results and final documents, submits closeout materials, and completes the project.
 
 ## Comparison
 
-| Capability | PermitFlow public claim | PermitOS current state | Priority |
+| Capability | PermitFlow public claim | EstatePermit current state | Priority |
 |---|---|---|---|
 | Project intake | CRM/files/contracts ingestion | Manual form plus file upload | P1 |
 | Jurisdiction research | Nationwide AHJ portal/database research | Curated packs for a few jurisdictions | P0 |
 | Permit applicability | Requirements, fees, timelines | Permit package and planned permit-card detection | P0 |
-| Pre-submission compliance | Error reduction is claimed, details opaque | Strong rule/AI checks with citations and cross-agent conflicts | Differentiate |
+| Pre-submission compliance | Error reduction is claimed, details opaque | Strong permit-rule and file checks with citations and cross-permit conflicts | Differentiate |
 | Form preparation | Auto-completes applications | Not implemented | P1 |
 | Filing | Direct digital or human-assisted AHJ submission | Explicitly no auto-file | P1/P2, narrow scope |
 | Review-cycle coordination | Comments, follow-ups, stakeholders, real-time status | Demo RFI draft and activity/audit feed | P0 |
@@ -69,10 +69,10 @@ The fastest credible strategy is not to copy PermitFlow screen-for-screen. Build
 1. Create a jurisdiction knowledge operations system with source freshness, change detection, reviewer approval, and confidence scores.
 2. Capture structured outcomes: rejection reason, comment text, turnaround time, required artifact, and successful resolution.
 3. Benchmark readiness predictions against actual AHJ outcomes and publish calibrated accuracy, not generic AI claims.
-4. Offer a transparent "why this applies" experience and downloadable decision record—an area where PermitOS can be more trustworthy than a black-box managed service.
+4. Offer a transparent "why this applies" experience and downloadable decision record—an area where EstatePermit can be more trustworthy than a black-box managed service.
 5. Pursue SOC 2 readiness, security documentation, data retention controls, tenant isolation, and AI-data-use controls before enterprise sales.
 
-## How PermitOS can be better
+## How EstatePermit can be better
 
 - Explainability: every requirement and finding should have provenance, effective date, and confidence.
 - Clean handoffs: turn every issue into an owned task with a due date and a precise acceptance test.
@@ -89,7 +89,7 @@ U.S. copyright law protects PermitFlow's code, text, graphics, and other origina
 
 ### Material risks to avoid
 
-1. Trademark: PERMITFLOW is reported as a federally registered mark (Reg. No. 8061236, registered 2025-12-09). Do not use confusing names, logos, slogans, or branding. "PermitOS" should receive a separate trademark clearance search before launch.
+1. Trademark: PERMITFLOW is reported as a federally registered mark (Reg. No. 8061236, registered 2025-12-09). Do not use confusing names, logos, slogans, or branding. "EstatePermit" should receive a separate trademark clearance search before launch.
 2. Copyright: do not copy source code, page copy, illustrations, screenshots, detailed visual composition, or proprietary documentation.
 3. Contract/DMCA: PermitFlow's terms prohibit reverse engineering and scraping of the service. Do not use customer access, automation, or circumvention to inspect the authenticated product.
 4. Trade secrets: do not solicit or use confidential materials from PermitFlow employees, contractors, customers, or demos under NDA. Maintain clean-room records showing independent development from public sources and customer research.
@@ -99,7 +99,7 @@ U.S. copyright law protects PermitFlow's code, text, graphics, and other origina
 
 ### Recommended legal hygiene now
 
-- Run federal/state/common-law clearance for PermitOS and file an intent-to-use application if cleared.
+- Run federal/state/common-law clearance for EstatePermit and file an intent-to-use application if cleared.
 - Adopt a clean-room competitive research policy and provenance log.
 - Add contributor invention/IP assignments and contractor work-for-hire/assignment clauses.
 - Inventory open-source licenses and third-party data terms.

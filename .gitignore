@@ -1,5 +1,4 @@
 .env
-agent_config.yaml
 .cursor/
 contacts/
 # Large MDC source exports; regenerated via scripts/ingest_manhattan_code.py
@@ -14,7 +13,6 @@ build/
 .pytest_cache/
 .ruff_cache/
 *.db
-.ollamafreeapi_cache.json
 uploads/
 chroma_db/
 .DS_Store
