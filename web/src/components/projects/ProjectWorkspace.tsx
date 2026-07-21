@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AlertTriangle, Info, LoaderCircle, MapPin, Pencil, RefreshCw, Trash2 } from "lucide-react";
-import type { AnalysisModuleKey, Project, ProjectScope, ProjectTypeValue } from "../../types";
+import type { Project, ProjectScope, ProjectTypeValue } from "../../types";
 import {
-  ANALYSIS_MODULES,
   DEFAULT_PROJECT_SCOPE,
   FILE_TYPES,
   PROJECT_SCOPE_OPTIONS,
@@ -49,13 +48,13 @@ export function ProjectWorkspace({ project }: ProjectWorkspaceProps) {
     ...DEFAULT_PROJECT_SCOPE,
     ...(project.scope ?? {}),
   });
-  const [uploadType, setUploadType] = useState("other");
+  const [uploadType, setUploadType] = useState("auto");
   const [uploadLabel, setUploadLabel] = useState("");
-  const [uploadSections, setUploadSections] = useState<AnalysisModuleKey[]>([]);
   const [savingEdit, setSavingEdit] = useState(false);
   const [resolvingZoning, setResolvingZoning] = useState(false);
   const {
     uploadFile,
+    updateFileType,
     removeFile,
     updateProject,
     resolveZoning,
@@ -68,15 +67,11 @@ export function ProjectWorkspace({ project }: ProjectWorkspaceProps) {
     setUploading(true);
     try {
       for (const file of files) {
-        const ext = file.name.toLowerCase();
-        const isBrief = ext.endsWith(".json") || ext.endsWith(".zip");
         await uploadFile(
           project.id,
           file,
-          isBrief ? "brief_json" : uploadType,
-          isBrief,
-          uploadLabel.trim() || undefined,
-          uploadSections
+          uploadType === "auto" ? undefined : uploadType,
+          uploadLabel.trim() || undefined
         );
       }
       toast.success(`Uploaded ${files.length} file${files.length !== 1 ? "s" : ""}`);
@@ -222,7 +217,7 @@ export function ProjectWorkspace({ project }: ProjectWorkspaceProps) {
                 <dd>{project.files.length}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-[var(--color-muted)]">Recommended permits</dt>
+                <dt className="text-[var(--color-muted)]">Required or awaiting information</dt>
                 <dd>{activePermits.length}</dd>
               </div>
               <div className="flex justify-between">
@@ -298,6 +293,24 @@ export function ProjectWorkspace({ project }: ProjectWorkspaceProps) {
                     <dd>{project.zoningProfile.ordinance}</dd>
                   </div>
                 )}
+                {project.zoningProfile.permitContext && (
+                  <div className="space-y-2 border-t border-[var(--color-border)] pt-3">
+                    <div className="flex justify-between gap-4">
+                      <dt className="text-[var(--color-muted)]">Local historic register</dt>
+                      <dd>{project.zoningProfile.permitContext.historicLocal ? "Matched" : "No match"}</dd>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <dt className="text-[var(--color-muted)]">Streetcar corridor</dt>
+                      <dd>{project.zoningProfile.permitContext.nearStreetcar ? "Nearby" : "No automatic match"}</dd>
+                    </div>
+                    {project.zoningProfile.permitContext.parcelCount != null && (
+                      <div className="flex justify-between gap-4">
+                        <dt className="text-[var(--color-muted)]">Parcels at address</dt>
+                        <dd>{project.zoningProfile.permitContext.parcelCount}</dd>
+                      </div>
+                    )}
+                  </div>
+                )}
                 {project.zoningProfile.sourceUrl && (
                   <div className="border-t border-[var(--color-border)] pt-3">
                     <a
@@ -309,6 +322,22 @@ export function ProjectWorkspace({ project }: ProjectWorkspaceProps) {
                       {project.zoningProfile.sourceName ?? "Open city zoning source"}
                     </a>
                   </div>
+                )}
+                {!!project.zoningRules?.length && (
+                  <details className="border-t border-[var(--color-border)] pt-3">
+                    <summary className="cursor-pointer font-medium">
+                      Applicable zoning requirements ({project.zoningRules.length})
+                    </summary>
+                    <ul className="mt-3 space-y-3">
+                      {project.zoningRules.map((rule, index) => (
+                        <li key={`${rule.rule}-${index}`} className="rounded-lg bg-[var(--color-surface2)] p-3">
+                          <p className="font-medium">{rule.rule}</p>
+                          <p className="mt-1 text-xs text-[var(--color-muted)]">{rule.condition}</p>
+                          {rule.source && <p className="mt-1 text-xs text-[var(--color-muted)]">Source: {rule.source}</p>}
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
                 )}
               </dl>
             ) : (
@@ -342,11 +371,14 @@ export function ProjectWorkspace({ project }: ProjectWorkspaceProps) {
       {tab === "documents" && (
         <div className="space-y-6">
           <section className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
-            <div className="mb-4 grid gap-4 md:grid-cols-3">
+            <div className="mb-4 grid gap-4 md:grid-cols-2">
               <Select
-                label="File type"
+                label="Document type"
                 value={uploadType}
-                options={FILE_TYPES.map((t) => ({ value: t.value, label: t.label }))}
+                options={[
+                  { value: "auto", label: "Detect automatically" },
+                  ...FILE_TYPES.map((t) => ({ value: t.value, label: t.label })),
+                ]}
                 onChange={(e) => setUploadType(e.target.value)}
               />
               <Input
@@ -355,38 +387,23 @@ export function ProjectWorkspace({ project }: ProjectWorkspaceProps) {
                 onChange={(e) => setUploadLabel(e.target.value)}
                 placeholder="Example: Existing floor plan"
               />
-              <div className="text-sm">
-                <span className="mb-1.5 block text-[var(--color-muted)]">Supports review areas</span>
-                <div className="flex flex-wrap gap-2">
-                  {ANALYSIS_MODULES.map((module) => {
-                    const active = uploadSections.includes(module.value);
-                    return (
-                      <button
-                        key={module.value}
-                        type="button"
-                        className={`rounded-lg border px-3 py-2 text-sm ${
-                          active
-                            ? "border-[var(--color-accent)] bg-[var(--color-accent)]/10"
-                            : "border-[var(--color-border)] hover:bg-[var(--color-surface2)]"
-                        }`}
-                        onClick={() =>
-                          setUploadSections((prev) =>
-                            active ? prev.filter((m) => m !== module.value) : [...prev, module.value]
-                          )
-                        }
-                      >
-                        {module.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
             </div>
-          <FileUploader onFiles={handleFiles} disabled={uploading} />
+            <p className="mb-4 text-sm text-[var(--color-muted)]">
+              Upload each document once. EstatePermit detects its type and connects it to relevant permits.
+            </p>
+            <FileUploader onFiles={handleFiles} disabled={uploading} />
           </section>
           <FileList
             files={project.files}
             uploading={uploading}
+            onUpdateType={async (fileId, fileType) => {
+              try {
+                await updateFileType(project.id, fileId, fileType);
+                toast.success("Document type updated");
+              } catch (e) {
+                toast.error(e instanceof Error ? e.message : "Failed to update document type");
+              }
+            }}
             onDelete={async (fileId) => {
               try {
                 await removeFile(project.id, fileId);

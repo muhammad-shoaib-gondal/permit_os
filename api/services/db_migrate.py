@@ -207,6 +207,12 @@ def run_sqlite_migrations(conn: Connection) -> None:
             "zoning_warnings",
             "ALTER TABLE projects ADD COLUMN zoning_warnings JSON",
         )
+        _add_column_if_missing(
+            conn,
+            "projects",
+            "permit_answers",
+            "ALTER TABLE projects ADD COLUMN permit_answers JSON",
+        )
     if "project_files" in inspect(conn).get_table_names():
         _add_column_if_missing(
             conn,
@@ -219,6 +225,24 @@ def run_sqlite_migrations(conn: Connection) -> None:
             "project_files",
             "file_sections",
             "ALTER TABLE project_files ADD COLUMN file_sections JSON",
+        )
+        _add_column_if_missing(
+            conn,
+            "project_files",
+            "ai_summary",
+            "ALTER TABLE project_files ADD COLUMN ai_summary TEXT",
+        )
+        _add_column_if_missing(
+            conn,
+            "project_files",
+            "classification_source",
+            "ALTER TABLE project_files ADD COLUMN classification_source VARCHAR(30)",
+        )
+        _add_column_if_missing(
+            conn,
+            "project_files",
+            "permit_types",
+            "ALTER TABLE project_files ADD COLUMN permit_types JSON",
         )
     if "project_permits" in inspect(conn).get_table_names():
         _add_column_if_missing(

@@ -51,7 +51,7 @@ function documentText(documents: string[]) {
 }
 
 export function PermitBundleTab({ project }: PermitBundleTabProps) {
-  const { createPermit, updatePermit } = useProjectStore();
+  const { createPermit, updatePermit, updateProject } = useProjectStore();
   const [savingId, setSavingId] = useState<string | null>(null);
   const [manualOpen, setManualOpen] = useState(false);
   const [manualName, setManualName] = useState("");
@@ -61,16 +61,23 @@ export function PermitBundleTab({ project }: PermitBundleTabProps) {
   const [manualSaving, setManualSaving] = useState(false);
   const [expandedPermitId, setExpandedPermitId] = useState<string | null>(null);
   const [reviewPermit, setReviewPermit] = useState<ProjectPermit | null>(null);
+  const [answeringKey, setAnsweringKey] = useState<string | null>(null);
 
   const permits = project.permits ?? [];
   const activePermits = permits.filter((permit) => permit.requirementStatus !== "not_required");
-  const requiredCount = permits.filter((permit) => permit.requirementStatus === "required").length;
+  const requiredPermits = activePermits.filter((permit) => permit.requirementStatus === "required");
+  const recommendedPermits = activePermits.filter((permit) => permit.requirementStatus !== "required");
+  const notRequiredPermits = permits.filter((permit) => permit.requirementStatus === "not_required");
   const submittedCount = permits.filter((permit) =>
     ["submitted", "application_accepted", "in_review", "approved", "issued", "finaled"].includes(
       permit.lifecycleStatus
     )
   ).length;
   const notApplicableCount = permits.filter((permit) => permit.requirementStatus === "not_required").length;
+
+  function scrollToPermitGroup(id: string) {
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 
   async function savePermit(permit: ProjectPermit, data: Partial<ProjectPermit>, success: string) {
     setSavingId(permit.id);
@@ -112,6 +119,44 @@ export function PermitBundleTab({ project }: PermitBundleTabProps) {
     }
   }
 
+  async function answerPermitQuestion(key: string, value: boolean | number | string) {
+    setAnsweringKey(key);
+    try {
+      await updateProject(project.id, {
+        permitAnswers: { ...(project.permitAnswers ?? {}), [key]: value },
+      });
+      toast.success("Permit information saved");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to save permit information");
+    } finally {
+      setAnsweringKey(null);
+    }
+  }
+
+  const permitGroups = [
+    {
+      id: "required-permits",
+      title: "Required permits",
+      description: "Confirmed permits to prepare and track for this project.",
+      permits: requiredPermits,
+      emptyMessage: "No permits have been confirmed as required yet.",
+    },
+    {
+      id: "recommended-permits",
+      title: "Needs information",
+      description: "Potential approvals that need a project-specific answer before classification.",
+      permits: recommendedPermits,
+      emptyMessage: "No permit questions are waiting for an answer.",
+    },
+    {
+      id: "not-required-permits",
+      title: "Not required",
+      description: "Approvals reviewed and excluded using confirmed project information.",
+      permits: notRequiredPermits,
+      emptyMessage: "No approvals have been excluded yet.",
+    },
+  ];
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -127,22 +172,43 @@ export function PermitBundleTab({ project }: PermitBundleTabProps) {
       </div>
 
       <section className="grid gap-4 md:grid-cols-4">
-        <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
-          <p className="text-xs uppercase tracking-wide text-[var(--color-muted)]">Recommended</p>
-          <strong className="text-2xl">{activePermits.length}</strong>
-        </div>
-        <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
-          <p className="text-xs uppercase tracking-wide text-[var(--color-muted)]">Confirmed required</p>
-          <strong className="text-2xl">{requiredCount}</strong>
-        </div>
+        <button
+          type="button"
+          onClick={() => scrollToPermitGroup("required-permits")}
+          className="group cursor-pointer rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 text-left transition hover:border-[var(--color-accent)]/60 hover:bg-[var(--color-surface2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]"
+        >
+          <p className="text-xs uppercase tracking-wide text-[var(--color-muted)]">Required</p>
+          <div className="mt-1 flex items-center justify-between">
+            <strong className="text-2xl">{requiredPermits.length}</strong>
+            <ChevronRight size={18} className="text-[var(--color-muted)] transition group-hover:translate-y-0.5 group-hover:rotate-90" />
+          </div>
+        </button>
+        <button
+          type="button"
+          onClick={() => scrollToPermitGroup("recommended-permits")}
+          className="group cursor-pointer rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 text-left transition hover:border-[var(--color-accent)]/60 hover:bg-[var(--color-surface2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]"
+        >
+          <p className="text-xs uppercase tracking-wide text-[var(--color-muted)]">Needs information</p>
+          <div className="mt-1 flex items-center justify-between">
+            <strong className="text-2xl">{recommendedPermits.length}</strong>
+            <ChevronRight size={18} className="text-[var(--color-muted)] transition group-hover:translate-y-0.5 group-hover:rotate-90" />
+          </div>
+        </button>
         <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
           <p className="text-xs uppercase tracking-wide text-[var(--color-muted)]">Submitted or later</p>
           <strong className="text-2xl">{submittedCount}</strong>
         </div>
-        <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+        <button
+          type="button"
+          onClick={() => scrollToPermitGroup("not-required-permits")}
+          className="group cursor-pointer rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 text-left transition hover:border-[var(--color-accent)]/60 hover:bg-[var(--color-surface2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]"
+        >
           <p className="text-xs uppercase tracking-wide text-[var(--color-muted)]">Not applicable</p>
-          <strong className="text-2xl">{notApplicableCount}</strong>
-        </div>
+          <div className="mt-1 flex items-center justify-between">
+            <strong className="text-2xl">{notApplicableCount}</strong>
+            <ChevronRight size={18} className="text-[var(--color-muted)] transition group-hover:translate-y-0.5 group-hover:rotate-90" />
+          </div>
+        </button>
       </section>
 
       {manualOpen && (
@@ -196,42 +262,65 @@ export function PermitBundleTab({ project }: PermitBundleTabProps) {
         </div>
       )}
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {activePermits.map((permit) => {
+      {permitGroups.map((group) => (
+        <section
+          key={group.id}
+          id={group.id}
+          className="scroll-mt-6 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 sm:p-5"
+        >
+          <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 className="text-base font-semibold">{group.title}</h2>
+              <p className="mt-1 text-sm text-[var(--color-muted)]">{group.description}</p>
+            </div>
+            <Badge>{group.permits.length}</Badge>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {group.permits.length === 0 && (
+              <p className="rounded-xl border border-dashed border-[var(--color-border)] px-4 py-6 text-sm text-[var(--color-muted)] sm:col-span-2 xl:col-span-3">
+                {group.emptyMessage}
+              </p>
+            )}
+            {group.permits.map((permit) => {
           const expanded = expandedPermitId === permit.id;
+          const matchedDocuments = project.files.filter((file) =>
+            file.permitTypes?.includes(permit.permitType)
+          );
           if (!expanded) {
             const RequiredIcon = permit.requirementStatus === "required" ? CheckCircle2 : CircleAlert;
             return (
-              <button
+              <article
                 key={permit.id}
-                type="button"
-                onClick={() => setExpandedPermitId(permit.id)}
-                className="group flex min-h-28 cursor-pointer items-start justify-between gap-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 text-left transition hover:border-[var(--color-accent)]/60 hover:bg-[var(--color-surface2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]"
-                aria-label={`Open ${permit.permitName}`}
+                className="flex min-h-28 flex-col rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] transition hover:border-[var(--color-accent)]/60 hover:bg-[var(--color-surface2)]"
               >
-                <div className="flex min-w-0 items-start gap-3">
-                  <RequiredIcon
-                    size={19}
-                    className={
-                      permit.requirementStatus === "required"
-                        ? "mt-0.5 shrink-0 text-[var(--color-pass)]"
-                        : "mt-0.5 shrink-0 text-[var(--color-warn)]"
-                    }
-                    role="img"
-                    aria-label={labelFor(requirementLabels, permit.requirementStatus)}
-                  />
-                  <div className="min-w-0">
+                <button
+                  type="button"
+                  onClick={() => setExpandedPermitId(permit.id)}
+                  className="group flex flex-1 cursor-pointer items-start justify-between gap-4 rounded-xl p-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-accent)]"
+                  aria-label={`Open ${permit.permitName}`}
+                >
+                  <div className="flex min-w-0 items-start gap-3">
+                    <RequiredIcon
+                      size={19}
+                      className={
+                        permit.requirementStatus === "required"
+                          ? "mt-0.5 shrink-0 text-[var(--color-pass)]"
+                          : "mt-0.5 shrink-0 text-[var(--color-warn)]"
+                      }
+                      role="img"
+                      aria-label={labelFor(requirementLabels, permit.requirementStatus)}
+                    />
                     <h3 className="line-clamp-3 text-sm font-semibold leading-5 text-[var(--color-text)]">
                       {permit.permitName}
                     </h3>
                   </div>
-                </div>
-                <ChevronRight
-                  size={17}
-                  className="mt-0.5 shrink-0 text-[var(--color-muted)] transition group-hover:translate-x-0.5 group-hover:text-[var(--color-accent)]"
-                  aria-hidden="true"
-                />
-              </button>
+                  <ChevronRight
+                    size={17}
+                    className="mt-0.5 shrink-0 text-[var(--color-muted)] transition group-hover:translate-x-0.5 group-hover:text-[var(--color-accent)]"
+                    aria-hidden="true"
+                  />
+                </button>
+              </article>
             );
           }
 
@@ -261,46 +350,132 @@ export function PermitBundleTab({ project }: PermitBundleTabProps) {
                   <Button size="sm" variant="secondary" onClick={() => setReviewPermit(permit)}>
                     Review checks
                   </Button>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    disabled={savingId === permit.id || permit.requirementStatus === "required"}
-                    onClick={() =>
-                      savePermit(
-                        permit,
-                        { requirementStatus: "required", lifecycleStatus: "gathering_documents" },
-                        "Permit confirmed as required"
-                      )
-                    }
-                  >
-                    <CheckCircle2 size={14} /> Confirm
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={savingId === permit.id || permit.requirementStatus === "not_required"}
-                    onClick={() =>
-                      savePermit(
-                        permit,
-                        { requirementStatus: "not_required", lifecycleStatus: "not_started" },
-                        "Permit marked not applicable"
-                      )
-                    }
-                  >
-                    <XCircle size={14} /> Not applicable
-                  </Button>
+                  {permit.origin === "manual" && permit.requirementStatus !== "required" && (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      disabled={savingId === permit.id}
+                      onClick={() =>
+                        savePermit(
+                          permit,
+                          { requirementStatus: "required", lifecycleStatus: "gathering_documents" },
+                          "Permit moved to required"
+                        )
+                      }
+                    >
+                      <CheckCircle2 size={14} /> {savingId === permit.id ? "Saving..." : "Mark required"}
+                    </Button>
+                  )}
+                  {permit.origin === "manual" && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={savingId === permit.id || permit.requirementStatus === "not_required"}
+                      onClick={() =>
+                        savePermit(
+                          permit,
+                          { requirementStatus: "not_required", lifecycleStatus: "not_started" },
+                          "Permit marked not applicable"
+                        )
+                      }
+                    >
+                      <XCircle size={14} /> Not applicable
+                    </Button>
+                  )}
                   <Button size="sm" variant="ghost" onClick={() => setExpandedPermitId(null)}>
                     <Minimize2 size={14} /> Close details
                   </Button>
                 </div>
               </div>
 
-              <div className="grid gap-4 lg:grid-cols-2">
+              {!!permit.recommendationEvidence?.questions?.length && (
+                <section className="mb-5 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface2)] p-4">
+                  <div className="mb-3">
+                    <h4 className="font-semibold">Information needed for this approval</h4>
+                    <p className="mt-1 text-sm text-[var(--color-muted)]">
+                      EstatePermit recalculates this approval immediately after each answer.
+                    </p>
+                  </div>
+                  <div className="space-y-4">
+                    {permit.recommendationEvidence.questions.map((question) => {
+                      const savedAnswer = project.permitAnswers?.[question.key] ?? question.answer;
+                      if (question.type === "boolean") {
+                        return (
+                          <div key={question.key} className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
+                            <p className="text-sm font-medium">{question.label}</p>
+                            {question.help && <p className="mt-1 text-xs text-[var(--color-muted)]">{question.help}</p>}
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              <Button
+                                size="sm"
+                                variant={savedAnswer === true ? "primary" : "secondary"}
+                                disabled={answeringKey === question.key}
+                                onClick={() => answerPermitQuestion(question.key, true)}
+                              >
+                                Yes
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant={savedAnswer === false ? "primary" : "secondary"}
+                                disabled={answeringKey === question.key}
+                                onClick={() => answerPermitQuestion(question.key, false)}
+                              >
+                                No
+                              </Button>
+                              {savedAnswer === undefined || savedAnswer === null ? (
+                                <Badge>Not answered</Badge>
+                              ) : null}
+                            </div>
+                          </div>
+                        );
+                      }
+                      return (
+                        <div key={question.key} className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
+                          <Input
+                            key={`${question.key}-${String(savedAnswer ?? "")}`}
+                            label={`${question.label}${question.unit ? ` (${question.unit})` : ""}`}
+                            type={question.type === "number" ? "number" : "text"}
+                            defaultValue={String(savedAnswer ?? "")}
+                            disabled={answeringKey === question.key}
+                            onBlur={(event) => {
+                              const raw = event.target.value.trim();
+                              if (!raw || raw === String(savedAnswer ?? "")) return;
+                              answerPermitQuestion(
+                                question.key,
+                                question.type === "number" ? Number(raw) : raw
+                              );
+                            }}
+                          />
+                          {question.help && <p className="mt-1 text-xs text-[var(--color-muted)]">{question.help}</p>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
+              )}
+
+              <div className="grid gap-4 lg:grid-cols-3">
                 <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface2)] p-4">
                   <p className="mb-2 text-xs uppercase tracking-wide text-[var(--color-muted)]">Required documents</p>
                   <pre className="whitespace-pre-wrap font-sans text-sm text-[var(--color-text)]">
                     {documentText(permit.requiredDocuments)}
                   </pre>
+                </div>
+                <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface2)] p-4">
+                  <p className="mb-2 text-xs uppercase tracking-wide text-[var(--color-muted)]">Matched documents</p>
+                  {matchedDocuments.length ? (
+                    <ul className="space-y-2 text-sm">
+                      {matchedDocuments.map((file) => (
+                        <li key={file.id}>
+                          <span className="font-medium">{file.name}</span>
+                          {file.aiSummary && (
+                            <p className="mt-0.5 line-clamp-2 text-xs text-[var(--color-muted)]">{file.aiSummary}</p>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-[var(--color-muted)]">No uploaded documents matched to this permit yet.</p>
+                  )}
                 </div>
                 <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface2)] p-4 text-sm">
                   <p className="mb-2 text-xs uppercase tracking-wide text-[var(--color-muted)]">Filing details</p>
@@ -392,8 +567,10 @@ export function PermitBundleTab({ project }: PermitBundleTabProps) {
               </details>
             </article>
           );
-        })}
-      </section>
+            })}
+          </div>
+        </section>
+      ))}
 
       <Modal
         open={Boolean(reviewPermit)}

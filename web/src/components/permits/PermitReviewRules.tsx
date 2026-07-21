@@ -14,6 +14,20 @@ type PermitReviewRulesProps = {
 };
 
 function relevantGroups(permit: ProjectPermit): BuiltinRuleGroup["key"][] {
+  const family = permit.recommendationEvidence?.catalogRule?.ruleFamilyId;
+  if (family === "zoning") return ["zoning", "site"];
+  if (family === "certificate_of_occupancy") return ["zoning", "building", "fire"];
+  if (family === "fire_protection") return ["fire", "building"];
+  if (["street_and_row", "major_infrastructure", "water_service"].includes(family ?? "")) {
+    return ["site"];
+  }
+  if (
+    ["commercial_building", "electrical", "mechanical", "plumbing", "demolition"].includes(
+      family ?? ""
+    )
+  ) {
+    return ["building"];
+  }
   const value = `${permit.permitType} ${permit.permitName}`.toLowerCase();
   if (/zoning|land.use|variance|rezon|conditional|plat/.test(value)) return ["zoning", "site"];
   if (/certificate|occupancy/.test(value)) return ["zoning", "building", "fire"];

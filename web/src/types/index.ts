@@ -35,16 +35,20 @@ export type ProjectScope = {
 };
 
 export type FileType =
-  | "brief_json"
+  | "architectural_plan"
   | "site_plan"
-  | "floor_plan"
+  | "structural_plan"
   | "code_analysis"
-  | "fire_plan"
+  | "fire_protection_plan"
   | "mechanical_plan"
   | "plumbing_plan"
   | "electrical_plan"
   | "elevation"
+  | "civil_plan"
   | "survey"
+  | "energy_document"
+  | "application_form"
+  | "supporting_document"
   | "other";
 
 export type AnalysisModuleKey = "zoning" | "building" | "fire" | "site";
@@ -69,9 +73,10 @@ export type ProjectFile = {
   type: FileType;
   label?: string;
   size: number;
-  sections?: AnalysisModuleKey[];
   uploadedAt: string;
-  isPrimaryBrief?: boolean;
+  aiSummary?: string | null;
+  classificationSource?: "ai" | "user" | "filename" | "legacy";
+  permitTypes?: string[];
 };
 
 export type AnalysisRun = {
@@ -104,6 +109,10 @@ export type ProjectPermit = {
       category?: string;
       ruleIds?: string[];
       sourceIds?: string[];
+      sequence?: number;
+      phase?: string;
+      compassApplicationIds?: number[];
+      compassPlanIds?: number[];
     };
     projectFacts?: {
       jurisdiction?: string;
@@ -111,6 +120,8 @@ export type ProjectPermit = {
       projectTypeMatchedAs?: string[];
       selectedScope?: string[];
       activeScopeAliases?: string[];
+      answers?: Record<string, boolean | number | string>;
+      automaticFacts?: Record<string, boolean | number | string>;
     };
     matchResult?: {
       triggeredBy?: string[];
@@ -119,7 +130,11 @@ export type ProjectPermit = {
       classification?: string;
       policy?: string;
       usesVectorOrLlm?: boolean;
+      missingFacts?: string[];
+      confirmedFacts?: string[];
+      excludedBy?: string[];
     };
+    questions?: PermitQuestion[];
   };
   source?: string | null;
   portalUrl?: string | null;
@@ -138,6 +153,15 @@ export type ProjectPermit = {
   nextAction?: string | null;
   createdAt: string;
   updatedAt: string;
+};
+
+export type PermitQuestion = {
+  key: string;
+  label: string;
+  help?: string;
+  type: "boolean" | "number" | "text";
+  unit?: string;
+  answer?: boolean | number | string | null;
 };
 
 export type Project = {
@@ -174,6 +198,18 @@ export type Project = {
     sourceName?: string;
     sourceUrl?: string;
     resolvedAt?: string;
+    permitContext?: {
+      version?: number;
+      lookupStatus?: "complete" | "partial";
+      nearStreetcar?: boolean;
+      historicLocal?: boolean;
+      historicNational?: boolean;
+      parcelCount?: number;
+      platCount?: number;
+      verifiedLotCount?: number;
+      developmentCaseCount?: number;
+      overlays?: Array<Record<string, string>>;
+    };
   };
   zoningWarnings?: Array<{
     code: string;
@@ -181,7 +217,15 @@ export type Project = {
     action: string;
     severity: "error" | "warning" | "info";
   }>;
+  zoningRules?: Array<{
+    rule: string;
+    condition: string;
+    severity: string;
+    source?: string;
+    group?: string;
+  }>;
   scope?: ProjectScope;
+  permitAnswers?: Record<string, boolean | number | string>;
   files: ProjectFile[];
   permits?: ProjectPermit[];
   customRules: CustomRule[];
@@ -379,16 +423,20 @@ export const PERMIT_LIFECYCLE_STATUS_OPTIONS = [
 ] as const;
 
 export const FILE_TYPES = [
-  { value: "brief_json", label: "Project brief" },
+  { value: "architectural_plan", label: "Architectural / floor plans" },
   { value: "site_plan", label: "Site plan" },
-  { value: "floor_plan", label: "Floor plan" },
+  { value: "structural_plan", label: "Structural plans" },
   { value: "code_analysis", label: "Code analysis" },
-  { value: "fire_plan", label: "Fire / life safety plan" },
+  { value: "fire_protection_plan", label: "Fire protection / life safety" },
   { value: "mechanical_plan", label: "Mechanical plan" },
   { value: "plumbing_plan", label: "Plumbing plan" },
   { value: "electrical_plan", label: "Electrical plan" },
   { value: "elevation", label: "Elevation" },
+  { value: "civil_plan", label: "Civil / utility plans" },
   { value: "survey", label: "Survey" },
+  { value: "energy_document", label: "Energy documentation" },
+  { value: "application_form", label: "Application form" },
+  { value: "supporting_document", label: "Supporting document" },
   { value: "other", label: "Other" },
 ] as const;
 

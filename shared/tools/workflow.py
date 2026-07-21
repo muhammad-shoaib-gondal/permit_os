@@ -15,6 +15,8 @@ async def run_workflow_with_activity_async(
     custom_rules: list[dict[str, Any]] | None = None,
     selected_modules: list[str] | None = None,
     module_requirements: dict[str, Any] | None = None,
+    document_context: list[dict[str, Any]] | None = None,
+    target_permit_types: list[str] | None = None,
 ) -> dict:
     """Run the permit analysis directly through ZenMux."""
     from shared.analysis.runner import run_analysis
@@ -31,6 +33,8 @@ async def run_workflow_with_activity_async(
             custom_rules=custom_rules,
             selected_modules=selected_modules,
             module_requirements=module_requirements,
+            document_context=document_context,
+            target_permit_types=target_permit_types,
         )
 
 

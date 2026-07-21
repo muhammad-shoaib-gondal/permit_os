@@ -11,6 +11,7 @@ from api.services.project_service import (
     _sync_project_permit_recommendations,
     _validate_jurisdiction_address,
 )
+from shared.tools.kcmo_approvals import _rule_family_id, load_approval_catalog
 
 
 def _kcmo_project(scope: dict[str, bool]) -> Project:
@@ -108,6 +109,22 @@ def test_every_kansas_city_permit_family_has_review_rules():
         for permit_type in kck_types
         if not any(permit_type in rule.get("permitTypes", []) for rule in kck_rules)
     }
+
+
+def test_every_canonical_kcmo_approval_has_review_checks():
+    rules = _build_kcmo_permit_review_rules()
+    approvals = load_approval_catalog()["approvals"]
+
+    missing = []
+    for approval in approvals:
+        family_id = _rule_family_id(approval["id"])
+        if not any(
+            family_id in [*rule.get("permitTypes", []), *rule.get("ruleFamilyIds", [])]
+            for rule in rules
+        ):
+            missing.append(approval["id"])
+
+    assert missing == []
 
 
 @pytest.mark.parametrize(
@@ -244,10 +261,11 @@ def test_kcmo_scope_generates_permit_bundle():
     assert "electrical" in permit_types
     assert "plumbing" in permit_types
     assert "mechanical" in permit_types
-    assert "fire_protection" in permit_types
+    assert "fire_sprinkler" in permit_types
+    assert "fire_alarm" in permit_types
     assert "certificate_of_occupancy" in permit_types
     building = next(permit for permit in project.permits if permit.permit_type == "commercial_building")
-    assert building.recommendation_evidence["matchResult"]["triggeredBy"]
+    assert building.recommendation_evidence["matchResult"]["confirmedFacts"]
 
 
 def test_kcmo_new_commercial_defaults_generate_permits():
@@ -260,7 +278,9 @@ def test_kcmo_new_commercial_defaults_generate_permits():
     assert "certificate_of_occupancy" in permit_types
     building = next(permit for permit in project.permits if permit.permit_type == "commercial_building")
     assert building.recommendation_evidence["projectFacts"]["projectType"] == "new_commercial_construction"
-    assert "commercial" in building.recommendation_evidence["projectFacts"]["projectTypeMatchedAs"]
+    assert building.recommendation_evidence["matchResult"]["policy"] == (
+        "authoritative catalog with explicit project facts"
+    )
 
 
 def test_seattle_ti_generates_default_and_trade_permits():
@@ -310,7 +330,7 @@ def test_manhattan_ks_scope_generates_catalog_permits():
     assert building.recommendation_evidence["projectFacts"]["jurisdiction"] == "manhattan_ks"
 
 
-def test_kcmo_removed_scope_marks_system_permit_not_required():
+def test_kcmo_removed_scope_keeps_permit_visible_and_asks_for_confirmation():
     project = _kcmo_project({"plumbing_work": True})
     _sync_project_permit_recommendations(project)
     plumbing = next(permit for permit in project.permits if permit.permit_type == "plumbing")
@@ -319,8 +339,47 @@ def test_kcmo_removed_scope_marks_system_permit_not_required():
     project.scope = {"plumbing_work": False}
     _sync_project_permit_recommendations(project)
 
-    assert plumbing.requirement_status == "not_required"
-    assert plumbing.next_action == "No longer recommended from the current project scope."
+    assert plumbing.requirement_status == "needs_confirmation"
+    questions = plumbing.recommendation_evidence["questions"]
+    assert [question["key"] for question in questions] == ["plumbing_work_confirmed"]
+    assert plumbing.next_action == "Answer the permit-specific questions shown on this card."
+
+
+def test_kcmo_catalog_keeps_all_45_approvals_visible_without_duplicates():
+    project = _kcmo_new_commercial_project({"new_construction": True, "plumbing_work": True})
+
+    _sync_project_permit_recommendations(project)
+
+    assert len(project.permits) == 45
+    assert len({permit.permit_type for permit in project.permits}) == 45
+    assert len([permit for permit in project.permits if permit.permit_type == "plumbing"]) == 1
+    assert not any(permit.permit_type.startswith("compass_") for permit in project.permits)
+
+
+def test_ur_project_requires_development_plan_and_surfaces_fire_water_question():
+    project = _kcmo_new_commercial_project(
+        {"new_construction": True, "fire_alarm_sprinkler_work": True}
+    )
+    project.area = "UR"
+
+    _sync_project_permit_recommendations(project)
+
+    ur_plan = next(permit for permit in project.permits if permit.permit_type == "ur_development_plan")
+    fire_service = next(permit for permit in project.permits if permit.permit_type == "fire_water_service")
+    assert ur_plan.requirement_status == "required"
+    assert fire_service.requirement_status == "needs_confirmation"
+    assert fire_service.recommendation_evidence["questions"][0]["key"] == "new_fire_water_service"
+
+
+def test_permit_answer_reclassifies_conditional_approval():
+    project = _kcmo_new_commercial_project({"new_construction": True})
+    project.permit_answers = {"new_fire_water_service": True}
+
+    _sync_project_permit_recommendations(project)
+
+    fire_service = next(permit for permit in project.permits if permit.permit_type == "fire_water_service")
+    assert fire_service.requirement_status == "required"
+    assert "new fire water service" in fire_service.reason.casefold()
 
 
 def test_kcmo_rejects_kansas_city_kansas_address():

@@ -14,7 +14,7 @@ from sqlalchemy.orm import selectinload
 
 from api.models import PermitCase, Project, ProjectFile, ProjectPermit
 from api.services.case_service import SessionLocal, start_case_async
-from api.services.intake import parse_intake_upload
+from api.services.document_classifier import DOCUMENT_TYPES, classify_project_document
 from api.services.kcmo_zoning_rules import build_kcmo_rules
 from api.services.manhattan_zoning_rules import build_manhattan_rules
 from api.services.zoning_service import (
@@ -24,6 +24,7 @@ from api.services.zoning_service import (
     resolve_zoning,
 )
 from shared.schemas.project_brief import ProjectBrief, ProjectType
+from shared.tools.kcmo_approvals import build_kcmo_approval_recommendations
 from shared.tools.kcmo_permits import match_kcmo_applications, rule_family_for_category
 from shared.tools.kck_permits import match_kck_applications
 from shared.tools.knowledge import JURISDICTION_PATHS, jurisdiction_context, load_json
@@ -50,41 +51,29 @@ DEFAULT_SCOPE = {
     "water_sewer_connections": False,
 }
 
-FILE_TYPE_MAP = {
-    ".json": "brief_json",
-    ".zip": "brief_json",
-    ".pdf": "site_plan",
-    ".doc": "other",
-    ".docx": "other",
-    ".png": "floor_plan",
-    ".jpg": "floor_plan",
-    ".jpeg": "floor_plan",
-    ".dwg": "other",
-}
-
 ANALYSIS_MODULES = {
     "zoning": {
         "label": "Zoning",
-        "required_any_of": ["site_plan", "survey", "code_analysis", "other"],
+        "required_any_of": ["site_plan", "civil_plan", "survey", "code_analysis", "supporting_document", "other"],
         "recommended_file_types": ["site_plan", "survey", "code_analysis"],
         "summary": "Upload a site plan, survey, zoning memo, or another zoning-related document.",
     },
     "building": {
         "label": "Building",
-        "required_any_of": ["floor_plan", "elevation", "code_analysis", "other"],
-        "recommended_file_types": ["floor_plan", "elevation", "code_analysis"],
+        "required_any_of": ["architectural_plan", "structural_plan", "elevation", "code_analysis", "supporting_document", "other"],
+        "recommended_file_types": ["architectural_plan", "structural_plan", "elevation", "code_analysis"],
         "summary": "Upload a floor plan, elevations, code analysis, or another building package document.",
     },
     "fire": {
         "label": "Fire / Life Safety",
-        "required_any_of": ["fire_plan", "floor_plan", "other"],
-        "recommended_file_types": ["fire_plan", "floor_plan"],
+        "required_any_of": ["fire_protection_plan", "architectural_plan", "supporting_document", "other"],
+        "recommended_file_types": ["fire_protection_plan", "architectural_plan"],
         "summary": "Upload a fire/life-safety plan, floor plan, or another fire review document.",
     },
     "site": {
         "label": "Site / Utilities",
-        "required_any_of": ["site_plan", "survey", "other"],
-        "recommended_file_types": ["site_plan", "survey"],
+        "required_any_of": ["site_plan", "civil_plan", "survey", "supporting_document", "other"],
+        "recommended_file_types": ["site_plan", "civil_plan", "survey"],
         "summary": "Upload a site plan, survey, utility sheet, or another site-related document.",
     },
 }
@@ -126,9 +115,60 @@ KCMO_PERMIT_RULE_CATEGORIES = {
 }
 
 KCMO_PERMIT_TYPE_ALIASES = {
+    "zoning": [
+        "zoning_verification",
+        "certificate_appropriateness",
+        "ur_development_plan",
+        "platting_lot_consolidation",
+    ],
+    "commercial_building": [
+        "commercial_building",
+        "foundation_early_start",
+        "shoring_excavation_support",
+        "retaining_wall",
+        "elevator_state",
+        "boiler_pressure_vessel_state",
+    ],
+    "electrical": ["electrical", "electrical_service"],
+    "mechanical": ["mechanical"],
+    "plumbing": ["plumbing", "gas_piping", "backflow_prevention"],
+    "fire_protection": [
+        "fire_sprinkler",
+        "fire_alarm",
+        "standpipe",
+        "fire_pump",
+        "errc_bda_das",
+        "smoke_control",
+        "kitchen_hood_suppression",
+        "hazardous_materials_operational",
+    ],
+    "demolition": ["demolition", "asbestos_neshap"],
     "signs": ["sign"],
-    "street_and_row": ["right_of_way"],
-    "major_infrastructure": ["land_disturbance"],
+    "street_and_row": [
+        "right_of_way",
+        "row_excavation",
+        "sidewalk_curb_driveway",
+        "traffic_lane_sidewalk_closure",
+        "streetcar_track_access",
+        "encroachment_vault",
+        "hauling_oversize",
+        "crane_erection",
+    ],
+    "major_infrastructure": [
+        "land_disturbance",
+        "modnr_construction_stormwater",
+        "stormwater_management",
+        "dust_control",
+    ],
+    "water_service": [
+        "domestic_water_service",
+        "fire_water_service",
+        "sanitary_sewer_connection",
+        "storm_sewer_connection",
+        "water_main_extension",
+        "industrial_pretreatment",
+    ],
+    "certificate_of_occupancy": ["temporary_certificate_occupancy", "certificate_of_occupancy"],
 }
 
 KCMO_RULE_EXACT_TARGETS = {
@@ -318,6 +358,11 @@ def _serialize_project(project: Project, cases: list[PermitCase] | None = None) 
     zoning_warnings = list(project.zoning_warnings or [])
     if has_zoning_rule_coverage(project.jurisdiction, project.area):
         zoning_warnings = [warning for warning in zoning_warnings if warning.get("code") != "numeric_rules_missing"]
+    zoning_rules: list[dict[str, Any]] = []
+    if project.jurisdiction == "kansas_city_mo":
+        zoning_rules = build_kcmo_rules(project.area, zoning_profile, project.project_type)
+    elif project.jurisdiction == "manhattan_ks":
+        zoning_rules = build_manhattan_rules(project.area, zoning_profile)
 
     return {
         "id": project.project_id,
@@ -329,7 +374,9 @@ def _serialize_project(project: Project, cases: list[PermitCase] | None = None) 
         "zoningStatus": project.zoning_status or "pending",
         "zoningProfile": zoning_profile,
         "zoningWarnings": zoning_warnings,
+        "zoningRules": zoning_rules,
         "scope": _normalized_scope(project.scope),
+        "permitAnswers": dict(project.permit_answers or {}),
         "files": [
             {
                 "id": f.file_id,
@@ -337,15 +384,19 @@ def _serialize_project(project: Project, cases: list[PermitCase] | None = None) 
                 "type": f.file_type,
                 "label": f.document_label,
                 "size": f.size,
-                "sections": f.file_sections or [],
                 "uploadedAt": f.uploaded_at.isoformat() if f.uploaded_at else None,
-                "isPrimaryBrief": f.is_primary_brief,
+                "aiSummary": f.ai_summary,
+                "classificationSource": f.classification_source or "legacy",
+                "permitTypes": f.permit_types or [],
             }
             for f in (project.files or [])
         ],
         "permits": [_serialize_project_permit(p) for p in sorted(
             project.permits or [],
-            key=lambda p: (p.requirement_status == "not_required", p.permit_name),
+            key=lambda p: (
+                (p.recommendation_evidence or {}).get("catalogRule", {}).get("sequence", 999),
+                p.permit_name,
+            ),
         )],
         "customRules": _usable_custom_rules(project.custom_rules),
         "moduleRequirements": _module_requirements_payload(list(project.files or [])),
@@ -391,7 +442,10 @@ async def get_project(project_id: str) -> dict[str, Any] | None:
         project = result.scalar_one_or_none()
         if not project:
             return None
-        if not project.zoning_profile:
+        if not project.zoning_profile or (
+            project.jurisdiction == "kansas_city_mo"
+            and (project.zoning_profile or {}).get("permitContext", {}).get("version") != 1
+        ):
             await _resolve_project_zoning(project)
         _sync_project_permit_recommendations(project)
         await session.commit()
@@ -419,6 +473,7 @@ async def create_project(data: dict[str, Any]) -> dict[str, Any]:
             zoning_profile=resolution.get("profile") or {},
             zoning_warnings=resolution.get("warnings") or [],
             scope=_normalized_scope(data.get("scope")),
+            permit_answers=data.get("permitAnswers", {}),
             custom_rules=data.get("customRules", []),
             permits=[],
             created_at=now,
@@ -459,6 +514,8 @@ async def update_project(project_id: str, data: dict[str, Any]) -> dict[str, Any
             await _resolve_project_zoning(project)
         if "scope" in data:
             project.scope = _normalized_scope(data["scope"])
+        if "permitAnswers" in data:
+            project.permit_answers = dict(data["permitAnswers"] or {})
         if "customRules" in data:
             project.custom_rules = data["customRules"]
         project.updated_at = datetime.now(timezone.utc)
@@ -514,15 +571,13 @@ async def add_project_file(
     project_id: str,
     file: UploadFile,
     file_type: str | None = None,
-    is_primary_brief: bool = False,
     document_label: str | None = None,
-    file_sections: str | None = None,
 ) -> dict[str, Any] | None:
     async with SessionLocal() as session:
         result = await session.execute(
             select(Project)
             .where(Project.project_id == project_id)
-            .options(selectinload(Project.files))
+            .options(selectinload(Project.files), selectinload(Project.permits))
         )
         project = result.scalar_one_or_none()
         if not project:
@@ -533,17 +588,22 @@ async def add_project_file(
             raise HTTPException(status_code=400, detail="Uploaded file is empty.")
 
         filename = file.filename or "upload"
-        ext = Path(filename).suffix.lower()
-        inferred_type = file_type or FILE_TYPE_MAP.get(ext, "other")
-        sections = _parse_file_sections(file_sections)
+        if file_type and file_type not in DOCUMENT_TYPES:
+            raise HTTPException(status_code=400, detail="Unsupported document type.")
+        classification = await classify_project_document(
+            filename=filename,
+            content=content,
+            content_type=file.content_type,
+            permits=[
+                {"permit_type": permit.permit_type, "permit_name": permit.permit_name}
+                for permit in (project.permits or [])
+                if permit.requirement_status != "not_required"
+            ],
+        )
+        inferred_type = file_type or classification["document_type"]
         file_id = str(uuid4())
         dest = _project_dir(project_id) / f"{file_id}_{filename}"
         dest.write_bytes(content)
-
-        if is_primary_brief or inferred_type == "brief_json":
-            for f in project.files:
-                if f.is_primary_brief:
-                    f.is_primary_brief = False
 
         pf = ProjectFile(
             file_id=file_id,
@@ -552,9 +612,10 @@ async def add_project_file(
             file_type=inferred_type,
             size=len(content),
             storage_path=str(dest),
-            is_primary_brief=is_primary_brief or inferred_type == "brief_json",
             document_label=document_label,
-            file_sections=sections,
+            ai_summary=classification["summary"],
+            classification_source="user" if file_type else classification["source"],
+            permit_types=classification["permit_types"],
         )
         session.add(pf)
         project.updated_at = datetime.now(timezone.utc)
@@ -565,9 +626,37 @@ async def add_project_file(
             "type": pf.file_type,
             "label": pf.document_label,
             "size": pf.size,
-            "sections": pf.file_sections or [],
             "uploadedAt": pf.uploaded_at.isoformat(),
-            "isPrimaryBrief": pf.is_primary_brief,
+            "aiSummary": pf.ai_summary,
+            "classificationSource": pf.classification_source,
+            "permitTypes": pf.permit_types or [],
+        }
+
+
+async def update_project_file_type(
+    project_id: str,
+    file_id: str,
+    file_type: str,
+) -> dict[str, Any] | None:
+    if file_type not in DOCUMENT_TYPES:
+        raise HTTPException(status_code=400, detail="Unsupported document type.")
+    async with SessionLocal() as session:
+        result = await session.execute(
+            select(ProjectFile).where(
+                ProjectFile.project_id == project_id,
+                ProjectFile.file_id == file_id,
+            )
+        )
+        project_file = result.scalar_one_or_none()
+        if not project_file:
+            return None
+        project_file.file_type = file_type
+        project_file.classification_source = "user"
+        await session.commit()
+        return {
+            "id": project_file.file_id,
+            "type": project_file.file_type,
+            "classificationSource": project_file.classification_source,
         }
 
 
@@ -721,18 +810,6 @@ async def update_project_permit(project_id: str, permit_id: str, data: dict[str,
         return _serialize_project_permit(permit)
 
 
-def _parse_file_sections(raw: str | None) -> list[str]:
-    if not raw:
-        return []
-    try:
-        parsed = json.loads(raw)
-        if isinstance(parsed, list):
-            return [str(v) for v in parsed if str(v).strip()]
-    except json.JSONDecodeError:
-        pass
-    return [part.strip() for part in raw.split(",") if part.strip()]
-
-
 def _normalized_scope(raw: dict[str, Any] | None) -> dict[str, bool]:
     scope = dict(DEFAULT_SCOPE)
     if isinstance(raw, dict):
@@ -810,6 +887,10 @@ def _candidate_permit_recommendations(project: Project) -> list[dict[str, Any]]:
     if project.jurisdiction not in JURISDICTION_PATHS:
         return []
 
+    scope = _normalized_scope(project.scope)
+    if project.jurisdiction == "kansas_city_mo":
+        return build_kcmo_approval_recommendations(project, scope)
+
     try:
         catalog = load_json("permit_catalog.json", project.jurisdiction)
     except Exception:
@@ -820,7 +901,6 @@ def _candidate_permit_recommendations(project: Project) -> list[dict[str, Any]]:
     except Exception:
         document_requirements = {}
 
-    scope = _normalized_scope(project.scope)
     development_type = project.project_type
     development_type_candidates = _development_type_candidates(development_type)
     recommendations: list[dict[str, Any]] = []
@@ -890,9 +970,7 @@ def _candidate_permit_recommendations(project: Project) -> list[dict[str, Any]]:
                 "next_action": "Confirm whether this permit belongs in the working permit bundle.",
             }
         )
-    if project.jurisdiction == "kansas_city_mo":
-        recommendations.extend(_exact_kcmo_application_recommendations(project, scope))
-    elif project.jurisdiction == "kansas_city_ks":
+    if project.jurisdiction == "kansas_city_ks":
         recommendations.extend(_exact_kck_application_recommendations(project, scope))
 
     return recommendations
@@ -1087,6 +1165,13 @@ def _sync_project_permit_recommendations(project: Project) -> None:
     for permit_type, permit in existing.items():
         if permit_type in recommendations:
             continue
+        if (
+            project.jurisdiction == "kansas_city_mo"
+            and permit.origin == "system"
+            and permit.requirement_status not in USER_MANAGED_REQUIREMENT_STATUSES
+        ):
+            project.permits.remove(permit)
+            continue
         if permit.origin == "system" and permit.requirement_status not in USER_MANAGED_REQUIREMENT_STATUSES:
             permit.requirement_status = "not_required"
             permit.lifecycle_status = "not_started"
@@ -1112,14 +1197,12 @@ def _build_brief_from_project(project: Project) -> ProjectBrief:
 
 def _module_requirements_payload(files: list[ProjectFile]) -> dict[str, Any]:
     present_types = {f.file_type for f in files}
-    file_sections = {section for f in files for section in (f.file_sections or [])}
+    has_documents = bool(files)
     payload: dict[str, Any] = {}
     for key, config in ANALYSIS_MODULES.items():
         required_any_of = list(config.get("required_any_of", []))
         recommended_missing = [t for t in config["recommended_file_types"] if t not in present_types]
-        has_required_type = any(t in present_types for t in required_any_of)
-        has_mapped_files = key in file_sections
-        can_run = has_required_type or has_mapped_files
+        can_run = has_documents
         payload[key] = {
             "label": config["label"],
             "requiredAnyOf": required_any_of,
@@ -1127,30 +1210,90 @@ def _module_requirements_payload(files: list[ProjectFile]) -> dict[str, Any]:
             "requiredMissing": [] if can_run else required_any_of,
             "recommendedMissing": recommended_missing,
             "canRun": can_run,
-            "hasMappedFiles": has_mapped_files,
+            "hasMappedFiles": False,
             "summary": config.get("summary", ""),
         }
     return payload
 
 
-async def analyze_project(project_id: str, modules: list[str] | None = None) -> dict[str, Any]:
+_REQUIREMENT_TYPE_HINTS = (
+    (("fire", "sprinkler", "alarm", "life safety"), ("fire_protection_plan", "fire_plan")),
+    (("mechanical", "hvac"), ("mechanical_plan",)),
+    (("plumbing",), ("plumbing_plan",)),
+    (("electrical", "lighting", "power"), ("electrical_plan",)),
+    (("structural", "foundation", "framing"), ("structural_plan",)),
+    (("survey", "plat"), ("survey",)),
+    (("civil", "utility", "grading", "stormwater"), ("civil_plan", "site_plan")),
+    (("site",), ("site_plan", "civil_plan", "survey")),
+    (("elevation",), ("elevation", "architectural_plan")),
+    (("architectural", "floor", "drawing", "plan set", "building plan", "construction plan", "parent plan"), ("architectural_plan", "floor_plan")),
+    (("code analysis", "code summary"), ("code_analysis",)),
+    (("energy", "comcheck"), ("energy_document",)),
+    (("application", "form"), ("application_form",)),
+    (("authorization", "affidavit", "supporting"), ("supporting_document",)),
+)
+_REQUIREMENT_STOP_WORDS = {
+    "and", "building", "construction", "document", "documents", "drawing", "drawings",
+    "existing", "final", "permit", "plan", "plans", "project", "required", "signed", "the",
+}
+
+
+def _file_matches_requirement(project_file: ProjectFile, requirement: str) -> bool:
+    normalized = requirement.casefold()
+    expected_types: tuple[str, ...] = ()
+    for hints, file_types in _REQUIREMENT_TYPE_HINTS:
+        if any(hint in normalized for hint in hints):
+            expected_types = file_types
+            break
+    if project_file.file_type in expected_types:
+        return True
+    searchable = " ".join(
+        value for value in (project_file.name, project_file.document_label, project_file.ai_summary) if value
+    ).casefold()
+    terms = [
+        term for term in re.split(r"[^a-z0-9]+", normalized)
+        if len(term) > 3 and term not in _REQUIREMENT_STOP_WORDS
+    ]
+    return any(term in searchable for term in terms)
+
+
+def _permit_has_review_document(permit: ProjectPermit, files: list[ProjectFile]) -> bool:
+    status = _permit_document_status(permit, files)
+    if not status["required"]:
+        return bool(files)
+    return bool(status["found"])
+
+
+def _permit_document_status(permit: ProjectPermit, files: list[ProjectFile]) -> dict[str, Any]:
+    requirements = list(permit.required_documents or [])
+    found = [
+        requirement for requirement in requirements
+        if any(_file_matches_requirement(project_file, requirement) for project_file in files)
+    ]
+    return {
+        "permit_type": permit.permit_type,
+        "permit_name": permit.permit_name,
+        "required": requirements,
+        "found": found,
+        "missing": [requirement for requirement in requirements if requirement not in found],
+    }
+
+
+async def analyze_project(
+    project_id: str,
+    modules: list[str] | None = None,
+    permit_types: list[str] | None = None,
+) -> dict[str, Any]:
     async with SessionLocal() as session:
         result = await session.execute(
             select(Project)
             .where(Project.project_id == project_id)
-            .options(selectinload(Project.files))
+            .options(selectinload(Project.files), selectinload(Project.permits))
         )
         project = result.scalar_one_or_none()
         if not project:
             raise HTTPException(status_code=404, detail="Project not found")
 
-        brief_file = next((f for f in project.files if f.is_primary_brief), None)
-        if not brief_file:
-            brief_file = next(
-                (f for f in project.files if f.file_type == "brief_json"),
-                None,
-            )
-        path = Path(brief_file.storage_path) if brief_file else None
         project_type = ProjectType(project.project_type)
         jurisdiction = project.jurisdiction
         project_name = project.name
@@ -1159,25 +1302,14 @@ async def analyze_project(project_id: str, modules: list[str] | None = None) -> 
         project_zoning_profile = dict(project.zoning_profile or {})
         custom_rules = _usable_custom_rules(project.custom_rules)
         files = list(project.files or [])
-        brief_filename = brief_file.name if brief_file else "generated-project-brief.json"
+        active_permits = [
+            permit for permit in (project.permits or [])
+            if permit.requirement_status != "not_required"
+        ]
         project.updated_at = datetime.now(timezone.utc)
         await session.commit()
 
-    if path:
-        from starlette.datastructures import Headers, UploadFile as StarletteUploadFile
-
-        with path.open("rb") as fh:
-            upload = StarletteUploadFile(
-                filename=brief_filename,
-                file=fh,
-                headers=Headers({"content-type": "application/octet-stream"}),
-            )
-            brief, _ = await parse_intake_upload(upload, project_type)
-        brief.jurisdiction = jurisdiction
-        brief.project_name = project_name
-        brief.address = project_address
-    else:
-        brief = _build_brief_from_project(project)
+    brief = _build_brief_from_project(project)
 
     if project_area:
         brief.notes = f"{brief.notes or ''}\nArea: {project_area}".strip()
@@ -1206,16 +1338,46 @@ async def analyze_project(project_id: str, modules: list[str] | None = None) -> 
     custom_rules = system_rules + custom_rules
 
     selected_modules = [m for m in (modules or list(ANALYSIS_MODULES.keys())) if m in ANALYSIS_MODULES]
+    active_permit_types = {permit.permit_type for permit in active_permits}
+    selected_permit_types = list(dict.fromkeys(
+        permit_type for permit_type in (permit_types or []) if permit_type in active_permit_types
+    ))
+    if permit_types and not selected_permit_types:
+        raise HTTPException(status_code=400, detail="No eligible permits were selected for review.")
+    selected_permits = [
+        permit for permit in active_permits
+        if not selected_permit_types or permit.permit_type in selected_permit_types
+    ]
+    if selected_permit_types and not any(
+        _permit_has_review_document(permit, files) for permit in selected_permits
+    ):
+        raise HTTPException(status_code=400, detail="Documents not found")
     requirements = _module_requirements_payload(files)
-    blocked_modules = [requirements[m]["label"] for m in selected_modules if not requirements[m]["canRun"]]
-    if blocked_modules:
+    document_context = [
+        {
+            "name": item.name,
+            "document_type": item.file_type,
+            "label": item.document_label,
+            "summary": item.ai_summary or "No AI summary is available for this legacy document.",
+            "permit_types": item.permit_types or [],
+        }
+        for item in files
+    ]
+    document_context.append(
+        {
+            "name": "Permit document availability",
+            "document_type": "permit_checklist",
+            "label": "Found and missing documents for this review",
+            "summary": json.dumps([
+                _permit_document_status(permit, files) for permit in selected_permits
+            ]),
+            "permit_types": [permit.permit_type for permit in selected_permits],
+        }
+    )
+    if not files:
         raise HTTPException(
             status_code=400,
-            detail=(
-                "Upload at least one relevant file before running "
-                + ", ".join(blocked_modules)
-                + " analysis."
-            ),
+            detail="Documents not found",
         )
     if not selected_modules:
         raise HTTPException(status_code=400, detail="No runnable analysis modules selected.")
@@ -1225,6 +1387,8 @@ async def analyze_project(project_id: str, modules: list[str] | None = None) -> 
         custom_rules=custom_rules,
         selected_modules=selected_modules,
         module_requirements=requirements,
+        document_context=document_context,
+        target_permit_types=selected_permit_types,
     )
 
 

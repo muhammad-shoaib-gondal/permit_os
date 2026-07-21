@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import re
 from datetime import datetime, timezone
 from typing import Any
@@ -114,6 +115,87 @@ def public_zoning_source_url(jurisdiction: str, address: str) -> str | None:
 
 def _warning(code: str, message: str, action: str, severity: str = "warning") -> dict[str, str]:
     return {"code": code, "message": message, "action": action, "severity": severity}
+
+
+async def _enrich_kcmo_permit_context(
+    address: str, location: dict[str, Any], profile: dict[str, Any]
+) -> None:
+    base = "https://mapd.kcmo.org/kcgis/rest/services/AGOL/MapServer"
+    layers = {
+        "parcels": (6, "KIVAPIN,APN,PLATNAME,LOT,BLOCK,ADDRESS,LEGAL"),
+        "historicLocal": (19, "NAME,ADDRESS,CASE_NO,STATUS,REGISTER"),
+        "historicNational": (20, "NAME,ADDRESS,REGISTER"),
+        "plats": (24, "PLATNUMBER,PLATNAME,STATUS,PLANNUMBER"),
+        "developmentCases": (25, "PLANNUMBER,PLANTYPE,STATUS,DESCRIPTION,PROJECTNAME"),
+        "verifiedLots": (26, "ID,KIVAPIN,LEGAL,Lot_Number,Lot_Area"),
+        "overlays": (28, "OVERLAYDISTRICT,NAME,ORD_NO,ENERGOVZONE"),
+    }
+
+    async def query(layer_id: int, out_fields: str) -> dict[str, Any]:
+        return await _arcgis_get(
+            f"{base}/{layer_id}/query",
+            {
+                "f": "json",
+                "geometry": f"{location['x']},{location['y']}",
+                "geometryType": "esriGeometryPoint",
+                "inSR": 4326,
+                "spatialRel": "esriSpatialRelIntersects",
+                "outFields": out_fields,
+                "returnGeometry": "false",
+            },
+        )
+
+    results = await asyncio.gather(
+        *(query(layer_id, fields) for layer_id, fields in layers.values()),
+        return_exceptions=True,
+    )
+    rows: dict[str, list[dict[str, Any]]] = {}
+    failures: list[str] = []
+    for key, result in zip(layers, results):
+        if isinstance(result, Exception):
+            failures.append(key)
+            continue
+        rows[key] = [feature.get("attributes") or {} for feature in result.get("features", [])]
+
+    normalized = " ".join(address.casefold().replace(",", " ").split())
+    latitude = profile.get("latitude")
+    longitude = profile.get("longitude")
+    try:
+        in_streetcar_bounds = (
+            38.95 <= float(latitude) <= 39.12
+            and -94.60 <= float(longitude) <= -94.57
+            and bool(re.search(r"\bmain\s+(st|street)\b", normalized))
+        )
+    except (TypeError, ValueError):
+        in_streetcar_bounds = False
+
+    context: dict[str, Any] = {
+        "version": 1,
+        "lookupStatus": "partial" if failures else "complete",
+        "failedLookups": failures,
+        "nearStreetcar": in_streetcar_bounds,
+    }
+    if "parcels" in rows:
+        context["parcelCount"] = len(rows["parcels"])
+        context["parcels"] = rows["parcels"]
+    if "historicLocal" in rows:
+        context["historicLocal"] = bool(rows["historicLocal"])
+        context["historicLocalRecords"] = rows["historicLocal"]
+    if "historicNational" in rows:
+        context["historicNational"] = bool(rows["historicNational"])
+        context["historicNationalRecords"] = rows["historicNational"]
+    if "plats" in rows:
+        context["platCount"] = len(rows["plats"])
+        context["plats"] = rows["plats"]
+    if "developmentCases" in rows:
+        context["developmentCaseCount"] = len(rows["developmentCases"])
+        context["developmentCases"] = rows["developmentCases"]
+    if "verifiedLots" in rows:
+        context["verifiedLotCount"] = len(rows["verifiedLots"])
+        context["verifiedLots"] = rows["verifiedLots"]
+    if "overlays" in rows:
+        context["overlays"] = rows["overlays"]
+    profile["permitContext"] = context
 
 
 async def _arcgis_get(url: str, params: dict[str, Any]) -> dict[str, Any]:
@@ -343,6 +425,9 @@ async def resolve_zoning(address: str, jurisdiction: str) -> dict[str, Any]:
             "attributes": {field: row.get(field) for field in config["extra_fields"] if row.get(field) not in (None, "", " ")},
         }
     )
+
+    if jurisdiction == "kansas_city_mo":
+        await _enrich_kcmo_permit_context(address, location, profile)
 
     advisory = config.get("advisory")
     if advisory:

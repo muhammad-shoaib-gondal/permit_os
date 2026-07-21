@@ -260,17 +260,26 @@ export async function uploadProjectFile(
   projectId: string,
   file: File,
   fileType?: string,
-  isPrimaryBrief?: boolean,
-  documentLabel?: string,
-  fileSections?: AnalysisModuleKey[]
+  documentLabel?: string
 ): Promise<void> {
   const form = new FormData();
   form.append("file", file);
   if (fileType) form.append("file_type", fileType);
-  if (isPrimaryBrief) form.append("is_primary_brief", "true");
   if (documentLabel) form.append("document_label", documentLabel);
-  if (fileSections?.length) form.append("file_sections", JSON.stringify(fileSections));
   const res = await fetch(`${API}/projects/${projectId}/files`, { method: "POST", body: form });
+  if (!res.ok) throw new Error(await parseError(res));
+}
+
+export async function updateProjectFile(
+  projectId: string,
+  fileId: string,
+  data: { fileType: string }
+): Promise<void> {
+  const res = await fetch(`${API}/projects/${projectId}/files/${fileId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
   if (!res.ok) throw new Error(await parseError(res));
 }
 
@@ -335,12 +344,13 @@ export async function updateProjectPermit(
 
 export async function analyzeProjectById(
   projectId: string,
-  modules?: AnalysisModuleKey[]
+  modules?: AnalysisModuleKey[],
+  permitTypes?: string[]
 ): Promise<{ case_id: string }> {
   const res = await fetch(`${API}/projects/${projectId}/analyze`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ modules: modules ?? [] }),
+    body: JSON.stringify({ modules: modules ?? [], permitTypes: permitTypes ?? [] }),
   });
   if (!res.ok) throw new Error(await parseError(res));
   return res.json();
@@ -349,9 +359,10 @@ export async function analyzeProjectById(
 export async function analyzeProject(
   projectId: string,
   modules?: AnalysisModuleKey[],
+  permitTypes?: string[],
   onProgress?: (partial: CaseResults) => void
 ): Promise<CaseResults> {
-  const { case_id } = await analyzeProjectById(projectId, modules);
+  const { case_id } = await analyzeProjectById(projectId, modules, permitTypes);
   return pollCase(case_id, onProgress);
 }
 

@@ -342,12 +342,20 @@ def _assemble(section: AnalysisSection, brief: ProjectBrief, ctx: dict[str, Any]
     raise ValueError(section)
 
 
-async def _enrich_summary(section: AnalysisSection, report: Any, ctx: dict[str, Any]) -> Any:
+async def _enrich_summary(
+    section: AnalysisSection,
+    report: Any,
+    ctx: dict[str, Any],
+    document_context: list[dict[str, Any]],
+) -> Any:
     """Require ZenMux to review each analysis section."""
     llm = _make_llm()
     prompt = (
         f"Review these deterministic {section.value} permitting findings. In one sentence, "
-        f"summarize the result without inventing facts. Facts: {json.dumps(ctx)[:3000]}"
+        "summarize the result without inventing facts. Use the uploaded-document summaries as "
+        "evidence, and clearly state when they do not contain a value needed for the finding. "
+        f"Deterministic facts: {json.dumps(ctx)[:3000]}. "
+        f"Uploaded documents: {json.dumps(document_context)[:6000]}"
     )
     resp = await asyncio.wait_for(
         llm.ainvoke([HumanMessage(content=prompt)]),
@@ -359,10 +367,15 @@ async def _enrich_summary(section: AnalysisSection, report: Any, ctx: dict[str, 
     return report
 
 
-async def _run_section(section: AnalysisSection, brief: ProjectBrief, **kwargs) -> Any:
+async def _run_section(
+    section: AnalysisSection,
+    brief: ProjectBrief,
+    document_context: list[dict[str, Any]],
+    **kwargs,
+) -> Any:
     ctx = _gather_tool_context(brief, section)
     report = _assemble(section, brief, ctx, **kwargs)
-    return await _enrich_summary(section, report, ctx)
+    return await _enrich_summary(section, report, ctx, document_context)
 
 
 async def _emit_progress(
@@ -391,18 +404,26 @@ async def run_analysis(
     custom_rules: list[dict[str, Any]] | None = None,
     selected_modules: list[str] | None = None,
     module_requirements: dict[str, Any] | None = None,
+    document_context: list[dict[str, Any]] | None = None,
+    target_permit_types: list[str] | None = None,
 ) -> dict[str, Any]:
     logger.info("Running local tools with required ZenMux review for %s", brief.case_id)
     selected = set(selected_modules or ["zoning", "building", "fire", "site"])
     completed: list[str] = []
     module_requirements = module_requirements or {}
+    document_context = document_context or []
+    target_permit_types = target_permit_types or []
+    review_document_context = [
+        {"review_scope": {"permit_types": target_permit_types}},
+        *document_context,
+    ]
 
     jurisdiction = None
     building = None
     site = None
     if "zoning" in selected:
         await _emit_progress(on_progress, brief, phase="waiting_jurisdiction", completed=completed)
-        jurisdiction = await _run_section(AnalysisSection.JURISDICTION, brief)
+        jurisdiction = await _run_section(AnalysisSection.JURISDICTION, brief, review_document_context)
         completed.append("jurisdiction")
         await _emit_progress(
             on_progress,
@@ -415,7 +436,7 @@ async def run_analysis(
         )
 
     if "building" in selected or "fire" in selected:
-        building = await _run_section(AnalysisSection.BUILDING, brief)
+        building = await _run_section(AnalysisSection.BUILDING, brief, review_document_context)
         completed.append("building")
         await _emit_progress(
             on_progress,
@@ -429,7 +450,7 @@ async def run_analysis(
         )
 
     if "site" in selected:
-        site = await _run_section(AnalysisSection.SITE, brief)
+        site = await _run_section(AnalysisSection.SITE, brief, review_document_context)
         completed.append("site")
         await _emit_progress(
             on_progress,
@@ -460,6 +481,7 @@ async def run_analysis(
         package = await _run_section(
             AnalysisSection.PACKAGING,
             brief,
+            review_document_context,
             jurisdiction=jurisdiction,
             building=building,
             site=site,
@@ -560,5 +582,6 @@ async def run_analysis(
         "analysis_provider": "zenmux",
         "selected_modules": list(selected),
         "module_requirements": module_requirements,
+        "target_permit_types": target_permit_types,
         "rule_groups": rule_groups,
     }

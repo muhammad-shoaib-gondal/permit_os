@@ -17,10 +17,9 @@ type ProjectState = {
     projectId: string,
     file: File,
     fileType?: string,
-    isPrimary?: boolean,
-    documentLabel?: string,
-    fileSections?: AnalysisModuleKey[]
+    documentLabel?: string
   ) => Promise<void>;
+  updateFileType: (projectId: string, fileId: string, fileType: string) => Promise<void>;
   removeFile: (projectId: string, fileId: string) => Promise<void>;
   saveRules: (projectId: string, rules: Project["customRules"]) => Promise<void>;
   createPermit: (projectId: string, data: Partial<ProjectPermit>) => Promise<void>;
@@ -85,10 +84,15 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     });
   },
 
-  uploadFile: async (projectId, file, fileType, isPrimary, documentLabel, fileSections) => {
-    await api.uploadProjectFile(projectId, file, fileType, isPrimary, documentLabel, fileSections);
+  uploadFile: async (projectId, file, fileType, documentLabel) => {
+    await api.uploadProjectFile(projectId, file, fileType, documentLabel);
     await get().fetchProject(projectId);
     await get().fetchProjects();
+  },
+
+  updateFileType: async (projectId, fileId, fileType) => {
+    await api.updateProjectFile(projectId, fileId, { fileType });
+    await get().fetchProject(projectId);
   },
 
   removeFile: async (projectId, fileId) => {
@@ -122,6 +126,7 @@ type AnalysisState = {
   runAnalysis: (
     projectId: string,
     modules?: AnalysisModuleKey[],
+    permitTypes?: string[],
     onProgress?: (partial: CaseResults) => void
   ) => Promise<CaseResults>;
   pollCase: (caseId: string, onProgress?: (partial: CaseResults) => void) => Promise<CaseResults>;
@@ -134,10 +139,10 @@ export const useAnalysisStore = create<AnalysisState>((set) => ({
   progress: null,
   error: null,
 
-  runAnalysis: async (projectId, modules, onProgress) => {
+  runAnalysis: async (projectId, modules, permitTypes, onProgress) => {
     set({ loading: true, error: null, progress: "Starting analysis…", activeCase: null });
     try {
-      const { case_id } = await api.analyzeProjectById(projectId, modules);
+      const { case_id } = await api.analyzeProjectById(projectId, modules, permitTypes);
       const result = await api.pollCase(case_id, (partial) => {
         onProgress?.(partial);
         set({ activeCase: partial, progress: "Analysis in progress…" });

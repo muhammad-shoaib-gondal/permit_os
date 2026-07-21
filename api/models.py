@@ -25,6 +25,7 @@ class Project(Base):
     zoning_profile: Mapped[dict] = mapped_column(JSON, default=dict)
     zoning_warnings: Mapped[list] = mapped_column(JSON, default=list)
     scope: Mapped[dict] = mapped_column(JSON, default=dict)
+    permit_answers: Mapped[dict] = mapped_column(JSON, default=dict)
     custom_rules: Mapped[list] = mapped_column(JSON, default=list)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
@@ -50,6 +51,9 @@ class ProjectFile(Base):
     is_primary_brief: Mapped[bool] = mapped_column(default=False)
     document_label: Mapped[str | None] = mapped_column(String(255), nullable=True)
     file_sections: Mapped[list] = mapped_column(JSON, default=list)
+    ai_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    classification_source: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    permit_types: Mapped[list] = mapped_column(JSON, default=list)
     uploaded_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )

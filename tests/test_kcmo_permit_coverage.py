@@ -126,7 +126,7 @@ def test_electrical_rule_pack_contains_every_critical_branch():
     }
 
 
-def test_estatepermit_project_stores_all_exact_electrical_candidates():
+def test_estatepermit_project_deduplicates_exact_electrical_candidates():
     project = Project(
         project_id="kcmo-complete-electrical",
         name="Electrical Scope",
@@ -140,17 +140,31 @@ def test_estatepermit_project_stores_all_exact_electrical_candidates():
 
     _sync_project_permit_recommendations(project)
 
-    exact = {permit.permit_type for permit in project.permits if permit.permit_type.startswith("compass_permit_")}
-    assert exact == {
-        "compass_permit_576",
-        "compass_permit_767",
-        "compass_permit_583",
-        "compass_permit_434",
-        "compass_permit_430",
-        "compass_permit_431",
-        "compass_permit_772",
-        "compass_permit_432",
-    }
+    electrical = [permit for permit in project.permits if permit.permit_type == "electrical"]
+    exact = [permit for permit in project.permits if permit.permit_type.startswith("compass_permit_")]
+    assert len(electrical) == 1
+    assert not exact
+    assert electrical[0].recommendation_evidence["catalogRule"]["compassApplicationIds"] == [576]
+
+
+def test_complete_approval_catalog_has_45_source_backed_entries():
+    catalog = json.loads(
+        (resolve_knowledge_root("kansas_city_mo") / "approval_catalog.json").read_text(encoding="utf-8")
+    )
+    registry = json.loads(
+        (resolve_knowledge_root("kansas_city_mo") / "source_registry.json").read_text(encoding="utf-8")
+    )
+    source_ids = {source["id"] for source in registry["sources"]}
+
+    assert len(catalog["approvals"]) == 45
+    assert {item["sequence"] for item in catalog["approvals"]} == set(range(1, 46))
+    assert len({item["id"] for item in catalog["approvals"]}) == 45
+    assert all(item["source_ids"] for item in catalog["approvals"])
+    assert {
+        source_id
+        for item in catalog["approvals"]
+        for source_id in item["source_ids"]
+    } <= source_ids
 
 
 def test_commercial_cafe_hides_known_residential_compass_routes():

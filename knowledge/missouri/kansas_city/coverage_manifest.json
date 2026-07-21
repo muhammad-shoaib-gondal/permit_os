@@ -41,6 +41,7 @@
     "permit_rules.json",
     "permit_exemptions.json",
     "source_registry.json",
+    "approval_catalog.json",
     "document_requirements.json",
     "zoning_rules.json"
   ],

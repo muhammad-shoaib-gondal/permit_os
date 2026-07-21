@@ -23,6 +23,7 @@ from api.services.project_service import (
     save_project_rules,
     suggest_rules,
     update_project_permit,
+    update_project_file_type,
     update_project,
 )
 
@@ -50,6 +51,7 @@ class CreateProjectBody(BaseModel):
     jurisdiction: str = "kansas_city_mo"
     area: str | None = None
     scope: dict[str, bool] = Field(default_factory=dict)
+    permitAnswers: dict[str, Any] = Field(default_factory=dict)
     customRules: list[CustomRuleBody] = Field(default_factory=list)
 
 
@@ -60,11 +62,17 @@ class UpdateProjectBody(BaseModel):
     jurisdiction: str | None = None
     area: str | None = None
     scope: dict[str, bool] | None = None
+    permitAnswers: dict[str, Any] | None = None
     customRules: list[CustomRuleBody] | None = None
 
 
 class AnalyzeProjectBody(BaseModel):
     modules: list[str] = Field(default_factory=list)
+    permitTypes: list[str] = Field(default_factory=list)
+
+
+class ProjectFileUpdateBody(BaseModel):
+    fileType: str
 
 
 class ProjectPermitBody(BaseModel):
@@ -139,15 +147,19 @@ async def upload_file(
     project_id: str,
     file: UploadFile = File(...),
     file_type: str | None = Form(None),
-    is_primary_brief: bool = Form(False),
     document_label: str | None = Form(None),
-    file_sections: str | None = Form(None),
 ):
-    result = await add_project_file(
-        project_id, file, file_type, is_primary_brief, document_label=document_label, file_sections=file_sections
-    )
+    result = await add_project_file(project_id, file, file_type, document_label=document_label)
     if not result:
         raise HTTPException(status_code=404, detail="Project not found")
+    return result
+
+
+@router.patch("/{project_id}/files/{file_id}")
+async def update_file(project_id: str, file_id: str, body: ProjectFileUpdateBody):
+    result = await update_project_file_type(project_id, file_id, body.fileType)
+    if not result:
+        raise HTTPException(status_code=404, detail="File not found")
     return result
 
 
@@ -191,7 +203,11 @@ async def post_suggest_rules(project_id: str):
 
 @router.post("/{project_id}/analyze")
 async def run_analysis(project_id: str, body: AnalyzeProjectBody | None = None):
-    return await analyze_project(project_id, modules=(body.modules if body else None))
+    return await analyze_project(
+        project_id,
+        modules=(body.modules if body else None),
+        permit_types=(body.permitTypes if body else None),
+    )
 
 
 @router.get("/{project_id}/permits")

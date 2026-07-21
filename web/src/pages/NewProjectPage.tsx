@@ -14,7 +14,8 @@ export function NewProjectPage() {
   const navigate = useNavigate();
   const { createProject, uploadFile } = useProjectStore();
   const [name, setName] = useState("");
-  const [address, setAddress] = useState("");
+  const [streetAddress, setStreetAddress] = useState("");
+  const [zipCode, setZipCode] = useState("");
   const [projectType, setProjectType] = useState<ProjectTypeValue>("new_commercial_construction");
   const [jurisdiction, setJurisdiction] = useState("kansas_city_mo");
   const [scope, setScope] = useState<ProjectScope>({ ...DEFAULT_PROJECT_SCOPE, new_construction: true });
@@ -57,24 +58,34 @@ export function NewProjectPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim() || !address.trim()) {
-      setError("Name and address are required.");
+    if (!name.trim() || !streetAddress.trim() || !zipCode.trim()) {
+      setError("Project name, street address, and ZIP code are required.");
+      return;
+    }
+    if (!/^\d{5}(?:-\d{4})?$/.test(zipCode.trim())) {
+      setError("Enter a valid 5-digit ZIP code.");
       return;
     }
     setSubmitting(true);
     setError(null);
     try {
+      const selectedCity = jurisdictions.find((item) => item.id === jurisdiction);
+      const fallbackLocation = jurisdiction === "kansas_city_ks"
+        ? { city: "Kansas City", state: "KS" }
+        : jurisdiction === "manhattan_ks"
+          ? { city: "Manhattan", state: "KS" }
+          : { city: "Kansas City", state: "MO" };
+      const location = selectedCity ?? fallbackLocation;
+      const fullAddress = `${streetAddress.trim()}, ${location.city}, ${location.state} ${zipCode.trim()}`;
       const project = await createProject({
         name: name.trim(),
-        address: address.trim(),
+        address: fullAddress,
         projectType,
         jurisdiction,
         scope,
       });
       for (const file of files) {
-        const ext = file.name.toLowerCase();
-        const isBrief = ext.endsWith(".json") || ext.endsWith(".zip");
-        await uploadFile(project.id, file, undefined, isBrief);
+        await uploadFile(project.id, file);
       }
       toast.success(`Created "${project.name}"`);
       navigate(`/projects/${project.id}`);
@@ -105,20 +116,33 @@ export function NewProjectPage() {
       <form onSubmit={handleSubmit} className="space-y-6">
         <section className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 space-y-4">
           <h2 className="font-semibold">Project basics</h2>
-          <Input label="Project name" value={name} onChange={(e) => setName(e.target.value)} required />
           <Input
-            label="Full project address"
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            placeholder={
-              jurisdiction === "kansas_city_ks"
-                ? "701 N 7th St, Kansas City, KS 66101"
-                : "414 E 12th St, Kansas City, MO 64106"
-            }
+            label="Project name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            autoComplete="off"
             required
           />
+          <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_10rem]">
+            <Input
+              label="Street address"
+              value={streetAddress}
+              onChange={(e) => setStreetAddress(e.target.value)}
+              autoComplete="street-address"
+              required
+            />
+            <Input
+              label="ZIP code"
+              value={zipCode}
+              onChange={(e) => setZipCode(e.target.value.replace(/[^0-9-]/g, "").slice(0, 10))}
+              inputMode="numeric"
+              autoComplete="postal-code"
+              maxLength={10}
+              required
+            />
+          </div>
           <p className="-mt-2 text-xs text-[var(--color-muted)]">
-            Include the street number, city, state, and ZIP code so the parcel and zoning district can be located.
+            City and state are added automatically from the selected jurisdiction.
           </p>
           <Select
             label="Development type"

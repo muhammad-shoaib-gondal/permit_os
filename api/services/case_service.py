@@ -40,6 +40,8 @@ async def start_case_async(
     custom_rules: list[dict[str, Any]] | None = None,
     selected_modules: list[str] | None = None,
     module_requirements: dict[str, Any] | None = None,
+    document_context: list[dict[str, Any]] | None = None,
+    target_permit_types: list[str] | None = None,
 ) -> dict[str, Any]:
     """Create a case row and run analysis in the background."""
     import asyncio
@@ -64,6 +66,8 @@ async def start_case_async(
             custom_rules=custom_rules,
             selected_modules=selected_modules,
             module_requirements=module_requirements,
+            document_context=document_context,
+            target_permit_types=target_permit_types,
         )
     )
     return {
@@ -72,6 +76,7 @@ async def start_case_async(
         "message": "Analysis is running. Poll GET /cases/{case_id} for results.",
         "selected_modules": selected_modules or [],
         "module_requirements": module_requirements or {},
+        "target_permit_types": target_permit_types or [],
     }
 
 
@@ -104,6 +109,8 @@ async def _run_case_background(
     custom_rules: list[dict[str, Any]] | None = None,
     selected_modules: list[str] | None = None,
     module_requirements: dict[str, Any] | None = None,
+    document_context: list[dict[str, Any]] | None = None,
+    target_permit_types: list[str] | None = None,
 ) -> None:
     case_id = str(brief.case_id)
     try:
@@ -116,6 +123,8 @@ async def _run_case_background(
             custom_rules=custom_rules,
             selected_modules=selected_modules,
             module_requirements=module_requirements,
+            document_context=document_context,
+            target_permit_types=target_permit_types,
         )
         await _save_case_results(brief, results)
     except Exception as exc:

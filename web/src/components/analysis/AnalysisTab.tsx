@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { Download, Play } from "lucide-react";
+import { CheckCircle2, CircleAlert, CircleX, Download, Play } from "lucide-react";
 import { ANALYSIS_MODULES } from "../../types";
-import type { AnalysisModuleKey, CaseResults, Project } from "../../types";
+import type { AnalysisModuleKey, CaseResults, Project, ProjectFile, ProjectPermit } from "../../types";
 import { approveCase, simulateRfi } from "../../api";
 import { useAnalysisStore } from "../../stores/projectStore";
 import { toast } from "../../stores/toastStore";
@@ -14,6 +14,59 @@ import { formatDate } from "../../lib/utils";
 
 const SEC_PER_REVIEW_STAGE = 120;
 const TOTAL_REVIEW_STAGES = 4;
+
+const REQUIREMENT_TYPE_HINTS: Array<[string[], string[]]> = [
+  [["fire", "sprinkler", "alarm", "life safety"], ["fire_protection_plan", "fire_plan"]],
+  [["mechanical", "hvac"], ["mechanical_plan"]],
+  [["plumbing"], ["plumbing_plan"]],
+  [["electrical", "lighting", "power"], ["electrical_plan"]],
+  [["structural", "foundation", "framing"], ["structural_plan"]],
+  [["survey", "plat"], ["survey"]],
+  [["civil", "utility", "grading", "stormwater"], ["civil_plan", "site_plan"]],
+  [["site"], ["site_plan", "civil_plan", "survey"]],
+  [["elevation"], ["elevation", "architectural_plan"]],
+  [["architectural", "floor", "drawing", "plan set", "building plan", "construction plan", "parent plan"], ["architectural_plan", "floor_plan"]],
+  [["code analysis", "code summary"], ["code_analysis"]],
+  [["energy", "comcheck"], ["energy_document"]],
+  [["application", "form"], ["application_form"]],
+  [["authorization", "affidavit", "supporting"], ["supporting_document"]],
+];
+
+const REQUIREMENT_STOP_WORDS = new Set([
+  "and", "building", "construction", "document", "documents", "drawing", "drawings",
+  "existing", "final", "permit", "plan", "plans", "project", "required", "signed", "the",
+]);
+
+function documentMatchesRequirement(file: ProjectFile, requirement: string): boolean {
+  const normalized = requirement.toLowerCase();
+  const expectedTypes = REQUIREMENT_TYPE_HINTS.find(([hints]) =>
+    hints.some((hint) => normalized.includes(hint))
+  )?.[1] ?? [];
+  if (expectedTypes.includes(file.type)) return true;
+
+  const searchable = `${file.name} ${file.label ?? ""} ${file.aiSummary ?? ""}`.toLowerCase();
+  const terms = normalized
+    .split(/[^a-z0-9]+/)
+    .filter((term) => term.length > 3 && !REQUIREMENT_STOP_WORDS.has(term));
+  return terms.some((term) => searchable.includes(term));
+}
+
+function permitDocumentState(permit: ProjectPermit, files: ProjectFile[]) {
+  const requirements = permit.requiredDocuments ?? [];
+  const matches = requirements.map((requirement) => ({
+    requirement,
+    files: files.filter((file) => documentMatchesRequirement(file, requirement)),
+  }));
+  const linkedFiles = files.filter((file) => file.permitTypes?.includes(permit.permitType));
+  const found = matches.filter((item) => item.files.length > 0);
+  const missing = matches.filter((item) => item.files.length === 0);
+  return {
+    requirements,
+    found,
+    missing,
+    canRun: requirements.length > 0 ? found.length > 0 : linkedFiles.length > 0 || files.length > 0,
+  };
+}
 
 function formatDuration(totalSec: number): string {
   const m = Math.floor(totalSec / 60);
@@ -78,13 +131,13 @@ export function AnalysisTab({ project, onAnalysisComplete }: AnalysisTabProps) {
     return () => window.clearInterval(id);
   }, [loading]);
 
-  async function handleRun(modules?: AnalysisModuleKey[]) {
+  async function handleRun(modules?: AnalysisModuleKey[], permitTypes?: string[]) {
     setLocalError(null);
     setApproved(false);
     setRfiDraft(null);
     clearAnalysis();
     try {
-      const result = await runAnalysis(project.id, modules, () => {});
+      const result = await runAnalysis(project.id, modules, permitTypes, () => {});
       onAnalysisComplete?.();
       toast.success(`Review complete - ${result.case_summary?.readiness_score ?? "done"}`);
     } catch (e) {
@@ -133,10 +186,16 @@ export function AnalysisTab({ project, onAnalysisComplete }: AnalysisTabProps) {
   const runnableModules = ANALYSIS_MODULES.filter(
     (module) => projectRequirements[module.value]?.canRun
   ).map((module) => module.value);
-  const canRunAnything = runnableModules.length > 0;
   const reviewPermits = (project.permits ?? []).filter(
     (permit) => permit.requirementStatus !== "not_required"
   );
+  const permitStates = new Map(
+    reviewPermits.map((permit) => [permit.id, permitDocumentState(permit, project.files)])
+  );
+  const eligiblePermitTypes = reviewPermits
+    .filter((permit) => permitStates.get(permit.id)?.canRun)
+    .map((permit) => permit.permitType);
+  const canRunAnything = runnableModules.length > 0 && eligiblePermitTypes.length > 0;
 
   return (
     <div className="space-y-6">
@@ -144,11 +203,14 @@ export function AnalysisTab({ project, onAnalysisComplete }: AnalysisTabProps) {
         <div>
           <h2 className="text-lg font-semibold">Permit review</h2>
           <p className="text-sm text-[var(--color-muted)]">
-            Run AI checks against uploaded documents. These review areas support the permit bundle.
+            Run AI checks against the documents connected to each permit.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button onClick={() => handleRun(runnableModules)} disabled={loading || !canRunAnything}>
+          <Button
+            onClick={() => handleRun(runnableModules, eligiblePermitTypes)}
+            disabled={loading || !canRunAnything}
+          >
             <Play size={16} />
             {loading ? "Reviewing..." : "Review All Available"}
           </Button>
@@ -162,7 +224,9 @@ export function AnalysisTab({ project, onAnalysisComplete }: AnalysisTabProps) {
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {reviewPermits.length > 0 ? (
-          reviewPermits.map((permit) => (
+          reviewPermits.map((permit) => {
+            const documentState = permitStates.get(permit.id)!;
+            return (
             <div
               key={permit.id}
               className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4"
@@ -175,27 +239,46 @@ export function AnalysisTab({ project, onAnalysisComplete }: AnalysisTabProps) {
                 <Button
                   size="sm"
                   variant="secondary"
-                  onClick={() => handleRun(runnableModules)}
-                  disabled={loading || !canRunAnything}
+                  onClick={() => handleRun(runnableModules, [permit.permitType])}
+                  disabled={loading || !documentState.canRun || runnableModules.length === 0}
                 >
                   <Play size={14} /> Review
                 </Button>
               </div>
-              {permit.requiredDocuments.length ? (
-                <p className="text-xs text-[var(--color-muted)]">
-                  Expected docs: {permit.requiredDocuments.slice(0, 4).join(", ")}
-                  {permit.requiredDocuments.length > 4 ? "..." : ""}
-                </p>
+              {documentState.requirements.length ? (
+                <details className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface2)]">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-sm font-medium">
+                    <span>Required documents</span>
+                    <span className="text-xs text-[var(--color-muted)]">
+                      {documentState.found.length}/{documentState.requirements.length} found
+                    </span>
+                  </summary>
+                  <ul className="space-y-2 border-t border-[var(--color-border)] px-3 py-3">
+                    {documentState.found.map((item) => (
+                      <li key={item.requirement} className="flex items-start gap-2 text-xs">
+                        <CheckCircle2 size={14} className="mt-0.5 shrink-0 text-[var(--color-pass)]" />
+                        <span>{item.requirement}</span>
+                      </li>
+                    ))}
+                    {documentState.missing.map((item) => (
+                      <li key={item.requirement} className="flex items-start gap-2 text-xs text-[var(--color-muted)]">
+                        <CircleX size={14} className="mt-0.5 shrink-0" />
+                        <span>{item.requirement} - not found</span>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
               ) : (
-                <p className="text-xs text-[var(--color-muted)]">No document checklist is configured yet.</p>
+                <p className="text-xs text-[var(--color-muted)]">No required-document checklist is configured.</p>
               )}
-              {!canRunAnything && (
-                <p className="mt-2 rounded border border-amber-500/70 bg-amber-950 px-2 py-1 text-xs font-medium text-amber-50">
-                  Upload at least one relevant document before running review.
+              {!documentState.canRun && (
+                <p className="mt-3 rounded-lg bg-[#f00000] px-3 py-2 text-xs font-semibold text-white">
+                  Documents not found
                 </p>
               )}
             </div>
-          ))
+            );
+          })
         ) : (
           <div className="rounded-xl border border-amber-500/70 bg-amber-950 p-4 text-sm font-medium text-amber-50">
             No permits are in the bundle yet. Confirm project scope in Overview or add a permit from the Permits tab.
@@ -204,15 +287,17 @@ export function AnalysisTab({ project, onAnalysisComplete }: AnalysisTabProps) {
       </section>
 
       {displayError && (
-        <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-[var(--color-text)]">
-          {displayError}
-        </div>
-      )}
-
-      {!canRunAnything && (
-        <div className="rounded-lg border border-amber-500/70 bg-amber-950 px-4 py-3 text-sm font-medium text-amber-50">
-          Upload at least one relevant file before review. Each area will unlock as soon as it
-          has enough supporting material.
+        <div
+          role="alert"
+          className="flex items-start gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-sm"
+        >
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[var(--color-surface2)] text-[var(--color-accent)]">
+            <CircleAlert size={18} />
+          </span>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-[var(--color-text)]">Review could not run</p>
+            <p className="mt-1 text-sm leading-5 text-[var(--color-muted)]">{displayError}</p>
+          </div>
         </div>
       )}
 
