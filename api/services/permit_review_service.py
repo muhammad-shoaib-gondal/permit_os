@@ -6,6 +6,8 @@ from shared.schemas.permit_review import CandidatePermit, PermitDocumentRequirem
 from shared.schemas.project_brief import ProjectBrief, ProjectType
 from shared.tools.kcmo_permits import match_kcmo_applications
 from shared.tools.kck_permits import match_kck_applications
+from shared.tools.lenexa_permits import match_lenexa_applications
+from shared.tools.overland_park_permits import match_overland_park_applications
 from shared.tools.knowledge import load_json
 
 
@@ -93,6 +95,15 @@ def detect_candidate_permits(brief: ProjectBrief) -> list[CandidatePermit]:
                     confidence=1.0 if application["requirement_status"] == "required" else 0.75,
                 )
             )
+    elif brief.jurisdiction in {"lenexa_ks", "overland_park_ks"}:
+        matcher = match_lenexa_applications if brief.jurisdiction == "lenexa_ks" else match_overland_park_applications
+        prefix = "lenexa" if brief.jurisdiction == "lenexa_ks" else "overland_park"
+        for application in matcher(_brief_scope(brief), brief.project_type.value):
+            detected.append(CandidatePermit(
+                permit_key=f"{prefix}_{application['id']}", label=application["name"],
+                agency=application["authority"], reason=application["reason"],
+                confidence=1.0 if application["requirement_status"] == "required" else 0.75,
+            ))
     return detected
 
 

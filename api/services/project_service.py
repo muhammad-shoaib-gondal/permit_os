@@ -14,8 +14,13 @@ from sqlalchemy.orm import selectinload
 
 from api.models import PermitCase, Project, ProjectFile, ProjectPermit
 from api.services.case_service import SessionLocal, start_case_async
+from api.services.kcmo_controlling_records import CONTROLLING_RECORD_VERSION, public_record_url
 from api.services.document_classifier import DOCUMENT_TYPES, classify_project_document
+from api.services.kcmo_external_records import collect_external_records
 from api.services.kcmo_zoning_rules import build_kcmo_rules
+from api.services.kck_zoning_rules import build_kck_rules
+from api.services.lenexa_zoning_rules import build_lenexa_rules
+from api.services.overland_park_zoning_rules import build_overland_park_rules
 from api.services.manhattan_zoning_rules import build_manhattan_rules
 from api.services.zoning_service import (
     JURISDICTION_ZONING,
@@ -24,12 +29,41 @@ from api.services.zoning_service import (
     resolve_zoning,
 )
 from shared.schemas.project_brief import ProjectBrief, ProjectType
+from shared.analysis.rule_execution import attach_execution_contract
+from shared.analysis.rule_coverage import rule_implementation
 from shared.tools.kcmo_approvals import build_kcmo_approval_recommendations
 from shared.tools.kcmo_permits import match_kcmo_applications, rule_family_for_category
-from shared.tools.kck_permits import match_kck_applications
+from shared.tools.kck_permits import load_kck_source_registry, match_kck_applications
+from shared.tools.lenexa_permits import load_lenexa_source_registry, match_lenexa_applications
+from shared.tools.overland_park_permits import load_overland_park_source_registry, match_overland_park_applications
 from shared.tools.knowledge import JURISDICTION_PATHS, jurisdiction_context, load_json
 
 PROJECT_UPLOAD_ROOT = Path(__file__).resolve().parents[2] / "uploads" / "projects"
+
+HIDDEN_PROJECT_WARNING_CODES = {"ur_record_extraction_unavailable"}
+PUBLIC_WARNING_COPY = {
+    "unsupported_jurisdiction": (
+        "Automatic zoning is unavailable for this jurisdiction.",
+        "Select a supported jurisdiction or contact the local zoning authority.",
+    ),
+    "geocoder_unavailable": (
+        "The address could not be checked right now.",
+        "Try again. Permit recommendations remain preliminary until the address is resolved.",
+    ),
+    "zoning_service_unavailable": (
+        "The zoning district could not be checked right now.",
+        "Try again. Permit recommendations remain preliminary until zoning is resolved.",
+    ),
+    "ur_record_lookup_failed": (
+        "The controlling UR record could not be checked right now.",
+        "Try again. Plan-controlled checks will remain unverified while the record is unavailable.",
+    ),
+}
+INTERNAL_DETAIL_PATTERN = re.compile(
+    r"zenmux|api[_ -]?key|\.env\b|traceback|stack trace|exception:|localhost|127\.0\.0\.1|"
+    r"\bbackend\b|\bfrontend\b|not configured|[a-z]:\\|/(?:users|home)/",
+    re.IGNORECASE,
+)
 
 USER_MANAGED_REQUIREMENT_STATUSES = {"removed_by_user", "manual"}
 DEFAULT_SCOPE = {
@@ -326,17 +360,58 @@ LEGACY_RULE_PLACEHOLDERS = (
 
 
 def _usable_custom_rules(rules: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
-    return [
-        rule
+    usable = [
+        dict(rule)
         for rule in (rules or [])
         if not any(phrase in str(rule.get("condition", "")).casefold() for phrase in LEGACY_RULE_PLACEHOLDERS)
     ]
+    output: list[dict[str, Any]] = []
+    for rule in usable:
+        normalized = attach_execution_contract(rule)
+        output.append({**normalized, "implementation": rule_implementation(normalized)})
+    return output
 
 
 def _project_dir(project_id: str) -> Path:
     path = PROJECT_UPLOAD_ROOT / project_id
     path.mkdir(parents=True, exist_ok=True)
     return path
+
+
+def _public_project_warnings(warnings: list[dict[str, Any]]) -> list[dict[str, str]]:
+    public: list[dict[str, str]] = []
+    for warning in warnings:
+        code = str(warning.get("code") or "project_warning")
+        if code in HIDDEN_PROJECT_WARNING_CODES:
+            continue
+        normalized = {
+            "code": code,
+            "message": str(warning.get("message") or "A project item needs attention."),
+            "action": str(warning.get("action") or "Review the project details before continuing."),
+            "severity": str(warning.get("severity") or "warning"),
+        }
+        if code in PUBLIC_WARNING_COPY:
+            normalized["message"], normalized["action"] = PUBLIC_WARNING_COPY[code]
+        elif INTERNAL_DETAIL_PATTERN.search(f"{normalized['message']} {normalized['action']}"):
+            normalized["message"] = "A project check could not be completed."
+            normalized["action"] = "Try again. Unverified items will remain visible until the check succeeds."
+        public.append(normalized)
+    return public
+
+
+def _normalize_controlling_record(profile: dict[str, Any]) -> None:
+    source = profile.get("controllingRecord")
+    if not isinstance(source, dict):
+        return
+    record = dict(source)
+    record["officialUrl"] = public_record_url(record)
+    record.pop("extractionStatus", None)
+    record["attachments"] = [
+        {key: value for key, value in dict(attachment).items() if key != "extractionStatus"}
+        for attachment in (record.get("attachments") or [])
+        if isinstance(attachment, dict)
+    ]
+    profile["controllingRecord"] = record
 
 
 def _serialize_project(project: Project, cases: list[PermitCase] | None = None) -> dict[str, Any]:
@@ -352,15 +427,22 @@ def _serialize_project(project: Project, cases: list[PermitCase] | None = None) 
         readiness = (latest.results.get("case_summary") or {}).get("readiness_score")
 
     zoning_profile = dict(project.zoning_profile or {})
+    _normalize_controlling_record(zoning_profile)
     public_source_url = public_zoning_source_url(project.jurisdiction, project.address)
     if public_source_url:
         zoning_profile["sourceUrl"] = public_source_url
-    zoning_warnings = list(project.zoning_warnings or [])
+    zoning_warnings = _public_project_warnings(list(project.zoning_warnings or []))
     if has_zoning_rule_coverage(project.jurisdiction, project.area):
         zoning_warnings = [warning for warning in zoning_warnings if warning.get("code") != "numeric_rules_missing"]
     zoning_rules: list[dict[str, Any]] = []
     if project.jurisdiction == "kansas_city_mo":
         zoning_rules = build_kcmo_rules(project.area, zoning_profile, project.project_type)
+    elif project.jurisdiction == "kansas_city_ks":
+        zoning_rules = build_kck_rules(project.area, zoning_profile, project.project_type)
+    elif project.jurisdiction == "lenexa_ks":
+        zoning_rules = build_lenexa_rules(project.area, zoning_profile, project.project_type)
+    elif project.jurisdiction == "overland_park_ks":
+        zoning_rules = build_overland_park_rules(project.area, zoning_profile, project.project_type)
     elif project.jurisdiction == "manhattan_ks":
         zoning_rules = build_manhattan_rules(project.area, zoning_profile)
 
@@ -371,7 +453,11 @@ def _serialize_project(project: Project, cases: list[PermitCase] | None = None) 
         "projectType": project.project_type,
         "jurisdiction": project.jurisdiction,
         "area": project.area,
-        "zoningStatus": project.zoning_status or "pending",
+        "zoningStatus": (
+            "resolved"
+            if project.zoning_status == "resolved_with_warnings" and not zoning_warnings
+            else project.zoning_status or "pending"
+        ),
         "zoningProfile": zoning_profile,
         "zoningWarnings": zoning_warnings,
         "zoningRules": zoning_rules,
@@ -442,10 +528,21 @@ async def get_project(project_id: str) -> dict[str, Any] | None:
         project = result.scalar_one_or_none()
         if not project:
             return None
-        if not project.zoning_profile or (
-            project.jurisdiction == "kansas_city_mo"
-            and (project.zoning_profile or {}).get("permitContext", {}).get("version") != 1
-        ):
+        zoning_profile = project.zoning_profile or {}
+        district_tokens = {
+            token.strip().upper()
+            for token in re.split(r"[/,]", str(project.area or ""))
+            if token.strip()
+        }
+        kcmo_profile_is_stale = project.jurisdiction == "kansas_city_mo" and (
+            zoning_profile.get("permitContext", {}).get("version") != 1
+            or (
+                "UR" in district_tokens
+                and zoning_profile.get("controllingRecord", {}).get("version")
+                != CONTROLLING_RECORD_VERSION
+            )
+        )
+        if not zoning_profile or kcmo_profile_is_stale:
             await _resolve_project_zoning(project)
         _sync_project_permit_recommendations(project)
         await session.commit()
@@ -474,7 +571,7 @@ async def create_project(data: dict[str, Any]) -> dict[str, Any]:
             zoning_warnings=resolution.get("warnings") or [],
             scope=_normalized_scope(data.get("scope")),
             permit_answers=data.get("permitAnswers", {}),
-            custom_rules=data.get("customRules", []),
+            custom_rules=_usable_custom_rules(data.get("customRules", [])),
             permits=[],
             created_at=now,
             updated_at=now,
@@ -517,7 +614,7 @@ async def update_project(project_id: str, data: dict[str, Any]) -> dict[str, Any
         if "permitAnswers" in data:
             project.permit_answers = dict(data["permitAnswers"] or {})
         if "customRules" in data:
-            project.custom_rules = data["customRules"]
+            project.custom_rules = _usable_custom_rules(data["customRules"])
         project.updated_at = datetime.now(timezone.utc)
         _sync_project_permit_recommendations(project)
         await session.commit()
@@ -701,6 +798,7 @@ async def get_project_context(project_id: str) -> dict[str, Any] | None:
             "projectType": project.project_type,
             "jurisdiction": project.jurisdiction,
             "area": project.area,
+            "zoningProfile": project.zoning_profile or {},
             "customRules": project.custom_rules or [],
         }
 
@@ -711,10 +809,11 @@ async def save_project_rules(project_id: str, rules: list[dict[str, Any]]) -> li
         project = result.scalar_one_or_none()
         if not project:
             return None
-        project.custom_rules = rules
+        normalized_rules = _usable_custom_rules(rules)
+        project.custom_rules = normalized_rules
         project.updated_at = datetime.now(timezone.utc)
         await session.commit()
-        return rules
+        return normalized_rules
 
 
 async def list_project_permits(project_id: str) -> list[dict[str, Any]] | None:
@@ -889,7 +988,16 @@ def _candidate_permit_recommendations(project: Project) -> list[dict[str, Any]]:
 
     scope = _normalized_scope(project.scope)
     if project.jurisdiction == "kansas_city_mo":
-        return build_kcmo_approval_recommendations(project, scope)
+        return [
+            *build_kcmo_approval_recommendations(project, scope),
+            *_exact_kcmo_application_recommendations(project, scope),
+        ]
+    if project.jurisdiction == "kansas_city_ks":
+        return _exact_kck_application_recommendations(project, scope)
+    if project.jurisdiction == "lenexa_ks":
+        return _exact_lenexa_application_recommendations(project, scope)
+    if project.jurisdiction == "overland_park_ks":
+        return _exact_overland_park_application_recommendations(project, scope)
 
     try:
         catalog = load_json("permit_catalog.json", project.jurisdiction)
@@ -970,9 +1078,6 @@ def _candidate_permit_recommendations(project: Project) -> list[dict[str, Any]]:
                 "next_action": "Confirm whether this permit belongs in the working permit bundle.",
             }
         )
-    if project.jurisdiction == "kansas_city_ks":
-        recommendations.extend(_exact_kck_application_recommendations(project, scope))
-
     return recommendations
 
 
@@ -980,9 +1085,13 @@ def _exact_kck_application_recommendations(
     project: Project, scope: dict[str, bool]
 ) -> list[dict[str, Any]]:
     exact: list[dict[str, Any]] = []
-    sources = load_json("source_registry.json", "kansas_city_ks")
+    sources = load_kck_source_registry()
     source_map = {item["id"]: item for item in sources.get("sources", [])}
-    for application in match_kck_applications(scope, project.project_type):
+    for application in match_kck_applications(
+        scope,
+        project.project_type,
+        dict(project.permit_answers or {}),
+    ):
         source = source_map.get(application["source_id"], {})
         status = application["requirement_status"]
         exact.append(
@@ -1012,20 +1121,90 @@ def _exact_kck_application_recommendations(
                         "policy": "complete-category deterministic match",
                         "usesVectorOrLlm": False,
                     },
+                    "questions": application.get("questions", []),
                 },
                 "source": source.get("title", "Official KCK source registry"),
                 "portal_url": source.get("url"),
-                "coverage_status": "official_sources_normalized_2026_07_18",
+                "coverage_status": "official_sources_normalized_2026_07_22",
                 "dependencies": [],
                 "required_documents": list(application.get("documents", [])),
                 "estimated_fee_usd": None,
                 "next_action": (
                     "Prepare this exact KCK application."
                     if status == "required"
-                    else "Confirm the listed condition with the issuing authority; keep this workflow visible until excluded."
+                    else "Answer the permit-specific questions shown on this card."
                 ),
             }
         )
+    return exact
+
+
+def _exact_lenexa_application_recommendations(
+    project: Project, scope: dict[str, bool]
+) -> list[dict[str, Any]]:
+    exact: list[dict[str, Any]] = []
+    source_map = {item["id"]: item for item in load_lenexa_source_registry().get("sources", [])}
+    for application in match_lenexa_applications(
+        scope, project.project_type, dict(project.permit_answers or {})
+    ):
+        source = source_map.get(application["source_id"], {})
+        status = application["requirement_status"]
+        exact.append({
+            "permit_type": f"lenexa_{application['id']}",
+            "permit_name": application["name"],
+            "issuing_authority": application["authority"],
+            "jurisdiction": project.jurisdiction,
+            "requirement_status": status,
+            "lifecycle_status": "gathering_documents" if status == "required" else "not_started",
+            "origin": "system",
+            "reason": application["reason"],
+            "recommendation_evidence": {
+                "catalogRule": {"applicationId": application["id"], "category": application["category"], "ruleIds": application["rule_ids"], "sourceIds": application["source_ids"]},
+                "projectFacts": {"jurisdiction": project.jurisdiction, "projectType": project.project_type, "selectedScope": [key for key, value in scope.items() if value]},
+                "matchResult": {"classification": status, "policy": "complete-category deterministic match", "usesVectorOrLlm": False},
+                "questions": application.get("questions", []),
+            },
+            "source": source.get("title", "Official Lenexa source registry"),
+            "portal_url": source.get("url"),
+            "coverage_status": "official_sources_normalized_2026_07_23",
+            "dependencies": [],
+            "required_documents": list(application.get("documents", [])),
+            "estimated_fee_usd": None,
+            "next_action": "Prepare this exact Lenexa application." if status == "required" else "Answer the permit-specific questions shown on this card.",
+        })
+    return exact
+
+
+def _exact_overland_park_application_recommendations(
+    project: Project, scope: dict[str, bool]
+) -> list[dict[str, Any]]:
+    exact: list[dict[str, Any]] = []
+    source_map = {item["id"]: item for item in load_overland_park_source_registry().get("sources", [])}
+    for application in match_overland_park_applications(
+        scope, project.project_type, dict(project.permit_answers or {})
+    ):
+        source = source_map.get(application["source_id"], {})
+        status = application["requirement_status"]
+        exact.append({
+            "permit_type": f"overland_park_{application['id']}",
+            "permit_name": application["name"],
+            "issuing_authority": application["authority"],
+            "jurisdiction": project.jurisdiction,
+            "requirement_status": status,
+            "lifecycle_status": "gathering_documents" if status == "required" else "not_started",
+            "origin": "system", "reason": application["reason"],
+            "recommendation_evidence": {
+                "catalogRule": {"applicationId": application["id"], "category": application["category"], "ruleIds": application["rule_ids"], "sourceIds": application["source_ids"]},
+                "projectFacts": {"jurisdiction": project.jurisdiction, "projectType": project.project_type, "selectedScope": [key for key, value in scope.items() if value]},
+                "matchResult": {"classification": status, "policy": "complete-category deterministic match", "usesVectorOrLlm": False},
+                "questions": application.get("questions", []),
+            },
+            "source": source.get("title", "Official Overland Park source registry"),
+            "portal_url": source.get("url"), "coverage_status": "official_sources_normalized_2026_07_23",
+            "dependencies": [], "required_documents": list(application.get("documents", [])),
+            "estimated_fee_usd": None,
+            "next_action": "Prepare this exact Overland Park application." if status == "required" else "Answer the permit-specific questions shown on this card.",
+        })
     return exact
 
 
@@ -1033,7 +1212,11 @@ def _exact_kcmo_application_recommendations(
     project: Project, scope: dict[str, bool]
 ) -> list[dict[str, Any]]:
     exact: list[dict[str, Any]] = []
-    for application in match_kcmo_applications(scope, project.project_type):
+    for application in match_kcmo_applications(
+        scope,
+        project.project_type,
+        dict(project.permit_answers or {}),
+    ):
         family = rule_family_for_category(application["category"]) or {}
         application_kind = application["application_kind"]
         application_id = application["id"]
@@ -1056,11 +1239,12 @@ def _exact_kcmo_application_recommendations(
                 "classification": status,
                 "policy": "complete-category deterministic match",
             },
+            "questions": application.get("questions", []),
         }
         exact.append(
             {
                 "permit_type": f"compass_{application_kind}_{application_id}",
-                "permit_name": application["name"],
+                "permit_name": f"CompassKC {application_kind} application: {application['name']}",
                 "issuing_authority": "Kansas City, Missouri",
                 "jurisdiction": project.jurisdiction,
                 "requirement_status": status,
@@ -1139,7 +1323,27 @@ def _humanize_scope_key(key: str) -> str:
 
 
 def _sync_project_permit_recommendations(project: Project) -> None:
-    existing = {p.permit_type: p for p in (project.permits or [])}
+    grouped: dict[str, list[ProjectPermit]] = {}
+    for permit in list(project.permits or []):
+        grouped.setdefault(permit.permit_type, []).append(permit)
+
+    existing: dict[str, ProjectPermit] = {}
+    for permit_type, duplicates in grouped.items():
+        survivor = max(
+            duplicates,
+            key=lambda permit: (
+                permit.origin == "manual",
+                permit.requirement_status in USER_MANAGED_REQUIREMENT_STATUSES,
+                permit.lifecycle_status != "not_started",
+                bool(permit.application_number or permit.issued_number),
+                permit.updated_at or datetime.min.replace(tzinfo=timezone.utc),
+            ),
+        )
+        existing[permit_type] = survivor
+        for duplicate in duplicates:
+            if duplicate is not survivor:
+                project.permits.remove(duplicate)
+
     recommendations = {r["permit_type"]: r for r in _candidate_permit_recommendations(project)}
     now = datetime.now(timezone.utc)
 
@@ -1181,6 +1385,9 @@ def _sync_project_permit_recommendations(project: Project) -> None:
 
 
 def _build_brief_from_project(project: Project) -> ProjectBrief:
+    selected_scope = [
+        key for key, enabled in _normalized_scope(project.scope).items() if enabled
+    ]
     return ProjectBrief(
         project_name=project.name,
         address=project.address,
@@ -1191,7 +1398,19 @@ def _build_brief_from_project(project: Project) -> ProjectBrief:
         gross_sqft=0,
         lot_sqft=0,
         parking_spaces=0,
-        notes=f"Area: {project.area}" if project.area else None,
+        scope_of_work=", ".join(_humanize_scope_key(key) for key in selected_scope),
+        notes=(
+            "\n".join(
+                part
+                for part in (
+                    f"Area: {project.area}" if project.area else None,
+                    f"Project scope: {', '.join(selected_scope)}" if selected_scope else None,
+                    f"Permit answers: {json.dumps(project.permit_answers or {}, default=str)}",
+                )
+                if part
+            )
+            or None
+        ),
     )
 
 
@@ -1217,6 +1436,13 @@ def _module_requirements_payload(files: list[ProjectFile]) -> dict[str, Any]:
 
 
 _REQUIREMENT_TYPE_HINTS = (
+    (("approved plan", "approved development", "entitlement"), ("approved_plan",)),
+    (("permit record", "permit status", "issued permit"), ("permit_record",)),
+    (("inspection", "final approval"), ("inspection_record", "agency_approval")),
+    (("license", "licensed", "credential", "registration"), ("license_record",)),
+    (("agency approval", "approval letter", "decision"), ("agency_approval",)),
+    (("calculation", "hydraulic", "load calculation"), ("calculation",)),
+    (("specification", "product data"), ("specification",)),
     (("fire", "sprinkler", "alarm", "life safety"), ("fire_protection_plan", "fire_plan")),
     (("mechanical", "hvac"), ("mechanical_plan",)),
     (("plumbing",), ("plumbing_plan",)),
@@ -1314,6 +1540,19 @@ async def analyze_project(
     if project_area:
         brief.notes = f"{brief.notes or ''}\nArea: {project_area}".strip()
 
+    active_permit_types = {permit.permit_type for permit in active_permits}
+    selected_permit_types = list(dict.fromkeys(
+        permit_type
+        for permit_type in (permit_types or [permit.permit_type for permit in active_permits])
+        if permit_type in active_permit_types
+    ))
+    if permit_types and not selected_permit_types:
+        raise HTTPException(status_code=400, detail="No eligible permits were selected for review.")
+    selected_permits = [
+        permit for permit in active_permits
+        if not selected_permit_types or permit.permit_type in selected_permit_types
+    ]
+
     builtin_rules = await get_builtin_rules_for_project(
         jurisdiction,
         area=project_area,
@@ -1330,23 +1569,46 @@ async def analyze_project(
             "severity": rule.get("severity", "warning"),
             "enabled": True,
             "source": rule.get("source"),
+            "sourceLinks": rule.get("sourceLinks", []),
+            "sourceIds": rule.get("sourceIds", []),
+            "checkType": rule.get("checkType"),
+            "verifiedAt": rule.get("verifiedAt"),
+            "permitType": next(
+                (
+                    permit_type
+                    for permit_type in rule.get("permitTypes", [])
+                    if permit_type in selected_permit_types
+                ),
+                (rule.get("permitTypes") or [None])[0],
+            ),
+            "permitName": next(
+                (
+                    permit.permit_name
+                    for permit in selected_permits
+                    if permit.permit_type in rule.get("permitTypes", [])
+                ),
+                None,
+            ),
+            "execution": rule.get("execution"),
+            "implementation": rule.get("implementation"),
             "systemManaged": True,
         }
         for index, rule in enumerate(builtin_rules)
-        if rule.get("condition") and str(rule.get("rule", "")).casefold() not in custom_rule_names
+        if rule.get("condition")
+        and str(rule.get("rule", "")).casefold() not in custom_rule_names
+        and (
+            not rule.get("permitTypes")
+            or not selected_permit_types
+            or set(rule.get("permitTypes", [])).intersection(selected_permit_types)
+        )
     ]
     custom_rules = system_rules + custom_rules
 
     selected_modules = [m for m in (modules or list(ANALYSIS_MODULES.keys())) if m in ANALYSIS_MODULES]
-    active_permit_types = {permit.permit_type for permit in active_permits}
-    selected_permit_types = list(dict.fromkeys(
-        permit_type for permit_type in (permit_types or []) if permit_type in active_permit_types
-    ))
-    if permit_types and not selected_permit_types:
-        raise HTTPException(status_code=400, detail="No eligible permits were selected for review.")
-    selected_permits = [
-        permit for permit in active_permits
-        if not selected_permit_types or permit.permit_type in selected_permit_types
+    custom_rules = [
+        rule
+        for rule in custom_rules
+        if not rule.get("permitType") or rule.get("permitType") in selected_permit_types
     ]
     if selected_permit_types and not any(
         _permit_has_review_document(permit, files) for permit in selected_permits
@@ -1360,6 +1622,7 @@ async def analyze_project(
             "label": item.document_label,
             "summary": item.ai_summary or "No AI summary is available for this legacy document.",
             "permit_types": item.permit_types or [],
+            "storage_path": item.storage_path,
         }
         for item in files
     ]
@@ -1381,6 +1644,11 @@ async def analyze_project(
         )
     if not selected_modules:
         raise HTTPException(status_code=400, detail="No runnable analysis modules selected.")
+    external_records = (
+        await collect_external_records(active_permits)
+        if jurisdiction == "kansas_city_mo"
+        else {"version": 1, "evidence": []}
+    )
     return await start_case_async(
         brief,
         project_id=project_id,
@@ -1389,6 +1657,33 @@ async def analyze_project(
         module_requirements=requirements,
         document_context=document_context,
         target_permit_types=selected_permit_types,
+        authoritative_context={
+            "jurisdiction": jurisdiction,
+            "area": project_area,
+            "projectScope": _normalized_scope(project.scope),
+            "permitAnswers": dict(project.permit_answers or {}),
+            "zoningProfile": project_zoning_profile,
+            "projectPermits": [
+                {
+                    "permitType": permit.permit_type,
+                    "permitName": permit.permit_name,
+                    "issuingAuthority": permit.issuing_authority,
+                    "requirementStatus": permit.requirement_status,
+                    "requiredDocuments": permit.required_documents or [],
+                    "estimatedFeeUsd": permit.estimated_fee_usd,
+                    "applicationNumber": permit.application_number,
+                    "issuedNumber": permit.issued_number,
+                    "lifecycleStatus": permit.lifecycle_status,
+                    "applicationDate": permit.application_date,
+                    "issuanceDate": permit.issuance_date,
+                    "expirationDate": permit.expiration_date,
+                    "assignedContractor": permit.assigned_contractor,
+                    "dependencies": permit.dependencies or [],
+                }
+                for permit in selected_permits
+            ],
+            "externalRecords": external_records,
+        },
     )
 
 
@@ -1509,7 +1804,11 @@ async def get_builtin_rules_for_project(
             zoning_profile=zoning_profile,
         ) + _build_kcmo_permit_review_rules(project_type)
     if jurisdiction == "kansas_city_ks":
-        return _build_kck_permit_review_rules()
+        return build_kck_rules(area, zoning_profile, project_type) + _build_kck_permit_review_rules()
+    if jurisdiction == "lenexa_ks":
+        return build_lenexa_rules(area, zoning_profile, project_type) + _build_lenexa_permit_review_rules()
+    if jurisdiction == "overland_park_ks":
+        return build_overland_park_rules(area, zoning_profile, project_type) + _build_overland_park_permit_review_rules()
     if jurisdiction != "manhattan_ks":
         return await get_builtin_rules(jurisdiction)
 
@@ -1531,64 +1830,9 @@ def _build_kcmo_rule_library(
 
 
 def _build_kcmo_permit_review_rules(project_type: str | None = None) -> list[dict[str, Any]]:
-    payload = load_json("permit_rules.json", "kansas_city_mo")
-    output: list[dict[str, Any]] = []
-    for family in payload.get("category_rules", []):
-        family_id = family["id"]
-        category = KCMO_PERMIT_RULE_CATEGORIES.get(family_id, "permits")
-        label = family_id.replace("_", " ").title()
-        source = ", ".join(family.get("sources", [])) or "KCMO permit rules"
-        generic_types = [family_id, *KCMO_PERMIT_TYPE_ALIASES.get(family_id, [])]
-        rule_targets = KCMO_RULE_EXACT_TARGETS.get(family_id, [])
-        for index, condition in enumerate(family.get("rules", []), start=1):
-            if project_type in {
-                "commercial", "commercial_tenant_improvement",
-                "new_commercial_construction", "industrial",
-            }:
-                condition = KCMO_COMMERCIAL_RULE_OVERRIDES.get((family_id, index), condition)
-            exact_targets = rule_targets[index - 1] if index <= len(rule_targets) else []
-            permit_types = list(exact_targets)
-            if not exact_targets or (
-                index in KCMO_GENERIC_RULE_INDICES.get(family_id, set())
-                and _kcmo_targets_support_project(exact_targets, project_type)
-            ):
-                permit_types.extend(generic_types)
-            output.append(
-                {
-                    "id": f"kcmo-permit-{family_id}-{index}",
-                    "category": category,
-                    "group": category,
-                    "rule": f"{label} requirement {index}",
-                    "condition": condition,
-                    "severity": "major",
-                    "source": source,
-                    "permitTypes": permit_types,
-                    "ruleFamilyIds": [] if exact_targets else [family_id],
-                }
-            )
-        exemption_targets = KCMO_EXEMPTION_EXACT_TARGETS.get(family_id, [])
-        for index, condition in enumerate(family.get("exemptions", []), start=1):
-            exact_targets = exemption_targets[index - 1] if index <= len(exemption_targets) else []
-            permit_types = list(exact_targets)
-            if not exact_targets or (
-                index in KCMO_GENERIC_EXEMPTION_INDICES.get(family_id, set())
-                and _kcmo_targets_support_project(exact_targets, project_type)
-            ):
-                permit_types.extend(generic_types)
-            output.append(
-                {
-                    "id": f"kcmo-permit-{family_id}-exemption-{index}",
-                    "category": category,
-                    "group": category,
-                    "rule": f"{label} exemption {index}",
-                    "condition": condition,
-                    "severity": "info",
-                    "source": source,
-                    "permitTypes": permit_types,
-                    "ruleFamilyIds": [] if exact_targets else [family_id],
-                }
-            )
-    return output
+    from shared.tools.kcmo_review_rules import expanded_review_rules
+
+    return expanded_review_rules()
 
 
 def _kcmo_targets_support_project(targets: list[str], project_type: str | None) -> bool:
@@ -1602,59 +1846,21 @@ def _kcmo_targets_support_project(targets: list[str], project_type: str | None) 
 
 
 def _build_kck_permit_review_rules() -> list[dict[str, Any]]:
-    rules_payload = load_json("permit_rules.json", "kansas_city_ks")
-    catalog = load_json("application_catalog.json", "kansas_city_ks")
-    applications = {item["id"]: item for item in catalog.get("applications", [])}
-    category_ids: dict[str, list[str]] = {}
-    for application in applications.values():
-        category_ids.setdefault(application["category"], []).append(application["id"])
+    from shared.tools.kck_review_rules import expanded_kck_review_rules
 
-    category_to_group = {
-        "Building and Trade": "building",
-        "Planning and Land Use": "zoning",
-        "Public Works and Utilities": "site",
-        "Fire Prevention": "fire",
-    }
-    output: list[dict[str, Any]] = []
-    for rule in rules_payload.get("rules", []):
-        application_ids: set[str] = set()
-        matched_categories: set[str] = set()
-        for target in rule.get("applies_to", []):
-            if target in category_ids:
-                matched_categories.add(target)
-                application_ids.update(category_ids[target])
-            elif target in applications:
-                application_ids.add(target)
-                matched_categories.add(applications[target]["category"])
+    return expanded_kck_review_rules()
 
-        permit_types = set(application_ids)
-        for application_id in application_ids:
-            permit_types.update(KCK_APPLICATION_GENERIC_ALIASES.get(application_id, []))
-        if "Planning and Land Use" in matched_categories:
-            permit_types.add("planning_entitlement")
 
-        group = "building"
-        if len(matched_categories) == 1:
-            group = category_to_group.get(next(iter(matched_categories)), "building")
-        elif "Fire Prevention" in matched_categories:
-            group = "fire"
-        elif "Public Works and Utilities" in matched_categories:
-            group = "site"
+def _build_lenexa_permit_review_rules() -> list[dict[str, Any]]:
+    from shared.tools.lenexa_review_rules import expanded_lenexa_review_rules
 
-        output.append(
-            {
-                "id": f"kck-permit-{rule['id']}",
-                "category": group,
-                "group": group,
-                "rule": rule["id"].replace("_", " ").title(),
-                "condition": rule["rule"],
-                "severity": "major",
-                "source": ", ".join(rule.get("source_ids", [])) or "KCK official permit rules",
-                "permitTypes": sorted(permit_types),
-                "ruleFamilyIds": [],
-            }
-        )
-    return output
+    return expanded_lenexa_review_rules()
+
+
+def _build_overland_park_permit_review_rules() -> list[dict[str, Any]]:
+    from shared.tools.overland_park_review_rules import expanded_overland_park_review_rules
+
+    return expanded_overland_park_review_rules()
 
 
 def _build_manhattan_rule_library(

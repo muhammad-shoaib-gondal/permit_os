@@ -142,8 +142,14 @@ function draftRule(project: Project, permit: ProjectPermit, group: BuiltinRuleGr
     enabled: actionable,
     permitType: permit.permitType,
     source: rule.source,
+    sourceLinks: rule.sourceLinks,
+    sourceIds: rule.sourceIds,
+    checkType: rule.checkType,
+    verifiedAt: rule.verifiedAt,
     builtinRuleId: rule.id,
     systemManaged: true,
+    execution: rule.execution,
+    implementation: rule.implementation,
   };
 }
 
@@ -254,7 +260,9 @@ export function PermitReviewRules({ project, permit }: PermitReviewRulesProps) {
   const normalizedSearch = search.trim().toLowerCase();
   const filteredRules = normalizedSearch
     ? rules.filter((rule) =>
-        `${rule.rule} ${rule.condition} ${rule.source ?? ""}`.toLowerCase().includes(normalizedSearch)
+        `${rule.rule} ${rule.condition} ${rule.source ?? ""} ${(rule.sourceLinks ?? [])
+          .map((source) => source.title)
+          .join(" ")}`.toLowerCase().includes(normalizedSearch)
       )
     : rules;
   const visibleRules = filteredRules.slice(0, visibleCount);
@@ -339,6 +347,65 @@ export function PermitReviewRules({ project, permit }: PermitReviewRulesProps) {
               value={rule.source ?? ""}
               onChange={(event) => updateRule(index, { ...rule, source: event.target.value })}
             />
+            {!!rule.sourceLinks?.length && (
+              <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface2)] px-3 py-2 text-sm md:col-span-2">
+                <p className="mb-1 text-xs font-medium uppercase tracking-wide text-[var(--color-muted)]">
+                  Official citations
+                </p>
+                <div className="flex flex-wrap gap-x-4 gap-y-1">
+                  {rule.sourceLinks.map((source) => (
+                    <a
+                      key={`${rule.id}-${source.id}`}
+                      href={source.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="cursor-pointer text-[var(--color-accent)] underline decoration-transparent underline-offset-2 hover:decoration-current"
+                    >
+                      {source.title}
+                    </a>
+                  ))}
+                </div>
+                {rule.verifiedAt && (
+                  <p className="mt-1 text-xs text-[var(--color-muted)]">Verified {rule.verifiedAt}</p>
+                )}
+              </div>
+            )}
+            {rule.execution && (
+              <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface2)] px-3 py-2 text-sm md:col-span-2">
+                <p className="text-xs font-medium uppercase tracking-wide text-[var(--color-muted)]">
+                  How EstatePermit runs this check
+                </p>
+                <p className="mt-1">{rule.execution.evaluator.split("_").join(" ")}</p>
+                <p className="mt-1 text-xs text-[var(--color-muted)]">
+                  Required inputs: {rule.execution.requiredInputs.join(", ").split("_").join(" ")}
+                </p>
+                {!!rule.execution.evidenceRequirements?.length && (
+                  <p className="mt-1 text-xs text-[var(--color-muted)]">
+                    Evidence gate: {rule.execution.evidenceRequirements.map((requirement) =>
+                      `${requirement.minimum} ${requirement.anyOf.join(" or ").split("_").join(" ")}`
+                    ).join("; ")}
+                  </p>
+                )}
+                {!!rule.execution.acceptedRegistryProviders?.length && (
+                  <p className="mt-1 text-xs text-[var(--color-muted)]">
+                    Accepted registries: {rule.execution.acceptedRegistryProviders
+                      .map((provider) => provider.split("_").join(" "))
+                      .join(", ")}
+                  </p>
+                )}
+                {rule.execution.passRequiresEvidence && (
+                  <p className="mt-1 text-xs text-[var(--color-muted)]">
+                    The check cannot pass without traceable evidence.
+                  </p>
+                )}
+                {rule.implementation && (
+                  <p className="mt-1 text-xs text-[var(--color-muted)]">
+                    Execution coverage: {rule.implementation.status === "complete" ? "Complete" : "Incomplete"}.
+                    Missing evidence is reported as Not verified.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         </div>
         );

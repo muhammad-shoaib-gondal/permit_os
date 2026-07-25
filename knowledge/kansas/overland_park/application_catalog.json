@@ -1,0 +1,1743 @@
+{
+    "jurisdiction_id":  "overland_park_ks",
+    "snapshot_date":  "2026-07-23",
+    "applications":  [
+                         {
+                             "id":  "accessory_structure",
+                             "name":  "Accessory Building or Shed Permit",
+                             "category":  "Building and Trade",
+                             "authority":  "Overland Park Community Development",
+                             "scope":  [
+                                           "new_construction",
+                                           "addition",
+                                           "alteration",
+                                           "structural_work"
+                                       ],
+                             "source_id":  "residential_construction",
+                             "documents":  [
+                                               "plot plan with setbacks and easements",
+                                               "construction drawings",
+                                               "foundation or anchorage details",
+                                               "materials and dimensions"
+                                           ],
+                             "trigger_any":  [
+                                                 "accessory_building_or_shed"
+                                             ]
+                         },
+                         {
+                             "id":  "boiler",
+                             "name":  "Boiler or Pressure Vessel Approval",
+                             "category":  "Building and Trade",
+                             "authority":  "Kansas State Fire Marshal",
+                             "scope":  [
+                                           "new_construction",
+                                           "addition",
+                                           "alteration",
+                                           "mechanical_hvac_work"
+                                       ],
+                             "source_id":  "ks_fire_marshal",
+                             "documents":  [
+                                               "equipment specifications",
+                                               "installation report",
+                                               "licensed installer",
+                                               "state inspection record"
+                                           ]
+                         },
+                         {
+                             "id":  "partial_shell",
+                             "name":  "Building Shell Partial Permit",
+                             "category":  "Building and Trade",
+                             "authority":  "Overland Park Building Official",
+                             "scope":  [
+                                           "new_construction",
+                                           "addition"
+                                       ],
+                             "source_id":  "fee_schedule",
+                             "documents":  [
+                                               "written partial-permit request",
+                                               "sealed shell-phase plans",
+                                               "acknowledgment of work-at-risk"
+                                           ]
+                         },
+                         {
+                             "id":  "commercial_building",
+                             "name":  "Commercial Building Permit",
+                             "category":  "Building and Trade",
+                             "authority":  "Overland Park Community Development",
+                             "scope":  [
+                                           "new_construction",
+                                           "addition",
+                                           "alteration",
+                                           "repair",
+                                           "structural_work",
+                                           "change_use_occupancy"
+                                       ],
+                             "source_id":  "commercial_construction",
+                             "documents":  [
+                                               "permit application",
+                                               "Kansas-sealed construction plans",
+                                               "project specifications when applicable",
+                                               "approved final development plan",
+                                               "Johnson County contractor licenses",
+                                               "applicable City operational license",
+                                               "sewer or septic approval when applicable"
+                                           ]
+                         },
+                         {
+                             "id":  "certificate_occupancy",
+                             "name":  "Commercial Certificate of Occupancy",
+                             "category":  "Building and Trade",
+                             "authority":  "Overland Park Community Development / Fire",
+                             "scope":  [
+                                           "new_construction",
+                                           "addition",
+                                           "change_use_occupancy",
+                                           "alteration"
+                                       ],
+                             "source_id":  "occupancy",
+                             "documents":  [
+                                               "certificate of occupancy application",
+                                               "approved permit plans",
+                                               "all required final inspections",
+                                               "fire final acceptance",
+                                               "planning and engineering closeout approvals"
+                                           ]
+                         },
+                         {
+                             "id":  "commercial_tco",
+                             "name":  "Commercial Temporary Certificate of Occupancy",
+                             "category":  "Building and Trade",
+                             "authority":  "Overland Park Community Development / Fire",
+                             "scope":  [
+                                           "new_construction",
+                                           "addition",
+                                           "alteration",
+                                           "change_use_occupancy"
+                                       ],
+                             "source_id":  "commercial_tco",
+                             "documents":  [
+                                               "building or fire final inspection ticket authorizing TCO consideration",
+                                               "complete deficiency list",
+                                               "requested completion period",
+                                               "signed approved temporary certificate"
+                                           ],
+                             "trigger_any":  [
+                                                 "commercial_occupancy_before_final"
+                                             ]
+                         },
+                         {
+                             "id":  "commercial_tco_extension",
+                             "name":  "Commercial Temporary Certificate of Occupancy Extension",
+                             "category":  "Building and Trade",
+                             "authority":  "Overland Park Community Development / Fire",
+                             "scope":  [
+                                           "new_construction",
+                                           "addition",
+                                           "alteration",
+                                           "change_use_occupancy"
+                                       ],
+                             "source_id":  "commercial_tco_extension",
+                             "documents":  [
+                                               "current temporary certificate",
+                                               "latest inspection deficiency list",
+                                               "extension duration and justification",
+                                               "signed approved extension"
+                                           ],
+                             "trigger_any":  [
+                                                 "commercial_tco_will_expire_before_completion"
+                                             ]
+                         },
+                         {
+                             "id":  "tenant_finish",
+                             "name":  "Commercial Tenant Finish Permit",
+                             "category":  "Building and Trade",
+                             "authority":  "Overland Park Community Development",
+                             "scope":  [
+                                           "alteration",
+                                           "repair",
+                                           "change_use_occupancy",
+                                           "structural_work"
+                                       ],
+                             "source_id":  "commercial_construction",
+                             "documents":  [
+                                               "permit application",
+                                               "Kansas-sealed tenant-finish plans",
+                                               "code analysis",
+                                               "contractor licenses",
+                                               "certificate of occupancy application when triggered"
+                                           ]
+                         },
+                         {
+                             "id":  "deck",
+                             "name":  "Deck Permit",
+                             "category":  "Building and Trade",
+                             "authority":  "Overland Park Community Development",
+                             "scope":  [
+                                           "addition",
+                                           "alteration",
+                                           "structural_work"
+                                       ],
+                             "source_id":  "residential_construction",
+                             "documents":  [
+                                               "construction drawings",
+                                               "plot plan",
+                                               "materials and footing details"
+                                           ]
+                         },
+                         {
+                             "id":  "electrical",
+                             "name":  "Electrical Permit",
+                             "category":  "Building and Trade",
+                             "authority":  "Overland Park Community Development",
+                             "scope":  [
+                                           "electrical_work",
+                                           "solar_battery_generator_ev",
+                                           "new_construction",
+                                           "addition",
+                                           "alteration"
+                                       ],
+                             "source_id":  "building_codes",
+                             "documents":  [
+                                               "electrical scope and plans",
+                                               "load calculations when applicable",
+                                               "Johnson County electrical contractor license"
+                                           ]
+                         },
+                         {
+                             "id":  "elevator",
+                             "name":  "Elevator Installation or Alteration Permit",
+                             "category":  "Building and Trade",
+                             "authority":  "Kansas State Fire Marshal / Overland Park",
+                             "scope":  [
+                                           "new_construction",
+                                           "addition",
+                                           "alteration"
+                                       ],
+                             "source_id":  "ks_fire_marshal",
+                             "documents":  [
+                                               "elevator plans",
+                                               "state application",
+                                               "licensed elevator contractor",
+                                               "inspection acceptance"
+                                           ]
+                         },
+                         {
+                             "id":  "fence",
+                             "name":  "Fence Permit",
+                             "category":  "Building and Trade",
+                             "authority":  "Overland Park Community Development",
+                             "scope":  [
+                                           "addition",
+                                           "alteration"
+                                       ],
+                             "source_id":  "residential_construction",
+                             "documents":  [
+                                               "plot plan",
+                                               "fence height and material",
+                                               "easement and setback locations"
+                                           ]
+                         },
+                         {
+                             "id":  "generator_battery_ev",
+                             "name":  "Generator, Battery, or EV Charger Permit",
+                             "category":  "Building and Trade",
+                             "authority":  "Overland Park Community Development",
+                             "scope":  [
+                                           "solar_battery_generator_ev",
+                                           "electrical_work",
+                                           "mechanical_hvac_work"
+                                       ],
+                             "source_id":  "building_codes",
+                             "documents":  [
+                                               "equipment plan",
+                                               "electrical one-line",
+                                               "clearances and listing data",
+                                               "contractor licenses"
+                                           ]
+                         },
+                         {
+                             "id":  "mechanical",
+                             "name":  "Mechanical Permit",
+                             "category":  "Building and Trade",
+                             "authority":  "Overland Park Community Development",
+                             "scope":  [
+                                           "mechanical_hvac_work",
+                                           "new_construction",
+                                           "addition",
+                                           "alteration"
+                                       ],
+                             "source_id":  "building_codes",
+                             "documents":  [
+                                               "mechanical plans",
+                                               "equipment schedules and calculations",
+                                               "Johnson County mechanical contractor license"
+                                           ]
+                         },
+                         {
+                             "id":  "sign_permanent",
+                             "name":  "Permanent Sign Permit",
+                             "category":  "Building and Trade",
+                             "authority":  "Overland Park Planning Division",
+                             "scope":  [
+                                           "signs"
+                                       ],
+                             "source_id":  "signs",
+                             "documents":  [
+                                               "sign design plans and specifications",
+                                               "dimensions and area",
+                                               "site or facade location",
+                                               "structural and electrical details",
+                                               "approved sign scheme when applicable"
+                                           ]
+                         },
+                         {
+                             "id":  "plumbing",
+                             "name":  "Plumbing Permit",
+                             "category":  "Building and Trade",
+                             "authority":  "Overland Park Community Development",
+                             "scope":  [
+                                           "plumbing_work",
+                                           "water_sewer_connections",
+                                           "new_construction",
+                                           "addition",
+                                           "alteration"
+                                       ],
+                             "source_id":  "building_codes",
+                             "documents":  [
+                                               "plumbing plans",
+                                               "fixture and service information",
+                                               "Johnson County plumbing contractor license"
+                                           ]
+                         },
+                         {
+                             "id":  "pool_spa",
+                             "name":  "Pool, Hot Tub, or Spa Building Permit",
+                             "category":  "Building and Trade",
+                             "authority":  "Overland Park Community Development",
+                             "scope":  [
+                                           "new_construction",
+                                           "addition",
+                                           "electrical_work",
+                                           "plumbing_work"
+                                       ],
+                             "source_id":  "residential_construction",
+                             "documents":  [
+                                               "plot plan",
+                                               "pool plans or manufacturer data",
+                                               "barrier plan",
+                                               "equipment specifications",
+                                               "energy worksheet when heated",
+                                               "performance bond"
+                                           ]
+                         },
+                         {
+                             "id":  "roofing",
+                             "name":  "Re-Roofing Permit",
+                             "category":  "Building and Trade",
+                             "authority":  "Overland Park Community Development",
+                             "scope":  [
+                                           "repair",
+                                           "alteration"
+                                       ],
+                             "source_id":  "fee_schedule",
+                             "documents":  [
+                                               "roofing scope",
+                                               "material specifications",
+                                               "contractor license"
+                                           ]
+                         },
+                         {
+                             "id":  "residential_building",
+                             "name":  "Residential Building Permit",
+                             "category":  "Building and Trade",
+                             "authority":  "Overland Park Community Development",
+                             "scope":  [
+                                           "new_construction",
+                                           "addition",
+                                           "alteration",
+                                           "repair",
+                                           "structural_work"
+                                       ],
+                             "source_id":  "residential_construction",
+                             "documents":  [
+                                               "permit application",
+                                               "construction drawings",
+                                               "Kansas-sealed legal plot plan when site or footprint changes",
+                                               "Johnson County contractor license",
+                                               "applicable City operational license"
+                                           ]
+                         },
+                         {
+                             "id":  "residential_tco",
+                             "name":  "Residential Temporary Certificate of Occupancy",
+                             "category":  "Building and Trade",
+                             "authority":  "Overland Park Community Development",
+                             "scope":  [
+                                           "new_construction",
+                                           "addition",
+                                           "alteration"
+                                       ],
+                             "source_id":  "residential_tco",
+                             "documents":  [
+                                               "final inspection ticket authorizing TCO consideration",
+                                               "complete deficiency list",
+                                               "requested completion period",
+                                               "signed approved temporary certificate"
+                                           ],
+                             "trigger_any":  [
+                                                 "single_family_occupancy_before_final"
+                                             ]
+                         },
+                         {
+                             "id":  "residential_tco_extension",
+                             "name":  "Residential Temporary Certificate of Occupancy Extension",
+                             "category":  "Building and Trade",
+                             "authority":  "Overland Park Community Development",
+                             "scope":  [
+                                           "new_construction",
+                                           "addition",
+                                           "alteration"
+                                       ],
+                             "source_id":  "residential_tco_extension",
+                             "documents":  [
+                                               "current temporary certificate",
+                                               "latest inspection deficiency list",
+                                               "extension duration and justification",
+                                               "signed approved extension"
+                                           ],
+                             "trigger_any":  [
+                                                 "residential_tco_will_expire_before_completion"
+                                             ]
+                         },
+                         {
+                             "id":  "retaining_wall",
+                             "name":  "Retaining Wall Permit",
+                             "category":  "Building and Trade",
+                             "authority":  "Overland Park Community Development",
+                             "scope":  [
+                                           "new_construction",
+                                           "addition",
+                                           "grading_land_disturbance",
+                                           "structural_work"
+                                       ],
+                             "source_id":  "residential_construction",
+                             "documents":  [
+                                               "site and grading plan",
+                                               "wall plans and sections",
+                                               "Kansas engineer design and seal when required",
+                                               "guard and drainage details"
+                                           ],
+                             "trigger_any":  [
+                                                 "retaining_wall_proposed"
+                                             ]
+                         },
+                         {
+                             "id":  "solar",
+                             "name":  "Solar Panel Permit",
+                             "category":  "Building and Trade",
+                             "authority":  "Overland Park Community Development",
+                             "scope":  [
+                                           "solar_battery_generator_ev"
+                                       ],
+                             "source_id":  "fee_schedule",
+                             "documents":  [
+                                               "solar plans",
+                                               "structural attachment details",
+                                               "electrical one-line and equipment listings",
+                                               "contractor licenses"
+                                           ]
+                         },
+                         {
+                             "id":  "demolition",
+                             "name":  "Structure Demolition Permit",
+                             "category":  "Building and Trade",
+                             "authority":  "Overland Park Community Development",
+                             "scope":  [
+                                           "demolition"
+                                       ],
+                             "source_id":  "design_construction",
+                             "documents":  [
+                                               "demolition application",
+                                               "utility disconnect confirmations",
+                                               "asbestos survey or notification",
+                                               "site restoration and erosion plan",
+                                               "contractor licenses"
+                                           ]
+                         },
+                         {
+                             "id":  "sign_temporary",
+                             "name":  "Temporary Sign Permit",
+                             "category":  "Building and Trade",
+                             "authority":  "Overland Park Planning Division",
+                             "scope":  [
+                                           "signs"
+                                       ],
+                             "source_id":  "signs",
+                             "documents":  [
+                                               "sign design and dimensions",
+                                               "location",
+                                               "display dates",
+                                               "property authorization"
+                                           ]
+                         },
+                         {
+                             "id":  "block_party",
+                             "name":  "Block Party Permit",
+                             "category":  "Business and Operational",
+                             "authority":  "City of Overland Park",
+                             "scope":  [
+                                           "new_construction",
+                                           "addition",
+                                           "alteration",
+                                           "repair",
+                                           "change_use_occupancy",
+                                           "signs"
+                                       ],
+                             "source_id":  "special_events",
+                             "documents":  [
+                                               "block party application",
+                                               "closure and barricade plan",
+                                               "resident notification",
+                                               "emergency access plan"
+                                           ],
+                             "trigger_any":  [
+                                                 "block_party"
+                                             ]
+                         },
+                         {
+                             "id":  "cereal_malt_beverage",
+                             "name":  "Cereal Malt Beverage License",
+                             "category":  "Business and Operational",
+                             "authority":  "City of Overland Park / Kansas ABC",
+                             "scope":  [
+                                           "new_construction",
+                                           "alteration",
+                                           "change_use_occupancy"
+                                       ],
+                             "source_id":  "business_license",
+                             "documents":  [
+                                               "CMB license application",
+                                               "business and ownership information",
+                                               "state qualifications",
+                                               "City Council approval"
+                                           ],
+                             "trigger_any":  [
+                                                 "cereal_malt_beverage_sales"
+                                             ]
+                         },
+                         {
+                             "id":  "common_consumption_area",
+                             "name":  "Common Consumption Area Permit",
+                             "category":  "Business and Operational",
+                             "authority":  "City of Overland Park",
+                             "scope":  [
+                                           "new_construction",
+                                           "addition",
+                                           "alteration",
+                                           "repair",
+                                           "change_use_occupancy",
+                                           "signs"
+                                       ],
+                             "source_id":  "business_license",
+                             "documents":  [
+                                               "common consumption area application",
+                                               "boundary and event plan",
+                                               "participating licensee list",
+                                               "state and local alcohol approvals"
+                                           ],
+                             "trigger_any":  [
+                                                 "alcohol_common_consumption_area"
+                                             ]
+                         },
+                         {
+                             "id":  "community_event",
+                             "name":  "Community Event Permit",
+                             "category":  "Business and Operational",
+                             "authority":  "City of Overland Park",
+                             "scope":  [
+                                           "new_construction",
+                                           "addition",
+                                           "alteration",
+                                           "repair",
+                                           "change_use_occupancy",
+                                           "signs"
+                                       ],
+                             "source_id":  "special_events",
+                             "documents":  [
+                                               "community event application",
+                                               "site and operations plan",
+                                               "traffic parking and closure plan",
+                                               "insurance",
+                                               "fire and health approvals when applicable"
+                                           ],
+                             "trigger_any":  [
+                                                 "community_event"
+                                             ]
+                         },
+                         {
+                             "id":  "drinking_establishment",
+                             "name":  "Drinking Establishment License",
+                             "category":  "Business and Operational",
+                             "authority":  "City of Overland Park / Kansas ABC",
+                             "scope":  [
+                                           "new_construction",
+                                           "alteration",
+                                           "change_use_occupancy"
+                                       ],
+                             "source_id":  "business_license",
+                             "documents":  [
+                                               "approved Kansas drinking establishment license",
+                                               "Overland Park general business license application",
+                                               "certificate of occupancy",
+                                               "city license fee"
+                                           ],
+                             "trigger_any":  [
+                                                 "alcohol_sold_by_the_drink"
+                                             ]
+                         },
+                         {
+                             "id":  "fire_watch",
+                             "name":  "Fire Watch Plan Approval",
+                             "category":  "Business and Operational",
+                             "authority":  "Overland Park Fire Department",
+                             "scope":  [
+                                           "alteration",
+                                           "repair",
+                                           "change_use_occupancy",
+                                           "fire_alarm_sprinkler_work"
+                                       ],
+                             "source_id":  "fire_watch",
+                             "documents":  [
+                                               "impairment details and duration",
+                                               "fire watch plan and patrol log",
+                                               "qualified personnel contacts",
+                                               "fire department notifications and restoration record"
+                                           ],
+                             "trigger_any":  [
+                                                 "required_fire_system_impaired"
+                                             ]
+                         },
+                         {
+                             "id":  "home_daycare_general",
+                             "name":  "General Home Daycare License and Special Use Permit",
+                             "category":  "Business and Operational",
+                             "authority":  "City of Overland Park / KDHE",
+                             "scope":  [
+                                           "alteration",
+                                           "change_use_occupancy"
+                                       ],
+                             "source_id":  "business_license",
+                             "documents":  [
+                                               "general home daycare application",
+                                               "Kansas daycare license or registration",
+                                               "fire inspection acceptance",
+                                               "public notice evidence",
+                                               "Planning Commission recommendation and City Council approval",
+                                               "special use permit"
+                                           ],
+                             "trigger_any":  [
+                                                 "home_daycare_seven_to_twelve_children"
+                                             ]
+                         },
+                         {
+                             "id":  "home_occupation",
+                             "name":  "Home Occupation License",
+                             "category":  "Business and Operational",
+                             "authority":  "City of Overland Park",
+                             "scope":  [
+                                           "change_use_occupancy",
+                                           "alteration"
+                                       ],
+                             "source_id":  "business_license",
+                             "documents":  [
+                                               "home occupation application",
+                                               "business activity description",
+                                               "residence and operator information",
+                                               "zoning compliance acknowledgment"
+                                           ],
+                             "trigger_any":  [
+                                                 "home_based_business"
+                                             ]
+                         },
+                         {
+                             "id":  "tier_ii",
+                             "name":  "Kansas Tier II Hazardous Chemical Filing",
+                             "category":  "Business and Operational",
+                             "authority":  "Kansas / Overland Park Fire Department",
+                             "scope":  [
+                                           "new_construction",
+                                           "alteration",
+                                           "change_use_occupancy"
+                                       ],
+                             "source_id":  "tier_ii",
+                             "documents":  [
+                                               "chemical inventory and threshold calculation",
+                                               "SDS records",
+                                               "facility and emergency contacts",
+                                               "Tier II submission confirmation"
+                                           ],
+                             "trigger_any":  [
+                                                 "epcra_tier_ii_threshold_met"
+                                             ]
+                         },
+                         {
+                             "id":  "home_daycare_limited",
+                             "name":  "Limited Home Daycare License",
+                             "category":  "Business and Operational",
+                             "authority":  "City of Overland Park / KDHE",
+                             "scope":  [
+                                           "alteration",
+                                           "change_use_occupancy"
+                                       ],
+                             "source_id":  "business_license",
+                             "documents":  [
+                                               "limited home daycare application",
+                                               "Kansas daycare license or registration",
+                                               "fire inspection acceptance",
+                                               "child count and operation information"
+                                           ],
+                             "trigger_any":  [
+                                                 "home_daycare_six_or_fewer_children"
+                                             ]
+                         },
+                         {
+                             "id":  "massage_establishment",
+                             "name":  "Massage Establishment License",
+                             "category":  "Business and Operational",
+                             "authority":  "City of Overland Park",
+                             "scope":  [
+                                           "new_construction",
+                                           "alteration",
+                                           "change_use_occupancy"
+                                       ],
+                             "source_id":  "business_license",
+                             "documents":  [
+                                               "notarized establishment application",
+                                               "zoning confirmation",
+                                               "signed lease identifying massage use",
+                                               "property owner authorization",
+                                               "Kansas certificate of good standing",
+                                               "certificate of occupancy",
+                                               "licensed therapist and on-site manager records"
+                                           ],
+                             "trigger_any":  [
+                                                 "massage_establishment_operation"
+                                             ]
+                         },
+                         {
+                             "id":  "massage_therapist",
+                             "name":  "Massage Therapist License",
+                             "category":  "Business and Operational",
+                             "authority":  "City of Overland Park",
+                             "scope":  [
+                                           "change_use_occupancy"
+                                       ],
+                             "source_id":  "business_license",
+                             "documents":  [
+                                               "notarized therapist application",
+                                               "certified 500-hour transcript",
+                                               "current hands-on first aid and CPR cards",
+                                               "government photo identification",
+                                               "continuing education for renewal"
+                                           ],
+                             "trigger_any":  [
+                                                 "massage_therapy_services"
+                                             ]
+                         },
+                         {
+                             "id":  "food_truck_fire",
+                             "name":  "Mobile Food Vendor Fire Safety Approval",
+                             "category":  "Business and Operational",
+                             "authority":  "Overland Park Fire Department",
+                             "scope":  [
+                                           "change_use_occupancy",
+                                           "mechanical_hvac_work",
+                                           "fire_alarm_sprinkler_work"
+                                       ],
+                             "source_id":  "food_truck_fire",
+                             "documents":  [
+                                               "mobile unit information",
+                                               "fuel electrical hood and suppression details",
+                                               "fire inspection acceptance",
+                                               "food licensing records"
+                                           ],
+                             "trigger_any":  [
+                                                 "mobile_food_vendor_operation"
+                                             ]
+                         },
+                         {
+                             "id":  "pawnbroker",
+                             "name":  "Pawnbroker or Precious Metals Dealer License",
+                             "category":  "Business and Operational",
+                             "authority":  "City of Overland Park",
+                             "scope":  [
+                                           "new_construction",
+                                           "alteration",
+                                           "change_use_occupancy"
+                                       ],
+                             "source_id":  "business_license",
+                             "documents":  [
+                                               "license application",
+                                               "zoning confirmation",
+                                               "identity and qualification evidence",
+                                               "criminal history and inventory information required by Chapter 2-7",
+                                               "certificate of occupancy"
+                                           ],
+                             "trigger_any":  [
+                                                 "pawnbroker_or_precious_metals_operation"
+                                             ]
+                         },
+                         {
+                             "id":  "precious_metal_dealer",
+                             "name":  "Precious Metal Dealer License",
+                             "category":  "Business and Operational",
+                             "authority":  "City of Overland Park",
+                             "scope":  [
+                                           "new_construction",
+                                           "addition",
+                                           "alteration",
+                                           "repair",
+                                           "change_use_occupancy",
+                                           "signs"
+                                       ],
+                             "source_id":  "business_license",
+                             "documents":  [
+                                               "precious metal dealer application",
+                                               "owner and manager identification",
+                                               "required background records",
+                                               "zoning and occupancy approval"
+                                           ],
+                             "trigger_any":  [
+                                                 "precious_metal_dealing"
+                                             ]
+                         },
+                         {
+                             "id":  "private_event",
+                             "name":  "Private Event Permit",
+                             "category":  "Business and Operational",
+                             "authority":  "City of Overland Park",
+                             "scope":  [
+                                           "new_construction",
+                                           "addition",
+                                           "alteration",
+                                           "repair",
+                                           "change_use_occupancy",
+                                           "signs"
+                                       ],
+                             "source_id":  "special_events",
+                             "documents":  [
+                                               "private event application",
+                                               "site plan",
+                                               "property-owner authorization",
+                                               "safety and sanitation plan"
+                                           ],
+                             "trigger_any":  [
+                                                 "private_event"
+                                             ]
+                         },
+                         {
+                             "id":  "private_hydrant_testing",
+                             "name":  "Private Fire Hydrant Testing and Report",
+                             "category":  "Business and Operational",
+                             "authority":  "Overland Park Fire Department",
+                             "scope":  [
+                                           "new_construction",
+                                           "repair",
+                                           "fire_alarm_sprinkler_work",
+                                           "water_sewer_connections"
+                                       ],
+                             "source_id":  "private_hydrants",
+                             "documents":  [
+                                               "private hydrant inventory",
+                                               "annual inspection and flow test report",
+                                               "deficiency correction records",
+                                               "IROL submission confirmation"
+                                           ],
+                             "trigger_any":  [
+                                                 "private_fire_hydrant_on_property"
+                                             ]
+                         },
+                         {
+                             "id":  "promotional_event",
+                             "name":  "Promotional Event Permit",
+                             "category":  "Business and Operational",
+                             "authority":  "City of Overland Park",
+                             "scope":  [
+                                           "new_construction",
+                                           "addition",
+                                           "alteration",
+                                           "repair",
+                                           "change_use_occupancy",
+                                           "signs"
+                                       ],
+                             "source_id":  "special_events",
+                             "documents":  [
+                                               "promotional event application",
+                                               "site and display plan",
+                                               "property-owner authorization",
+                                               "temporary structure and sign details"
+                                           ],
+                             "trigger_any":  [
+                                                 "promotional_event"
+                                             ]
+                         },
+                         {
+                             "id":  "alarm_registration",
+                             "name":  "Residential or Commercial Alarm Registration",
+                             "category":  "Business and Operational",
+                             "authority":  "Overland Park Police Department",
+                             "scope":  [
+                                           "new_construction",
+                                           "alteration",
+                                           "change_use_occupancy",
+                                           "fire_alarm_sprinkler_work"
+                                       ],
+                             "source_id":  "alarm_registration",
+                             "documents":  [
+                                               "alarm registration",
+                                               "property and responsible-party contacts",
+                                               "alarm company and system information"
+                                           ],
+                             "trigger_any":  [
+                                                 "monitored_or_emergency_alarm_installed"
+                                             ]
+                         },
+                         {
+                             "id":  "rental_property",
+                             "name":  "Residential Rental Property License",
+                             "category":  "Business and Operational",
+                             "authority":  "City of Overland Park",
+                             "scope":  [
+                                           "new_construction",
+                                           "alteration",
+                                           "change_use_occupancy"
+                                       ],
+                             "source_id":  "rental_license",
+                             "documents":  [
+                                               "rental license application",
+                                               "owner and local-agent information",
+                                               "dwelling and tenancy information",
+                                               "inspection or compliance records"
+                                           ],
+                             "trigger_any":  [
+                                                 "residential_property_will_be_rented"
+                                             ]
+                         },
+                         {
+                             "id":  "retail_liquor",
+                             "name":  "Retail Liquor License",
+                             "category":  "Business and Operational",
+                             "authority":  "City of Overland Park / Kansas ABC",
+                             "scope":  [
+                                           "new_construction",
+                                           "alteration",
+                                           "change_use_occupancy"
+                                       ],
+                             "source_id":  "business_license",
+                             "documents":  [
+                                               "approved Kansas retail liquor license",
+                                               "Overland Park general business license application",
+                                               "certificate of occupancy",
+                                               "city license fee"
+                                           ],
+                             "trigger_any":  [
+                                                 "retail_liquor_store"
+                                             ]
+                         },
+                         {
+                             "id":  "taxi_limo",
+                             "name":  "Taxi Cab or Car/Limousine Service License",
+                             "category":  "Business and Operational",
+                             "authority":  "City of Overland Park",
+                             "scope":  [
+                                           "new_construction",
+                                           "addition",
+                                           "alteration",
+                                           "repair",
+                                           "change_use_occupancy",
+                                           "signs"
+                                       ],
+                             "source_id":  "business_license",
+                             "documents":  [
+                                               "vehicle service license application",
+                                               "vehicle and driver records",
+                                               "insurance",
+                                               "inspection records"
+                                           ],
+                             "trigger_any":  [
+                                                 "for_hire_passenger_service"
+                                             ]
+                         },
+                         {
+                             "id":  "temporary_event_signage",
+                             "name":  "Temporary Event Signage Permit",
+                             "category":  "Business and Operational",
+                             "authority":  "City of Overland Park",
+                             "scope":  [
+                                           "signs",
+                                           "change_use_occupancy"
+                                       ],
+                             "source_id":  "special_events",
+                             "documents":  [
+                                               "temporary event signage application",
+                                               "sign schedule with dimensions",
+                                               "location plan",
+                                               "event permit reference"
+                                           ],
+                             "trigger_any":  [
+                                                 "temporary_event_signage"
+                                             ]
+                         },
+                         {
+                             "id":  "temporary_liquor",
+                             "name":  "Temporary Liquor License",
+                             "category":  "Business and Operational",
+                             "authority":  "City of Overland Park and Kansas ABC",
+                             "scope":  [
+                                           "new_construction",
+                                           "addition",
+                                           "alteration",
+                                           "repair",
+                                           "change_use_occupancy",
+                                           "signs"
+                                       ],
+                             "source_id":  "business_license",
+                             "documents":  [
+                                               "temporary liquor application",
+                                               "event plan",
+                                               "Kansas ABC approval",
+                                               "responsible manager and service controls"
+                                           ],
+                             "trigger_any":  [
+                                                 "temporary_alcohol_service"
+                                             ]
+                         },
+                         {
+                             "id":  "transient_merchant",
+                             "name":  "Transient Merchant License",
+                             "category":  "Business and Operational",
+                             "authority":  "City of Overland Park",
+                             "scope":  [
+                                           "new_construction",
+                                           "addition",
+                                           "alteration",
+                                           "repair",
+                                           "change_use_occupancy",
+                                           "signs"
+                                       ],
+                             "source_id":  "business_license",
+                             "documents":  [
+                                               "transient merchant application",
+                                               "operator identification",
+                                               "property-owner authorization",
+                                               "required bond or insurance"
+                                           ],
+                             "trigger_any":  [
+                                                 "temporary_sales_operation"
+                                             ]
+                         },
+                         {
+                             "id":  "floodplain",
+                             "name":  "Floodplain Development Permit",
+                             "category":  "Engineering and Public Works",
+                             "authority":  "Overland Park Floodplain Administrator",
+                             "scope":  [
+                                           "new_construction",
+                                           "addition",
+                                           "grading_land_disturbance",
+                                           "water_sewer_connections"
+                                       ],
+                             "source_id":  "engineering",
+                             "documents":  [
+                                               "floodplain application",
+                                               "FEMA map and elevation evidence",
+                                               "site and grading plan",
+                                               "no-rise or engineering analysis when triggered",
+                                               "elevation certificate"
+                                           ]
+                         },
+                         {
+                             "id":  "construction_stormwater",
+                             "name":  "Kansas Construction Stormwater Authorization",
+                             "category":  "Engineering and Public Works",
+                             "authority":  "KDHE",
+                             "scope":  [
+                                           "new_construction",
+                                           "grading_land_disturbance",
+                                           "demolition"
+                                       ],
+                             "source_id":  "kdhe_stormwater",
+                             "documents":  [
+                                               "acreage and common-plan calculation",
+                                               "notice of intent",
+                                               "SWP2",
+                                               "KDHE authorization"
+                                           ],
+                             "trigger_any":  [
+                                                 "disturbance_one_acre"
+                                             ]
+                         },
+                         {
+                             "id":  "land_disturbance",
+                             "name":  "Land Disturbance Permit",
+                             "category":  "Engineering and Public Works",
+                             "authority":  "Overland Park Engineering",
+                             "scope":  [
+                                           "grading_land_disturbance",
+                                           "new_construction",
+                                           "demolition"
+                                       ],
+                             "source_id":  "engineering",
+                             "documents":  [
+                                               "grading plan",
+                                               "erosion and sediment control plan",
+                                               "stormwater pollution prevention plan when triggered",
+                                               "contractor license",
+                                               "insurance and bond"
+                                           ]
+                         },
+                         {
+                             "id":  "public_improvement",
+                             "name":  "Public Improvement Permit",
+                             "category":  "Engineering and Public Works",
+                             "authority":  "Overland Park Engineering",
+                             "scope":  [
+                                           "new_construction",
+                                           "grading_land_disturbance",
+                                           "driveway_sidewalk_row",
+                                           "water_sewer_connections"
+                                       ],
+                             "source_id":  "engineering",
+                             "documents":  [
+                                               "public infrastructure construction plans",
+                                               "approved specifications",
+                                               "traffic control",
+                                               "performance and maintenance bonds",
+                                               "contractor insurance"
+                                           ]
+                         },
+                         {
+                             "id":  "right_of_way",
+                             "name":  "Right-of-Way Permit",
+                             "category":  "Engineering and Public Works",
+                             "authority":  "Overland Park Engineering / Right-of-Way",
+                             "scope":  [
+                                           "driveway_sidewalk_row",
+                                           "water_sewer_connections",
+                                           "grading_land_disturbance"
+                                       ],
+                             "source_id":  "engineering",
+                             "documents":  [
+                                               "work limits and dates",
+                                               "traffic and pedestrian control plan",
+                                               "restoration plan",
+                                               "utility locates",
+                                               "contractor license insurance and bond"
+                                           ]
+                         },
+                         {
+                             "id":  "site_development",
+                             "name":  "Site Development Permit",
+                             "category":  "Engineering and Public Works",
+                             "authority":  "Overland Park Engineering",
+                             "scope":  [
+                                           "new_construction",
+                                           "addition",
+                                           "grading_land_disturbance",
+                                           "driveway_sidewalk_row"
+                                       ],
+                             "source_id":  "engineering",
+                             "documents":  [
+                                               "approved final plan",
+                                               "civil construction plans",
+                                               "stormwater report",
+                                               "erosion controls",
+                                               "landscape and lighting plans",
+                                               "contractor insurance and bond"
+                                           ]
+                         },
+                         {
+                             "id":  "blasting",
+                             "name":  "Blasting Permit",
+                             "category":  "Fire Prevention",
+                             "authority":  "Overland Park Fire Prevention",
+                             "scope":  [
+                                           "grading_land_disturbance",
+                                           "demolition"
+                                       ],
+                             "source_id":  "blasting",
+                             "documents":  [
+                                               "blasting checklist",
+                                               "Kansas blaster credentials",
+                                               "blast and security plan",
+                                               "preblast survey",
+                                               "insurance and notifications"
+                                           ],
+                             "trigger_any":  [
+                                                 "blasting_required"
+                                             ]
+                         },
+                         {
+                             "id":  "commercial_hood",
+                             "name":  "Commercial Hood Suppression Permit and Acceptance",
+                             "category":  "Fire Prevention",
+                             "authority":  "Overland Park Fire Prevention",
+                             "scope":  [
+                                           "fire_alarm_sprinkler_work",
+                                           "mechanical_hvac_work",
+                                           "alteration"
+                                       ],
+                             "source_id":  "fire",
+                             "documents":  [
+                                               "hood suppression plans",
+                                               "equipment and nozzle schedule",
+                                               "manufacturer specifications",
+                                               "contractor license"
+                                           ]
+                         },
+                         {
+                             "id":  "fire_alarm",
+                             "name":  "Fire Alarm System Permit and Acceptance",
+                             "category":  "Fire Prevention",
+                             "authority":  "Overland Park Fire Prevention",
+                             "scope":  [
+                                           "fire_alarm_sprinkler_work",
+                                           "new_construction",
+                                           "addition",
+                                           "alteration"
+                                       ],
+                             "source_id":  "fire",
+                             "documents":  [
+                                               "fire alarm plans",
+                                               "device schedule",
+                                               "battery and voltage-drop calculations",
+                                               "sequence of operations",
+                                               "contractor license"
+                                           ]
+                         },
+                         {
+                             "id":  "fire_sprinkler",
+                             "name":  "Fire Sprinkler System Permit and Acceptance",
+                             "category":  "Fire Prevention",
+                             "authority":  "Overland Park Fire Prevention",
+                             "scope":  [
+                                           "fire_alarm_sprinkler_work",
+                                           "new_construction",
+                                           "addition",
+                                           "alteration"
+                                       ],
+                             "source_id":  "fire",
+                             "documents":  [
+                                               "sprinkler plans",
+                                               "hydraulic calculations",
+                                               "water supply data",
+                                               "material specifications",
+                                               "contractor license"
+                                           ]
+                         },
+                         {
+                             "id":  "hazmat",
+                             "name":  "Hazardous Materials Operational Permit",
+                             "category":  "Fire Prevention",
+                             "authority":  "Overland Park Fire Prevention",
+                             "scope":  [
+                                           "new_construction",
+                                           "alteration",
+                                           "change_use_occupancy"
+                                       ],
+                             "source_id":  "fire",
+                             "documents":  [
+                                               "hazardous materials inventory statement",
+                                               "management plan",
+                                               "SDS records",
+                                               "control-area and emergency-system plans"
+                                           ],
+                             "trigger_any":  [
+                                                 "hazardous_materials"
+                                             ]
+                         },
+                         {
+                             "id":  "open_burn",
+                             "name":  "Open Burning Permit",
+                             "category":  "Fire Prevention",
+                             "authority":  "Overland Park Fire Prevention",
+                             "scope":  [
+                                           "grading_land_disturbance",
+                                           "demolition"
+                                       ],
+                             "source_id":  "fire",
+                             "documents":  [
+                                               "burn permit request",
+                                               "site and material description",
+                                               "proposed date and controls"
+                                           ],
+                             "trigger_any":  [
+                                                 "open_burning"
+                                             ]
+                         },
+                         {
+                             "id":  "fireworks",
+                             "name":  "Public Fireworks Display Permit",
+                             "category":  "Fire Prevention",
+                             "authority":  "Overland Park Fire Prevention",
+                             "scope":  [
+                                           "change_use_occupancy"
+                                       ],
+                             "source_id":  "fire",
+                             "documents":  [
+                                               "display application",
+                                               "licensed operator",
+                                               "site safety diagram",
+                                               "fireworks inventory and storage plan",
+                                               "required insurance"
+                                           ],
+                             "trigger_any":  [
+                                                 "public_fireworks"
+                                             ]
+                         },
+                         {
+                             "id":  "fire_underground",
+                             "name":  "Underground Fire Service Permit and Acceptance",
+                             "category":  "Fire Prevention",
+                             "authority":  "Overland Park Fire Prevention",
+                             "scope":  [
+                                           "fire_alarm_sprinkler_work",
+                                           "new_construction",
+                                           "water_sewer_connections"
+                                       ],
+                             "source_id":  "fire",
+                             "documents":  [
+                                               "underground fire service plan",
+                                               "hydraulic basis",
+                                               "flush and pressure test records",
+                                               "contractor license"
+                                           ]
+                         },
+                         {
+                             "id":  "variance_appeal",
+                             "name":  "Board of Zoning Appeals Variance or Appeal",
+                             "category":  "Planning and Land Use",
+                             "authority":  "Overland Park Board of Zoning Appeals",
+                             "scope":  [
+                                           "new_construction",
+                                           "addition",
+                                           "alteration",
+                                           "signs",
+                                           "change_use_occupancy"
+                                       ],
+                             "source_id":  "udc",
+                             "documents":  [
+                                               "variance or appeal application",
+                                               "hardship or error statement",
+                                               "site plan",
+                                               "owner authorization",
+                                               "notice evidence"
+                                           ]
+                         },
+                         {
+                             "id":  "concept_plan",
+                             "name":  "Concept Plan",
+                             "category":  "Planning and Land Use",
+                             "authority":  "Overland Park Planning Division",
+                             "scope":  [
+                                           "new_construction",
+                                           "change_use_occupancy",
+                                           "grading_land_disturbance"
+                                       ],
+                             "source_id":  "planning_process",
+                             "documents":  [
+                                               "concept plan checklist",
+                                               "site concept",
+                                               "project narrative",
+                                               "preliminary utilities and access",
+                                               "owner authorization"
+                                           ]
+                         },
+                         {
+                             "id":  "administrative_adjustment",
+                             "name":  "Downtown Form District Administrative Adjustment",
+                             "category":  "Planning and Land Use",
+                             "authority":  "Overland Park Planning and Development Services",
+                             "scope":  [
+                                           "new_construction",
+                                           "addition",
+                                           "alteration",
+                                           "change_use_occupancy",
+                                           "grading_land_disturbance",
+                                           "signs"
+                                       ],
+                             "source_id":  "udc",
+                             "documents":  [
+                                               "administrative adjustment application",
+                                               "written adjustment criteria narrative",
+                                               "plans showing requested adjustment"
+                                           ],
+                             "trigger_any":  [
+                                                 "dfd_standard_adjustment_requested"
+                                             ]
+                         },
+                         {
+                             "id":  "certificate_conformity",
+                             "name":  "Downtown Form District Certificate of Conformity",
+                             "category":  "Planning and Land Use",
+                             "authority":  "Overland Park Planning and Development Services",
+                             "scope":  [
+                                           "new_construction",
+                                           "addition",
+                                           "alteration",
+                                           "change_use_occupancy",
+                                           "grading_land_disturbance",
+                                           "signs"
+                                       ],
+                             "source_id":  "planning_process",
+                             "documents":  [
+                                               "certificate of conformity application",
+                                               "DFD regulating plan and building-envelope analysis",
+                                               "site and architectural plans",
+                                               "parking and frontage calculations"
+                                           ],
+                             "trigger_any":  [
+                                                 "property_in_downtown_form_district"
+                                             ]
+                         },
+                         {
+                             "id":  "final_plan",
+                             "name":  "Final Development Plan",
+                             "category":  "Planning and Land Use",
+                             "authority":  "Overland Park Planning Division",
+                             "scope":  [
+                                           "new_construction",
+                                           "addition",
+                                           "grading_land_disturbance",
+                                           "change_use_occupancy"
+                                       ],
+                             "source_id":  "planning_process",
+                             "documents":  [
+                                               "final site plan",
+                                               "landscape plan",
+                                               "exterior lighting plan",
+                                               "stormwater report",
+                                               "sign scheme",
+                                               "complete exterior architectural drawings",
+                                               "conditions response"
+                                           ]
+                         },
+                         {
+                             "id":  "final_plat",
+                             "name":  "Final Plat",
+                             "category":  "Planning and Land Use",
+                             "authority":  "Overland Park Planning Division",
+                             "scope":  [
+                                           "new_construction",
+                                           "grading_land_disturbance"
+                                       ],
+                             "source_id":  "planning_process",
+                             "documents":  [
+                                               "Kansas-surveyor-prepared final plat",
+                                               "title and ownership evidence",
+                                               "easements and dedications",
+                                               "storm drainage analysis and construction plans",
+                                               "conditions response"
+                                           ]
+                         },
+                         {
+                             "id":  "minor_subdivision",
+                             "name":  "Minor Subdivision",
+                             "category":  "Planning and Land Use",
+                             "authority":  "Overland Park Planning Division",
+                             "scope":  [
+                                           "new_construction",
+                                           "grading_land_disturbance"
+                                       ],
+                             "source_id":  "planning_process",
+                             "documents":  [
+                                               "minor subdivision plat",
+                                               "survey and legal descriptions",
+                                               "ownership evidence",
+                                               "utility and access information"
+                                           ]
+                         },
+                         {
+                             "id":  "planned_deviation",
+                             "name":  "Planned-District Deviation",
+                             "category":  "Planning and Land Use",
+                             "authority":  "Overland Park Planning Commission",
+                             "scope":  [
+                                           "new_construction",
+                                           "addition",
+                                           "alteration",
+                                           "signs"
+                                       ],
+                             "source_id":  "planning_process",
+                             "documents":  [
+                                               "identified deviation request",
+                                               "code criterion response",
+                                               "site and design evidence",
+                                               "impact analysis"
+                                           ]
+                         },
+                         {
+                             "id":  "preliminary_plan_plat",
+                             "name":  "Preliminary Plan or Preliminary Plat",
+                             "category":  "Planning and Land Use",
+                             "authority":  "Overland Park Planning Division",
+                             "scope":  [
+                                           "new_construction",
+                                           "addition",
+                                           "grading_land_disturbance",
+                                           "change_use_occupancy"
+                                       ],
+                             "source_id":  "planning_process",
+                             "documents":  [
+                                               "preliminary site and plat plan",
+                                               "architectural information",
+                                               "preliminary engineering and stormwater information",
+                                               "landscape plan",
+                                               "project narrative"
+                                           ]
+                         },
+                         {
+                             "id":  "rezoning",
+                             "name":  "Rezoning Application",
+                             "category":  "Planning and Land Use",
+                             "authority":  "Overland Park Planning Division",
+                             "scope":  [
+                                           "new_construction",
+                                           "change_use_occupancy",
+                                           "grading_land_disturbance"
+                                       ],
+                             "source_id":  "planning_process",
+                             "documents":  [
+                                               "rezoning application",
+                                               "concept or preliminary plan",
+                                               "legal description",
+                                               "owner authorization",
+                                               "public notice mailing and posting evidence"
+                                           ]
+                         },
+                         {
+                             "id":  "vacation",
+                             "name":  "Right-of-Way or Easement Vacation",
+                             "category":  "Planning and Land Use",
+                             "authority":  "Overland Park City Council",
+                             "scope":  [
+                                           "new_construction",
+                                           "driveway_sidewalk_row",
+                                           "water_sewer_connections"
+                                       ],
+                             "source_id":  "planning_process",
+                             "documents":  [
+                                               "vacation application",
+                                               "legal description and exhibit",
+                                               "owner authorization",
+                                               "utility consents"
+                                           ]
+                         },
+                         {
+                             "id":  "sign_deviation",
+                             "name":  "Sign Deviation",
+                             "category":  "Planning and Land Use",
+                             "authority":  "Overland Park Planning Commission",
+                             "scope":  [
+                                           "signs"
+                                       ],
+                             "source_id":  "planning_process",
+                             "documents":  [
+                                               "sign deviation request",
+                                               "sign plans",
+                                               "code criterion response",
+                                               "surrounding context"
+                                           ]
+                         },
+                         {
+                             "id":  "special_use",
+                             "name":  "Special Use Permit",
+                             "category":  "Planning and Land Use",
+                             "authority":  "Overland Park Planning Commission / City Council",
+                             "scope":  [
+                                           "new_construction",
+                                           "change_use_occupancy",
+                                           "alteration"
+                                       ],
+                             "source_id":  "planning_process",
+                             "documents":  [
+                                               "special use permit application",
+                                               "required plan",
+                                               "operations narrative",
+                                               "owner authorization",
+                                               "public notice mailing and posting evidence"
+                                           ]
+                         },
+                         {
+                             "id":  "udo_text_amendment",
+                             "name":  "Unified Development Ordinance Text Amendment",
+                             "category":  "Planning and Land Use",
+                             "authority":  "Overland Park Planning and Development Services",
+                             "scope":  [
+                                           "new_construction",
+                                           "addition",
+                                           "alteration",
+                                           "change_use_occupancy",
+                                           "grading_land_disturbance",
+                                           "signs"
+                                       ],
+                             "source_id":  "udc",
+                             "documents":  [
+                                               "text amendment application",
+                                               "proposed ordinance text",
+                                               "planning justification"
+                                           ],
+                             "trigger_any":  [
+                                                 "project_requires_udo_text_change"
+                                             ]
+                         },
+                         {
+                             "id":  "asbestos_demolition",
+                             "name":  "Kansas Asbestos Demolition or Renovation Notification",
+                             "category":  "State and Federal",
+                             "authority":  "KDHE",
+                             "scope":  [
+                                           "demolition",
+                                           "alteration",
+                                           "repair"
+                                       ],
+                             "source_id":  "kdhe_asbestos",
+                             "documents":  [
+                                               "asbestos inspection",
+                                               "demolition or renovation notification",
+                                               "abatement records when applicable"
+                                           ],
+                             "trigger_any":  [
+                                                 "regulated_asbestos_project"
+                                             ]
+                         },
+                         {
+                             "id":  "kdot_access",
+                             "name":  "KDOT Highway Access or Right-of-Way Permit",
+                             "category":  "State and Federal",
+                             "authority":  "KDOT",
+                             "scope":  [
+                                           "new_construction",
+                                           "driveway_sidewalk_row",
+                                           "water_sewer_connections"
+                                       ],
+                             "source_id":  "kdot",
+                             "documents":  [
+                                               "state highway location evidence",
+                                               "access or utility plans",
+                                               "traffic control",
+                                               "KDOT approval"
+                                           ],
+                             "trigger_any":  [
+                                                 "state_highway_impact"
+                                             ]
+                         },
+                         {
+                             "id":  "usace_404",
+                             "name":  "USACE Section 404 Authorization",
+                             "category":  "State and Federal",
+                             "authority":  "U.S. Army Corps of Engineers",
+                             "scope":  [
+                                           "new_construction",
+                                           "grading_land_disturbance",
+                                           "water_sewer_connections"
+                                       ],
+                             "source_id":  "usace",
+                             "documents":  [
+                                               "aquatic resources delineation",
+                                               "impact calculations",
+                                               "avoidance and minimization analysis",
+                                               "permit verification"
+                                           ],
+                             "trigger_any":  [
+                                                 "waters_or_wetlands_impact"
+                                             ]
+                         },
+                         {
+                             "id":  "food_plan_review",
+                             "name":  "Food Establishment Plan Review and License",
+                             "category":  "Utilities and County",
+                             "authority":  "Kansas Department of Agriculture",
+                             "scope":  [
+                                           "new_construction",
+                                           "alteration",
+                                           "change_use_occupancy",
+                                           "plumbing_work",
+                                           "mechanical_hvac_work"
+                                       ],
+                             "source_id":  "kda_food",
+                             "documents":  [
+                                               "food plan review application",
+                                               "menu",
+                                               "scaled floor plan",
+                                               "equipment schedule",
+                                               "plumbing and finish details"
+                                           ],
+                             "trigger_any":  [
+                                                 "food_establishment"
+                                             ]
+                         },
+                         {
+                             "id":  "septic",
+                             "name":  "Johnson County Private Sewage System Permit",
+                             "category":  "Utilities and County",
+                             "authority":  "Johnson County Environmental Health",
+                             "scope":  [
+                                           "new_construction",
+                                           "addition",
+                                           "water_sewer_connections",
+                                           "plumbing_work"
+                                       ],
+                             "source_id":  "joco_environment",
+                             "documents":  [
+                                               "soil and site evaluation",
+                                               "system design",
+                                               "licensed installer or designer",
+                                               "construction permit"
+                                           ],
+                             "trigger_any":  [
+                                                 "private_septic"
+                                             ]
+                         },
+                         {
+                             "id":  "wastewater_connection",
+                             "name":  "Johnson County Wastewater Connection or Development Approval",
+                             "category":  "Utilities and County",
+                             "authority":  "Johnson County Wastewater",
+                             "scope":  [
+                                           "new_construction",
+                                           "addition",
+                                           "water_sewer_connections",
+                                           "plumbing_work"
+                                       ],
+                             "source_id":  "joco_wastewater",
+                             "documents":  [
+                                               "wastewater development application",
+                                               "site utility plan",
+                                               "connection or capacity approval",
+                                               "fees and inspection records"
+                                           ]
+                         },
+                         {
+                             "id":  "public_pool_health",
+                             "name":  "Public or Semi-Public Pool Health Approval",
+                             "category":  "Utilities and County",
+                             "authority":  "Johnson County Environmental Health",
+                             "scope":  [
+                                           "new_construction",
+                                           "addition",
+                                           "plumbing_work"
+                                       ],
+                             "source_id":  "joco_environment",
+                             "documents":  [
+                                               "pool plans",
+                                               "equipment and circulation data",
+                                               "health approval",
+                                               "annual operating permit"
+                                           ],
+                             "trigger_any":  [
+                                                 "public_or_semipublic_pool"
+                                             ]
+                         }
+                     ]
+}

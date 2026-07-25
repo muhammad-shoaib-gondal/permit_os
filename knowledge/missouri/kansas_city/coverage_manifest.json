@@ -1,7 +1,10 @@
 {
   "jurisdiction_id": "kansas_city_mo",
-  "snapshot_date": "2026-07-18",
+  "snapshot_date": "2026-07-23",
   "catalog": {
+    "canonical_approvals": 45,
+    "total_review_workflows": 241,
+    "evidence_gated_review_checks": 4426,
     "permit_applications": 108,
     "plan_applications": 88,
     "electrical_permit_applications": 8,
@@ -42,6 +45,8 @@
     "permit_exemptions.json",
     "source_registry.json",
     "approval_catalog.json",
+    "review_rule_catalog.json",
+    "external_assessment_rule_overlay.json",
     "document_requirements.json",
     "zoning_rules.json"
   ],
@@ -51,6 +56,10 @@
     "Selecting electrical returns all eight electrical permit candidates before project-fact narrowing.",
     "Electrical service size, voltage, solar, generator, battery, fire pump, transformer, wind turbine, ATS, reconnect, limited-service, fire-alarm, and security-alarm branches are encoded.",
     "Vector retrieval is non-authoritative and cannot add, remove, or classify required permits.",
+    "All 45 canonical approvals have exact, cited review-rule coverage and every source ID resolves to an official URL.",
+    "All 423 external-assessment items are dispositioned; every retained or corrected item has a complete executable evidence path, and excluded items retain a reason.",
+    "All 196 exact Compass permit and plan workflows remain visible, have a user-facing applicability question, and have at least 10 evidence-gated checks.",
+    "Every selected rule receives exactly one traceable result; missing documents, context, model output, or external evidence returns not verified.",
     "Source records point to official Kansas City or codified-law pages."
   ]
 }

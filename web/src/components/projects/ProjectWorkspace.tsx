@@ -40,6 +40,7 @@ export function ProjectWorkspace({ project }: ProjectWorkspaceProps) {
   const [uploading, setUploading] = useState(false);
   const [editing, setEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [warningsOpen, setWarningsOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [editName, setEditName] = useState(project.name);
   const [editAddress, setEditAddress] = useState(project.address);
@@ -121,6 +122,7 @@ export function ProjectWorkspace({ project }: ProjectWorkspaceProps) {
   const activePermits = permits.filter((permit) => permit.requirementStatus !== "not_required");
   const requiredPermits = permits.filter((permit) => permit.requirementStatus === "required");
   const blockedPermits = permits.filter((permit) => permit.lifecycleStatus === "blocked");
+  const projectWarnings = project.zoningWarnings ?? [];
 
   async function handleDelete() {
     setDeleting(true);
@@ -147,6 +149,15 @@ export function ProjectWorkspace({ project }: ProjectWorkspaceProps) {
             {project.area && <Badge>Zone {project.area}</Badge>}
             <Badge>{project.projectType.replace(/_/g, " ")}</Badge>
             {project.readinessScore && <Badge variant="ready">{project.readinessScore}</Badge>}
+            {projectWarnings.length > 0 && (
+              <Button variant="secondary" size="sm" onClick={() => setWarningsOpen(true)}>
+                <AlertTriangle size={16} />
+                Warnings
+                <span className="rounded-full bg-[var(--color-surface)] px-1.5 text-xs">
+                  {projectWarnings.length}
+                </span>
+              </Button>
+            )}
             <Button variant="ghost" size="sm" onClick={() => setEditing(true)} aria-label="Edit project">
               <Pencil size={16} />
             </Button>
@@ -157,24 +168,20 @@ export function ProjectWorkspace({ project }: ProjectWorkspaceProps) {
         </div>
       </header>
 
-      {!!project.zoningWarnings?.length && (
-        <section className="mb-6 space-y-3" aria-label="Address and zoning warnings">
-          {project.zoningWarnings.map((warning) => {
+      <Modal open={warningsOpen} onClose={() => setWarningsOpen(false)} title="Project warnings">
+        <div className="space-y-3">
+          {projectWarnings.map((warning) => {
             const isError = warning.severity === "error";
             const WarningIcon = warning.severity === "info" ? Info : AlertTriangle;
             return (
               <div
                 key={warning.code}
-                className={`flex flex-col gap-3 rounded-xl border px-4 py-3 text-sm sm:flex-row sm:items-start sm:justify-between ${
-                  isError
-                    ? "border-red-400/40 bg-red-500/10"
-                    : "border-amber-400/40 bg-amber-500/10"
-                }`}
+                className="flex flex-col gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface2)] px-4 py-3 text-sm sm:flex-row sm:items-start sm:justify-between"
               >
                 <div className="flex gap-3">
                   <WarningIcon
                     size={18}
-                    className={isError ? "mt-0.5 shrink-0 text-red-300" : "mt-0.5 shrink-0 text-amber-300"}
+                    className="mt-0.5 shrink-0 text-[var(--color-muted)]"
                   />
                   <div>
                     <p className="font-medium text-[var(--color-text)]">{warning.message}</p>
@@ -194,8 +201,8 @@ export function ProjectWorkspace({ project }: ProjectWorkspaceProps) {
               </div>
             );
           })}
-        </section>
-      )}
+        </div>
+      </Modal>
 
       <Tabs tabs={TABS} active={tab} onChange={setTab} className="mb-6" />
 
@@ -309,6 +316,67 @@ export function ProjectWorkspace({ project }: ProjectWorkspaceProps) {
                         <dd>{project.zoningProfile.permitContext.parcelCount}</dd>
                       </div>
                     )}
+                  </div>
+                )}
+                {project.zoningProfile.controllingRecord && (
+                  <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface2)] p-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-muted)]">
+                      Controlling UR record
+                    </p>
+                    <p className="mt-1 font-semibold">
+                      {project.zoningProfile.controllingRecord.caseNumber ??
+                        `Ordinance ${project.zoningProfile.controllingRecord.ordinance ?? "not identified"}`}
+                    </p>
+                    {project.zoningProfile.controllingRecord.title && (
+                      <p className="mt-1 text-xs leading-5 text-[var(--color-muted)]">
+                        {project.zoningProfile.controllingRecord.title}
+                      </p>
+                    )}
+                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--color-muted)]">
+                      <span>
+                        {project.zoningProfile.controllingRecord.lookupStatus === "found"
+                          ? "Official record found"
+                          : "Official record needs verification"}
+                      </span>
+                      <span>
+                        Approved plan: {project.zoningProfile.controllingRecord.hasPublicApprovedPlan ? "available online" : "not available online"}
+                      </span>
+                    </div>
+                    {!!project.zoningProfile.controllingRecord.standards?.length && (
+                      <div className="mt-3 grid gap-1 text-xs">
+                        {project.zoningProfile.controllingRecord.standards.map((standard, index) => (
+                          <p key={`${String(standard.key)}-${index}`}>
+                            <span className="font-medium">{String(standard.key ?? "Standard")}:</span>{" "}
+                            {String(standard.value ?? "")} {String(standard.unit ?? "")}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                    <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs">
+                      {project.zoningProfile.controllingRecord.officialUrl && (
+                        <a
+                          className="cursor-pointer text-[var(--color-accent)] underline underline-offset-2"
+                          href={project.zoningProfile.controllingRecord.officialUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Open official record
+                        </a>
+                      )}
+                      {project.zoningProfile.controllingRecord.attachments?.map((attachment) =>
+                        attachment.url && attachment.url !== project.zoningProfile?.controllingRecord?.officialUrl ? (
+                          <a
+                            key={attachment.id ?? attachment.url}
+                            className="cursor-pointer text-[var(--color-accent)] underline underline-offset-2"
+                            href={attachment.url}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            {attachment.name ?? "Official attachment"}
+                          </a>
+                        ) : null
+                      )}
+                    </div>
                   </div>
                 )}
                 {project.zoningProfile.sourceUrl && (

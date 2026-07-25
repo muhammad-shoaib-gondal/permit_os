@@ -26,6 +26,54 @@ SCOPE_CATEGORY_PREFIXES: dict[str, tuple[str, ...]] = {
     "change_use_occupancy": ("Zoning", "Building - Commercial"),
 }
 
+PLAN_SCOPE_CATEGORY_PREFIXES: dict[str, tuple[str, ...]] = {
+    "new_construction": (
+        "Building - Administrative Reviews", "Building - Commercial Application",
+        "Building - Residential Application", "City Infrastructure", "Planning - Land Use",
+        "Planning - Plan Approvals", "Planning - Subdivide", "Planning - Zoning Adjustments",
+    ),
+    "addition": (
+        "Building - Administrative Reviews", "Building - Commercial Application",
+        "Building - Residential Application", "Planning - Historic Preservation",
+        "Planning - Plan Approvals", "Planning - Zoning Adjustments",
+    ),
+    "alteration": (
+        "Building - Administrative Reviews", "Building - Commercial Application",
+        "Building - Residential Application", "Planning - Historic Preservation",
+        "Planning - Plan Approvals", "Planning - Zoning Adjustments",
+    ),
+    "repair": ("Building - Administrative Reviews", "Planning - Historic Preservation"),
+    "demolition": ("Building - Administrative Reviews", "Planning - Historic Preservation"),
+    "structural_work": (
+        "Building - Administrative Reviews", "Building - Commercial Application",
+        "Building - Residential Application",
+    ),
+    "electrical_work": ("Building - Administrative Reviews", "Building - Commercial Application"),
+    "plumbing_work": ("Building - Administrative Reviews", "Building - Commercial Application"),
+    "mechanical_hvac_work": ("Building - Administrative Reviews", "Building - Commercial Application"),
+    "fire_alarm_sprinkler_work": ("Building - Commercial Application",),
+    "signs": ("Planning - Sign Applications", "Planning - Zoning Adjustments"),
+    "change_use_occupancy": (
+        "Building - Administrative Reviews", "Building - Commercial Application",
+        "Planning - File an Appeal", "Planning - Historic Preservation", "Planning - Land Use",
+        "Planning - Other", "Planning - Plan Approvals", "Planning - Zoning Adjustments",
+        "PMAB - Property Maintenance Appeals Board",
+    ),
+    "grading_land_disturbance": (
+        "Building - Administrative Reviews", "Building - Commercial Application",
+        "City Infrastructure", "Planning - Easement Processing", "Planning - Plan Approvals",
+        "Planning - Subdivide", "Planning - Zoning Adjustments",
+    ),
+    "driveway_sidewalk_row": (
+        "City Infrastructure", "Planning - Easement Processing", "Planning - Street Related",
+        "Planning - Subdivide", "Planning - Zoning Adjustments",
+    ),
+    "solar_battery_generator_ev": ("Building - Residential Application", "Building - Commercial Application"),
+    "water_sewer_connections": (
+        "City Infrastructure", "Planning - Easement Processing", "Planning - Plan Approvals",
+    ),
+}
+
 
 def compass_url(application_kind: str, application_id: int) -> str:
     route = "permit" if application_kind == "permit" else "plan"
@@ -71,6 +119,16 @@ def match_kcmo_applications(
         for item in all_applications("permit")
         if any(item["category"].startswith(prefix) for prefix in prefixes)
     ]
+    plan_prefixes = _ordered_unique(
+        prefix
+        for scope_key in active_scope
+        for prefix in PLAN_SCOPE_CATEGORY_PREFIXES.get(scope_key, ())
+    )
+    plan_candidates = [
+        item
+        for item in all_applications("plan")
+        if any(item["category"].startswith(prefix) for prefix in plan_prefixes)
+    ]
 
     results: list[dict[str, Any]] = []
     for item in permit_candidates:
@@ -83,20 +141,64 @@ def match_kcmo_applications(
                 "reason": "; ".join(reasons),
                 "rule_family_id": family.get("id") if family else None,
                 "sources": list(family.get("sources", [])) if family else [],
+                "questions": questions_for_application(item, facts),
             }
         )
 
-    results.extend(_plan_dependencies(active_scope, project_type, facts))
+    explicit_dependencies = {
+        item["id"]: item for item in _plan_dependencies(active_scope, project_type, facts)
+    }
+    for item in plan_candidates:
+        if item["id"] in explicit_dependencies:
+            results.append(explicit_dependencies.pop(item["id"]))
+            continue
+        status, reasons = _classify_plan(item, active_scope, project_type, facts)
+        family = rule_family_for_category(item["category"])
+        results.append({
+            **item,
+            "requirement_status": status,
+            "reason": "; ".join(reasons),
+            "rule_family_id": family.get("id") if family else None,
+            "sources": list(family.get("sources", [])) if family else [],
+            "questions": questions_for_application(item, facts),
+        })
+    results.extend(explicit_dependencies.values())
     return sorted(results, key=lambda item: (item["application_kind"] != "permit", item["category"], item["id"]))
 
 
 def rule_family_for_category(category: str) -> dict[str, Any] | None:
     matches: list[tuple[int, dict[str, Any]]] = []
-    for family in load_permit_rules().get("category_rules", []):
+    rules = load_permit_rules()
+    for family in [*rules.get("category_rules", []), *rules.get("plan_category_rules", [])]:
         for prefix in family.get("category_prefixes", []):
             if category.startswith(prefix):
                 matches.append((len(prefix), family))
     return max(matches, key=lambda item: item[0])[1] if matches else None
+
+
+def _classify_plan(
+    item: dict[str, Any], active_scope: set[str], project_type: str, facts: dict[str, Any]
+) -> tuple[str, list[str]]:
+    reasons = ["included from the complete selected CompassKC plan category"]
+    answered = _answered_applicability(item, facts)
+    name = _normalize(item["name"])
+    residential = _is_residential(project_type)
+    commercial = not residential
+    if _known_incompatible_variant(name, commercial, residential, "townhouse" in _normalize(project_type)):
+        return "not_required", reasons + ["plan building type conflicts with the selected project type"]
+    if "demolition" in active_scope and "demolition review" in name:
+        return "required", reasons + ["demolition scope requires historic-resource applicability review"]
+    if answered is not None:
+        return (
+            ("required", reasons + ["the project-specific applicability question was answered yes"])
+            if answered
+            else ("not_required", reasons + ["the project-specific applicability question was answered no"])
+        )
+    if "signs" in active_scope and "sign" in name:
+        return "needs_confirmation", reasons + ["sign design and requested deviation determine this plan route"]
+    if "change_use_occupancy" in active_scope and any(token in name for token in ("rezoning", "special use", "legal nonconformance", "occupancy")):
+        return "needs_confirmation", reasons + ["proposed use and existing approvals determine this route"]
+    return "needs_confirmation", reasons + ["project facts and agency review must confirm or exclude this exact plan route"]
 
 
 def _classify(
@@ -105,9 +207,19 @@ def _classify(
     category = item["category"]
     application_id = item["id"]
     reasons = ["included from the complete selected CompassKC category"]
+    answered = _answered_applicability(item, facts)
 
     if category == "Building - Electrical":
-        return _classify_electrical(application_id, active_scope, project_type, facts, reasons)
+        status, electrical_reasons = _classify_electrical(
+            application_id, active_scope, project_type, facts, reasons
+        )
+        if status != "needs_confirmation" or answered is None:
+            return status, electrical_reasons
+        return (
+            ("required", electrical_reasons + ["the project-specific applicability question was answered yes"])
+            if answered
+            else ("not_required", electrical_reasons + ["the project-specific applicability question was answered no"])
+        )
 
     name = _normalize(item["name"])
     residential = _is_residential(project_type)
@@ -117,19 +229,33 @@ def _classify(
     if _known_incompatible_variant(name, commercial, residential, townhouse):
         return "not_required", reasons + ["application building type conflicts with the selected project type"]
 
+    if answered is True:
+        return "required", reasons + ["the project-specific applicability question was answered yes"]
+
     if "demolition" in active_scope and category == "Demolition":
         if (commercial and "commercial" in name) or (residential and "residential" in name):
-            return "needs_confirmation", reasons + ["building type matches; demolition subtype must be confirmed"]
+            return (
+                "not_required" if answered is False else "needs_confirmation",
+                reasons + ["the project-specific applicability question was answered no" if answered is False else "building type matches; demolition subtype must be confirmed"],
+            )
     if category == "Building - Plumbing" and "plumbing_work" in active_scope:
         if _building_variant_matches(name, commercial, residential, townhouse):
             if "general" in name:
                 return "required", reasons + ["general plumbing route and building type match"]
-            return "needs_confirmation", reasons + ["building type matches; specialized plumbing scope must be confirmed"]
+            return (
+                "not_required" if answered is False else "needs_confirmation",
+                reasons + ["the project-specific applicability question was answered no" if answered is False else "building type matches; specialized plumbing scope must be confirmed"],
+            )
     if category == "Building - Mechanical" and "mechanical_hvac_work" in active_scope:
         if _building_variant_matches(name, commercial, residential, townhouse):
             if "general" in name:
                 return "required", reasons + ["general mechanical route and building type match"]
-            return "needs_confirmation", reasons + ["building type matches; specialized mechanical scope must be confirmed"]
+            return (
+                "not_required" if answered is False else "needs_confirmation",
+                reasons + ["the project-specific applicability question was answered no" if answered is False else "building type matches; specialized mechanical scope must be confirmed"],
+            )
+    if answered is False:
+        return "not_required", reasons + ["the project-specific applicability question was answered no"]
     if category == "Building - Signs" and "signs" in active_scope:
         return "needs_confirmation", reasons + ["sign form and duration are not yet specified"]
     if category.startswith("Water -") and "water_sewer_connections" in active_scope:
@@ -209,7 +335,14 @@ def _plan_dependencies(
             continue
         seen.add(plan_id)
         item = plans[plan_id]
-        output.append({**item, "requirement_status": status, "reason": reason, "rule_family_id": "electrical" if plan_id in {923, 653} else "fire_protection", "sources": ["compass_application_assistant", "ib160"] if plan_id in {923, 653} else ["compass_application_assistant", "ib116"]})
+        output.append({
+            **item,
+            "requirement_status": status,
+            "reason": reason,
+            "rule_family_id": "electrical" if plan_id in {923, 653} else "fire_protection",
+            "sources": ["compass_application_assistant", "ib160"] if plan_id in {923, 653} else ["compass_application_assistant", "ib116"],
+            "questions": questions_for_application(item, facts),
+        })
     return output
 
 
@@ -219,6 +352,31 @@ def _decorate(item: dict[str, Any], application_kind: str) -> dict[str, Any]:
         "application_kind": application_kind,
         "portal_url": compass_url(application_kind, int(item["id"])),
     }
+
+
+def application_answer_key(item: dict[str, Any]) -> str:
+    return f"kcmo_{item.get('application_kind', 'permit')}_{int(item['id'])}_applies"
+
+
+def questions_for_application(
+    item: dict[str, Any], facts: dict[str, Any] | None = None
+) -> list[dict[str, Any]]:
+    key = application_answer_key(item)
+    return [{
+        "key": key,
+        "type": "boolean",
+        "label": f"Does this project include work or approvals requiring {item['name']}?",
+        "help": (
+            f"This is the exact CompassKC {item.get('application_kind', 'permit')} workflow "
+            f"in {item['category']}. Leave unanswered when uncertain so EstatePermit keeps it visible."
+        ),
+        "answer": (facts or {}).get(key),
+    }]
+
+
+def _answered_applicability(item: dict[str, Any], facts: dict[str, Any]) -> bool | None:
+    value = facts.get(application_answer_key(item))
+    return value if isinstance(value, bool) else None
 
 
 def _category_matches(actual: str, normalized_target: str) -> bool:

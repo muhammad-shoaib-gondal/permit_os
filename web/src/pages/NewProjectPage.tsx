@@ -48,6 +48,20 @@ export function NewProjectPage() {
             city: "Kansas City",
             coverage_status: "active",
           },
+          {
+            id: "lenexa_ks",
+            label: "Lenexa, Kansas",
+            state: "KS",
+            city: "Lenexa",
+            coverage_status: "active",
+          },
+          {
+            id: "overland_park_ks",
+            label: "Overland Park, Kansas",
+            state: "KS",
+            city: "Overland Park",
+            coverage_status: "active",
+          },
         ])
       );
   }, []);
@@ -72,6 +86,10 @@ export function NewProjectPage() {
       const selectedCity = jurisdictions.find((item) => item.id === jurisdiction);
       const fallbackLocation = jurisdiction === "kansas_city_ks"
         ? { city: "Kansas City", state: "KS" }
+        : jurisdiction === "lenexa_ks"
+          ? { city: "Lenexa", state: "KS" }
+        : jurisdiction === "overland_park_ks"
+          ? { city: "Overland Park", state: "KS" }
         : jurisdiction === "manhattan_ks"
           ? { city: "Manhattan", state: "KS" }
           : { city: "Kansas City", state: "MO" };

@@ -1,9 +1,22 @@
 export type Check = {
+  rule_id?: string;
+  permit_type?: string;
+  permit_name?: string;
   rule: string;
   status: "pass" | "fail" | "warn";
   citation: string;
   detail: string;
   category?: string;
+  evaluator?: string;
+  evidence?: Array<{
+    document: string;
+    page?: string | number | null;
+    detail: string;
+    sourceType: string;
+    url?: string;
+    provider?: string;
+  }>;
+  missing_inputs?: string[];
 };
 
 export type ProjectTypeValue =
@@ -48,10 +61,47 @@ export type FileType =
   | "survey"
   | "energy_document"
   | "application_form"
+  | "approved_plan"
+  | "permit_record"
+  | "inspection_record"
+  | "license_record"
+  | "agency_approval"
+  | "calculation"
+  | "specification"
   | "supporting_document"
   | "other";
 
 export type AnalysisModuleKey = "zoning" | "building" | "fire" | "site";
+
+export type RuleSourceLink = {
+  id: string;
+  title: string;
+  url: string;
+};
+
+export type RuleExecution = {
+  evaluator: string;
+  requiredInputs: string[];
+  evidenceRequirements?: Array<{
+    anyOf: string[];
+    minimum: number;
+    distinctDocuments?: boolean;
+    providers?: string[];
+  }>;
+  acceptedRegistryProviders?: string[];
+  requiresAllRequiredPermitStatuses?: boolean;
+  passRequiresEvidence: boolean;
+  missingOutcome?: "warn";
+};
+
+export type RuleImplementation = {
+  status: "complete" | "incomplete";
+  issues: string[];
+  evaluator: string;
+  requiredEvidence: string[];
+  providers: Record<string, string[]>;
+  unavailableEvidenceOutcome: "not_verified";
+};
 
 export type CustomRule = {
   id: string;
@@ -63,8 +113,14 @@ export type CustomRule = {
   area?: string;
   permitType?: string;
   source?: string;
+  sourceLinks?: RuleSourceLink[];
+  sourceIds?: string[];
+  checkType?: string;
+  verifiedAt?: string;
   builtinRuleId?: string;
   systemManaged?: boolean;
+  execution?: RuleExecution;
+  implementation?: RuleImplementation;
 };
 
 export type ProjectFile = {
@@ -210,6 +266,28 @@ export type Project = {
       developmentCaseCount?: number;
       overlays?: Array<Record<string, string>>;
     };
+    controllingRecord?: {
+      version?: number;
+      ordinance?: string;
+      lookupStatus?: "found" | "not_found" | "missing_ordinance";
+      matterId?: number;
+      matterGuid?: string;
+      title?: string;
+      caseNumber?: string;
+      recordStatus?: string;
+      approvalAction?: string;
+      approvalDate?: string;
+      officialUrl?: string;
+      hasPublicApprovedPlan?: boolean;
+      standards?: Array<Record<string, string | number | null>>;
+      conditions?: Array<Record<string, string | number | null>>;
+      attachments?: Array<{
+        id?: number;
+        name?: string;
+        url?: string;
+        kind?: string;
+      }>;
+    };
   };
   zoningWarnings?: Array<{
     code: string;
@@ -265,8 +343,14 @@ export type BuiltinRule = {
   condition?: string;
   severity?: CustomRule["severity"] | "critical" | "major";
   source: string;
+  sourceLinks?: RuleSourceLink[];
+  sourceIds?: string[];
+  checkType?: string;
+  verifiedAt?: string;
   permitTypes?: string[];
   ruleFamilyIds?: string[];
+  execution?: RuleExecution;
+  implementation?: RuleImplementation;
 };
 
 export type BuiltinRuleGroup = {
@@ -436,6 +520,13 @@ export const FILE_TYPES = [
   { value: "survey", label: "Survey" },
   { value: "energy_document", label: "Energy documentation" },
   { value: "application_form", label: "Application form" },
+  { value: "approved_plan", label: "Approved plan / entitlement" },
+  { value: "permit_record", label: "Permit status record" },
+  { value: "inspection_record", label: "Inspection record" },
+  { value: "license_record", label: "Official license lookup" },
+  { value: "agency_approval", label: "Agency approval / decision" },
+  { value: "calculation", label: "Engineering calculation" },
+  { value: "specification", label: "Project specification" },
   { value: "supporting_document", label: "Supporting document" },
   { value: "other", label: "Other" },
 ] as const;

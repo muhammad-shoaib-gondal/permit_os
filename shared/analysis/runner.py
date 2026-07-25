@@ -26,6 +26,8 @@ from shared.schemas.reports import (
 from shared.tools.analysis_summary import compute_audit_hash, merge_reports
 from shared.tools.kcmo_permits import match_kcmo_applications
 from shared.tools.kck_permits import match_kck_applications
+from shared.tools.lenexa_permits import match_lenexa_applications
+from shared.tools.overland_park_permits import match_overland_park_applications
 from shared.tools.langchain_tools import (
     BUILDING_TOOLS,
     JURISDICTION_TOOLS,
@@ -34,6 +36,13 @@ from shared.tools.langchain_tools import (
 )
 
 logger = logging.getLogger(__name__)
+
+SUPPORTED_PERMIT_JURISDICTIONS = {
+    "kansas_city_mo": "Kansas City, Missouri",
+    "kansas_city_ks": "Kansas City, Kansas",
+    "lenexa_ks": "Lenexa, Kansas",
+    "overland_park_ks": "Overland Park, Kansas",
+}
 
 class AnalysisSection(str, Enum):
     JURISDICTION = "jurisdiction"
@@ -204,13 +213,93 @@ def _assemble_site(brief: ProjectBrief, ctx: dict[str, Any]) -> SiteEnvironmenta
     )
 
 
+def _assemble_supported_report(
+    section: AnalysisSection,
+    brief: ProjectBrief,
+    authoritative_context: dict[str, Any] | None,
+) -> JurisdictionReport | BuildingSafetyReport | SiteEnvironmentalReport:
+    city_name = SUPPORTED_PERMIT_JURISDICTIONS[brief.jurisdiction]
+    context = authoritative_context or {}
+    profile = context.get("zoningProfile") if isinstance(context.get("zoningProfile"), dict) else {}
+    district = str(profile.get("classification") or profile.get("district") or "").strip()
+    if section == AnalysisSection.JURISDICTION:
+        return JurisdictionReport(
+            case_id=brief.case_id,
+            summary="Permit-specific jurisdiction checks are reported in the review results.",
+            readiness_impact=ReadinessImpact.NEEDS_CHANGES,
+            jurisdictions=[JurisdictionInfo(name=city_name, type="municipal")],
+            zoning=ZoningInfo(
+                district=district,
+                permitted_use=str(brief.use_description or brief.project_type.value),
+                by_right=False,
+            ) if district else None,
+            data_gaps=[] if district else ["A verified zoning district was not available."],
+        )
+    if section == AnalysisSection.BUILDING:
+        return BuildingSafetyReport(
+            case_id=brief.case_id,
+            summary="Permit-specific building and fire checks are reported in the review results.",
+            readiness_impact=ReadinessImpact.NEEDS_CHANGES,
+        )
+    return SiteEnvironmentalReport(
+        case_id=brief.case_id,
+        summary="Permit-specific site and utility checks are reported in the review results.",
+        readiness_impact=ReadinessImpact.NEEDS_CHANGES,
+    )
+
+
 def _assemble_package(
     brief: ProjectBrief,
     ctx: dict[str, Any],
     jurisdiction: JurisdictionReport,
     building: BuildingSafetyReport,
     site: SiteEnvironmentalReport,
+    authoritative_context: dict[str, Any] | None = None,
+    target_permit_types: list[str] | None = None,
 ) -> PermitPackage:
+    if brief.jurisdiction in SUPPORTED_PERMIT_JURISDICTIONS:
+        context = authoritative_context or {}
+        target_set = set(target_permit_types or [])
+        project_permits = [
+            permit
+            for permit in context.get("projectPermits", [])
+            if permit.get("requirementStatus") == "required"
+            and (not target_set or permit.get("permitType") in target_set)
+        ]
+        permits = [
+            PermitRequirement(
+                agency=str(
+                    permit.get("issuingAuthority")
+                    or SUPPORTED_PERMIT_JURISDICTIONS[brief.jurisdiction]
+                ),
+                permit_name=str(permit.get("permitName") or permit.get("permitType") or "Permit"),
+                form_id=str(permit.get("permitType") or "permit"),
+                fee_usd=float(permit.get("estimatedFeeUsd") or 0),
+                timeline_days=0,
+                dependencies=[str(value) for value in (permit.get("dependencies") or [])],
+            )
+            for permit in project_permits
+        ]
+        documents: list[DocumentRequirement] = []
+        seen_documents: set[tuple[str, str]] = set()
+        for permit in project_permits:
+            permit_type = str(permit.get("permitType") or "permit")
+            for document in permit.get("requiredDocuments") or []:
+                name = str(document.get("name") if isinstance(document, dict) else document).strip()
+                key = (permit_type, name.casefold())
+                if not name or key in seen_documents:
+                    continue
+                seen_documents.add(key)
+                documents.append(DocumentRequirement(name=name, source_section=permit_type))
+        return PermitPackage(
+            case_id=brief.case_id,
+            permits_required=permits,
+            documents_required=documents,
+            total_fees_estimate_usd=sum(permit.fee_usd for permit in permits),
+            estimated_timeline_days=0,
+            filing_sequence=[permit.permit_name for permit in permits],
+        )
+
     catalog = ctx.get("get_permit_catalog", {})
     permits_data = catalog.get("permits", catalog.get("permit_types", []))
     permits: list[PermitRequirement] = []
@@ -250,6 +339,18 @@ def _assemble_package(
             }
             for item in matched
             if item["requirement_status"] == "required"
+        ]
+    elif brief.jurisdiction in {"lenexa_ks", "overland_park_ks"}:
+        matcher = match_lenexa_applications if brief.jurisdiction == "lenexa_ks" else match_overland_park_applications
+        prefix = "LENEXA" if brief.jurisdiction == "lenexa_ks" else "OVERLAND-PARK"
+        matched = matcher(_scope_from_brief(brief), brief.project_type.value)
+        permits_data = [
+            {
+                "agency": item["authority"], "permit_name": item["name"],
+                "form_id": f"{prefix}-{item['id'].upper()}", "fee_usd": 0,
+                "timeline_days": 0, "dependencies": [],
+            }
+            for item in matched if item["requirement_status"] == "required"
         ]
     for p in permits_data:
         fee = float(p.get("base_fee_usd", p.get("fee_usd", 5000)))
@@ -338,6 +439,8 @@ def _assemble(section: AnalysisSection, brief: ProjectBrief, ctx: dict[str, Any]
             kwargs["jurisdiction"],
             kwargs["building"],
             kwargs["site"],
+            authoritative_context=kwargs.get("authoritative_context"),
+            target_permit_types=kwargs.get("target_permit_types"),
         )
     raise ValueError(section)
 
@@ -373,6 +476,19 @@ async def _run_section(
     document_context: list[dict[str, Any]],
     **kwargs,
 ) -> Any:
+    if brief.jurisdiction in SUPPORTED_PERMIT_JURISDICTIONS:
+        if section == AnalysisSection.PACKAGING:
+            return _assemble(
+                section,
+                brief,
+                {},
+                jurisdiction=kwargs["jurisdiction"],
+                building=kwargs["building"],
+                site=kwargs["site"],
+                authoritative_context=kwargs.get("authoritative_context"),
+                target_permit_types=kwargs.get("target_permit_types"),
+            )
+        return _assemble_supported_report(section, brief, kwargs.get("authoritative_context"))
     ctx = _gather_tool_context(brief, section)
     report = _assemble(section, brief, ctx, **kwargs)
     return await _enrich_summary(section, report, ctx, document_context)
@@ -406,6 +522,7 @@ async def run_analysis(
     module_requirements: dict[str, Any] | None = None,
     document_context: list[dict[str, Any]] | None = None,
     target_permit_types: list[str] | None = None,
+    authoritative_context: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     logger.info("Running local tools with required ZenMux review for %s", brief.case_id)
     selected = set(selected_modules or ["zoning", "building", "fire", "site"])
@@ -423,7 +540,12 @@ async def run_analysis(
     site = None
     if "zoning" in selected:
         await _emit_progress(on_progress, brief, phase="waiting_jurisdiction", completed=completed)
-        jurisdiction = await _run_section(AnalysisSection.JURISDICTION, brief, review_document_context)
+        jurisdiction = await _run_section(
+            AnalysisSection.JURISDICTION,
+            brief,
+            review_document_context,
+            authoritative_context=authoritative_context,
+        )
         completed.append("jurisdiction")
         await _emit_progress(
             on_progress,
@@ -436,7 +558,12 @@ async def run_analysis(
         )
 
     if "building" in selected or "fire" in selected:
-        building = await _run_section(AnalysisSection.BUILDING, brief, review_document_context)
+        building = await _run_section(
+            AnalysisSection.BUILDING,
+            brief,
+            review_document_context,
+            authoritative_context=authoritative_context,
+        )
         completed.append("building")
         await _emit_progress(
             on_progress,
@@ -450,7 +577,12 @@ async def run_analysis(
         )
 
     if "site" in selected:
-        site = await _run_section(AnalysisSection.SITE, brief, review_document_context)
+        site = await _run_section(
+            AnalysisSection.SITE,
+            brief,
+            review_document_context,
+            authoritative_context=authoritative_context,
+        )
         completed.append("site")
         await _emit_progress(
             on_progress,
@@ -485,6 +617,8 @@ async def run_analysis(
             jurisdiction=jurisdiction,
             building=building,
             site=site,
+            authoritative_context=authoritative_context,
+            target_permit_types=target_permit_types,
         )
         if package.permits_required:
             package.audit_hash = compute_audit_hash(package)
@@ -505,7 +639,41 @@ async def run_analysis(
     if custom_rules:
         from shared.analysis.custom_rules import evaluate_custom_rules
 
-        custom_checks = await evaluate_custom_rules(brief, custom_rules)
+        custom_checks = await evaluate_custom_rules(
+            brief,
+            custom_rules,
+            document_context=document_context,
+            target_permit_types=target_permit_types,
+            authoritative_context=authoritative_context,
+        )
+
+    if brief.jurisdiction in SUPPORTED_PERMIT_JURISDICTIONS:
+        from shared.schemas.case import HumanAction, ReadinessScore
+
+        failures = sum(check.status == CheckStatus.FAIL for check in custom_checks)
+        warnings = sum(check.status == CheckStatus.WARN for check in custom_checks)
+        summary.readiness_score = (
+            ReadinessScore.READY
+            if custom_checks and not failures and not warnings
+            else ReadinessScore.NEEDS_CHANGES
+        )
+        summary.conflicts = []
+        summary.human_actions_required = [
+            HumanAction(
+                action="resolve_permit_review_findings",
+                description=(
+                    f"Resolve {failures} failed and {warnings} unverified permit review checks."
+                    if failures or warnings
+                    else "Review and approve the evidence-backed permit analysis before filing."
+                ),
+                priority="high" if failures else "normal",
+            )
+        ]
+        summary.executive_summary = (
+            f"EstatePermit evaluated {len(custom_checks)} permit-specific checks: "
+            f"{failures} failed, {warnings} require evidence or review, and "
+            f"{len(custom_checks) - failures - warnings} passed."
+        )
 
     def evt(source: str, event_type: str, detail: str):
         return {
@@ -562,7 +730,7 @@ async def run_analysis(
         },
         {
             "key": "custom",
-            "label": "Custom Rules",
+            "label": "Permit review checks",
             "checks": [c.model_dump(mode="json") for c in custom_checks],
         },
     ]

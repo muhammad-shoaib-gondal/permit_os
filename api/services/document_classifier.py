@@ -26,6 +26,13 @@ DOCUMENT_TYPES = {
     "survey",
     "energy_document",
     "application_form",
+    "approved_plan",
+    "permit_record",
+    "inspection_record",
+    "license_record",
+    "agency_approval",
+    "calculation",
+    "specification",
     "supporting_document",
     "other",
 }
@@ -44,6 +51,13 @@ _FILENAME_HINTS = (
     (("survey", "plat"), "survey"),
     (("energy", "comcheck"), "energy_document"),
     (("application", "permit form"), "application_form"),
+    (("approved plan", "approved_plan"), "approved_plan"),
+    (("permit record", "permit_record", "permit status"), "permit_record"),
+    (("inspection record", "inspection_record", "inspection result"), "inspection_record"),
+    (("license record", "license_record", "license lookup"), "license_record"),
+    (("agency approval", "agency_approval", "approval letter"), "agency_approval"),
+    (("calculation", "calc package"), "calculation"),
+    (("specification", "spec book"), "specification"),
 )
 
 

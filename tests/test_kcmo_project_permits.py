@@ -1,7 +1,7 @@
 import pytest
 from fastapi import HTTPException
 
-from api.models import Project
+from api.models import Project, ProjectPermit
 from api.services.kcmo_zoning_rules import build_kcmo_rules
 from api.services.manhattan_zoning_rules import build_manhattan_rules
 from api.services.project_service import (
@@ -61,21 +61,21 @@ def test_commercial_project_excludes_residential_density_checks():
 
 
 @pytest.mark.parametrize(
-    ("family_id", "category", "minimum_count"),
+    ("permit_id", "category", "minimum_count"),
     [
-        ("electrical", "building", 10),
-        ("plumbing", "building", 4),
-        ("fire_protection", "fire", 1),
-        ("certificate_of_occupancy", "building", 5),
+        ("electrical", "building", 12),
+        ("plumbing", "building", 12),
+        ("fire_sprinkler", "fire", 14),
+        ("certificate_of_occupancy", "building", 13),
     ],
 )
 def test_kcmo_trade_and_occupancy_review_checks_are_populated(
-    family_id: str, category: str, minimum_count: int
+    permit_id: str, category: str, minimum_count: int
 ):
     rules = [
         rule
         for rule in _build_kcmo_permit_review_rules()
-        if family_id in rule.get("permitTypes", [])
+        if permit_id in rule.get("permitTypes", [])
     ]
 
     assert len(rules) >= minimum_count
@@ -83,27 +83,16 @@ def test_kcmo_trade_and_occupancy_review_checks_are_populated(
     assert all(rule["condition"] and rule["source"] for rule in rules)
 
 
-def test_every_kansas_city_permit_family_has_review_rules():
+def test_every_kansas_city_kansas_permit_family_has_review_rules():
     from api.services.project_service import _build_kck_permit_review_rules
 
-    kcmo_rules = _build_kcmo_permit_review_rules()
     kck_rules = _build_kck_permit_review_rules()
-    kcmo_types = {
-        "commercial_building", "electrical", "plumbing", "mechanical",
-        "fire_protection", "certificate_of_occupancy", "land_disturbance",
-        "right_of_way", "sign",
-    }
     kck_types = {
         "building_permit", "electrical", "plumbing", "mechanical", "demolition",
         "fire_protection", "certificate_of_occupancy", "land_disturbance",
         "right_of_way", "utility_service", "sign", "planning_entitlement",
     }
 
-    assert not {
-        permit_type
-        for permit_type in kcmo_types
-        if not any(permit_type in rule.get("permitTypes", []) for rule in kcmo_rules)
-    }
     assert not {
         permit_type
         for permit_type in kck_types
@@ -117,9 +106,8 @@ def test_every_canonical_kcmo_approval_has_review_checks():
 
     missing = []
     for approval in approvals:
-        family_id = _rule_family_id(approval["id"])
         if not any(
-            family_id in [*rule.get("permitTypes", []), *rule.get("ruleFamilyIds", [])]
+            approval["id"] in rule.get("permitTypes", [])
             for rule in rules
         ):
             missing.append(approval["id"])
@@ -341,19 +329,71 @@ def test_kcmo_removed_scope_keeps_permit_visible_and_asks_for_confirmation():
 
     assert plumbing.requirement_status == "needs_confirmation"
     questions = plumbing.recommendation_evidence["questions"]
-    assert [question["key"] for question in questions] == ["plumbing_work_confirmed"]
+    assert [question["key"] for question in questions] == [
+        "plumbing_work_confirmed",
+        "special_plumbing_waste",
+    ]
     assert plumbing.next_action == "Answer the permit-specific questions shown on this card."
 
 
-def test_kcmo_catalog_keeps_all_45_approvals_visible_without_duplicates():
+def test_kcmo_catalog_keeps_canonical_and_exact_workflows_visible_without_duplicates():
     project = _kcmo_new_commercial_project({"new_construction": True, "plumbing_work": True})
 
     _sync_project_permit_recommendations(project)
 
-    assert len(project.permits) == 45
-    assert len({permit.permit_type for permit in project.permits}) == 45
+    assert len(project.permits) > 45
+    assert len({permit.permit_type for permit in project.permits}) == len(project.permits)
     assert len([permit for permit in project.permits if permit.permit_type == "plumbing"]) == 1
-    assert not any(permit.permit_type.startswith("compass_") for permit in project.permits)
+    exact = [permit for permit in project.permits if permit.permit_type.startswith("compass_")]
+    assert exact
+    assert all(permit.recommendation_evidence["questions"] for permit in exact)
+
+
+def test_permit_sync_removes_legacy_duplicates_and_preserves_user_managed_record():
+    project = _kcmo_new_commercial_project({"new_construction": True})
+    _sync_project_permit_recommendations(project)
+    system_permit = next(
+        permit for permit in project.permits if permit.permit_type == "commercial_building"
+    )
+    manual_duplicate = ProjectPermit(
+        permit_id="manual-survivor",
+        project_id=project.project_id,
+        permit_type=system_permit.permit_type,
+        permit_name=system_permit.permit_name,
+        issuing_authority=system_permit.issuing_authority,
+        jurisdiction=project.jurisdiction,
+        requirement_status="manual",
+        lifecycle_status="not_started",
+        origin="manual",
+    )
+    project.permits.append(manual_duplicate)
+
+    _sync_project_permit_recommendations(project)
+
+    matching = [
+        permit for permit in project.permits if permit.permit_type == system_permit.permit_type
+    ]
+    assert matching == [manual_duplicate]
+
+
+def test_exact_compass_question_resolves_only_that_workflow():
+    project = _kcmo_new_commercial_project({"new_construction": True})
+    _sync_project_permit_recommendations(project)
+    conditional = next(
+        permit
+        for permit in project.permits
+        if permit.permit_type.startswith("compass_")
+        and permit.requirement_status == "needs_confirmation"
+    )
+    question = conditional.recommendation_evidence["questions"][0]
+
+    project.permit_answers = {question["key"]: True}
+    _sync_project_permit_recommendations(project)
+    assert conditional.requirement_status == "required"
+
+    project.permit_answers = {question["key"]: False}
+    _sync_project_permit_recommendations(project)
+    assert conditional.requirement_status == "not_required"
 
 
 def test_ur_project_requires_development_plan_and_surfaces_fire_water_question():

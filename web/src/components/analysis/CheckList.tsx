@@ -36,6 +36,39 @@ export function CheckList({
             </div>
             <p className="text-sm text-[var(--color-muted)]">{c.detail}</p>
             <p className="mono mt-2 text-xs text-[var(--color-muted)]">{c.citation}</p>
+            {!!c.missing_inputs?.length && (
+              <div className="mt-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2">
+                <p className="text-xs font-medium">Not verified because</p>
+                <p className="mt-1 text-xs text-[var(--color-muted)]">{c.missing_inputs.join(", ")}</p>
+              </div>
+            )}
+            {!!c.evidence?.length && (
+              <details className="mt-3 cursor-pointer rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2">
+                <summary className="text-xs font-medium">Evidence used ({c.evidence.length})</summary>
+                <div className="mt-2 space-y-2">
+                  {c.evidence.map((evidence, evidenceIndex) => (
+                    <div key={`${evidence.document}-${evidenceIndex}`} className="text-xs text-[var(--color-muted)]">
+                      <p className="font-medium text-[var(--color-text)]">{evidence.document}</p>
+                      <p>{evidence.detail}</p>
+                      <p>
+                        {evidence.sourceType.split("_").join(" ")}
+                        {evidence.page ? `, page ${evidence.page}` : ""}
+                      </p>
+                      {evidence.url && (
+                        <a
+                          className="text-[var(--color-accent)] underline"
+                          href={evidence.url}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Open official record
+                        </a>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )}
           </li>
         ))}
       </ul>

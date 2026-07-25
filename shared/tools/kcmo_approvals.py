@@ -4,6 +4,7 @@ import re
 from typing import Any
 
 from shared.tools.knowledge import load_json
+from shared.tools.kcmo_review_rules import review_questions_for_permit
 
 
 def load_approval_catalog() -> dict[str, Any]:
@@ -137,7 +138,14 @@ def project_approval_facts(project: Any, scope: dict[str, bool]) -> dict[str, An
 
 def _question_payload(entry: dict[str, Any], answers: dict[str, Any]) -> list[dict[str, Any]]:
     questions: list[dict[str, Any]] = []
-    for question in entry.get("questions", []):
+    seen: set[str] = set()
+    for question in [
+        *entry.get("questions", []),
+        *review_questions_for_permit(entry["id"]),
+    ]:
+        if question["key"] in seen:
+            continue
+        seen.add(question["key"])
         questions.append({**question, "answer": answers.get(question["key"])})
     return questions
 

@@ -38,7 +38,7 @@ def _is_case_stale(case) -> bool:
 
 def _handle_pipeline_error(exc: Exception) -> None:
     logger.exception("Case pipeline failed")
-    raise HTTPException(status_code=500, detail=str(exc)) from exc
+    raise HTTPException(status_code=500, detail="The review could not be completed. Try again.") from exc
 
 
 class CreateCaseRequest(BaseModel):
@@ -122,6 +122,8 @@ async def get_case_by_id(case_id: UUID):
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
     results = case.results or {}
+    public_results = dict(results)
+    public_results.pop("error_detail", None)
     return {
         "case_id": case.case_id,
         "project_name": case.project_name,
@@ -129,12 +131,11 @@ async def get_case_by_id(case_id: UUID):
         "audit_hash": case.audit_hash,
         "approved_by": case.approved_by,
         "approved_at": case.approved_at.isoformat() if case.approved_at else None,
-        "results": results,
+        "results": public_results,
         "is_stale": _is_case_stale(case),
         "stalled": bool(results.get("stalled")),
         "stall_reason": results.get("stall_reason"),
         "error": results.get("error") if case.status == "FAILED" else None,
-        "error_detail": results.get("error_detail") if case.status == "FAILED" else None,
     }
 
 

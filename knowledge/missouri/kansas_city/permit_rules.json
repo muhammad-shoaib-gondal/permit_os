@@ -181,6 +181,92 @@
       "sources":["ib165","chapter_18","chapter_88"]
     }
   ],
+  "plan_category_rules": [
+    {
+      "id":"building_administrative","category_prefixes":["Building - Administrative Reviews"],"scope_keys":["new_construction","addition","alteration","repair","demolition","structural_work","change_use_occupancy"],
+      "rules":["Use the exact address, appeal, code-modification, floodplain, or preliminary-review route; none substitutes for the underlying construction permit.","A code modification or appeal must identify the code provision, proposed alternative, supporting technical evidence, and authorized decision before dependent work proceeds.","Floodplain Development review requires the parcel flood-hazard record, proposed elevations and work limits, and the applicable engineering evidence."],
+      "required_documents":["complete administrative application","project and related-record identity","code or floodplain basis","supporting technical evidence","issued decision"],
+      "sources":["compass_application_assistant","chapter_18","ib110a"]
+    },
+    {
+      "id":"commercial_plan_application","category_prefixes":["Building - Commercial Application"],"scope_keys":["new_construction","addition","alteration","structural_work","change_use_occupancy"],
+      "rules":["Select the exact new-building, addition, change-of-occupancy, tenant-finish, structural, site-improvement, communication-tower, grading, sprinkler, or trade-only plan route.","Commercial plan documents must satisfy the applicable IB110 administrative, architectural, structural, MEP, accessibility, energy, fire/life-safety, civil, and special-inspection requirements.","The approved plan record must be linked to every dependent construction and trade permit; unresolved comments or deferred issuance holds remain blockers."],
+      "required_documents":["IB110-compliant sealed plan package","code analysis","site or survey information when applicable","discipline calculations and specifications","response to comments and approval"],
+      "sources":["compass_application_assistant","ib110a","ib110b","ib110c","ib110d","chapter_18"]
+    },
+    {
+      "id":"residential_plan_application","category_prefixes":["Building - Residential Application"],"scope_keys":["new_construction","addition","alteration","structural_work","solar_battery_generator_ev"],
+      "rules":["Select the exact single-family, duplex, townhouse, accessory-building, miscellaneous-structure, solar, rehabilitation, addition, new-construction, or structural-remodel route.","Residential plans must contain the applicable IB100 site, architectural, structural, energy, utility, and administrative information.","The approved residential plan must match the building type and scope on the dependent permit; townhouse, duplex, and single-family routes are not interchangeable."],
+      "required_documents":["IB100-compliant plan package","site plan","structural information","energy documentation","contractor or homeowner authorization","approved plan record"],
+      "sources":["compass_application_assistant","ib100","chapter_18","ib146","ib171_residential"]
+    },
+    {
+      "id":"private_infrastructure_plan","category_prefixes":["City Infrastructure"],"scope_keys":["grading_land_disturbance","driveway_sidewalk_row","water_sewer_connections","new_construction"],
+      "rules":["Use the exact general, TIF, Public Works/Water Services, stream-buffer-waiver, or water-main-extension infrastructure review route.","Plans, specifications, calculations, drainage and soils information, easements, cost estimates, and responsible professional seals must cover every infrastructure discipline in the project.","No dependent infrastructure permit may proceed until the corresponding plan and required outside-agency approvals are accepted."],
+      "required_documents":["sealed infrastructure plans and specifications","calculations and reports","easement information","cost estimate","agency approvals and accepted plan record"],
+      "sources":["compass_application_assistant","major_infrastructure","ib159"]
+    },
+    {
+      "id":"planning_easement","category_prefixes":["Planning - Easement Processing"],"scope_keys":["new_construction","grading_land_disturbance","driveway_sidewalk_row","water_sewer_connections"],
+      "rules":["Public-improvement easement acceptance or release must identify the exact easement, legal description, exhibit, ownership, beneficiary, infrastructure purpose, and authorization.","The recorded or formally accepted easement action must agree with civil plans, plats, title evidence, and the work limits before dependent permits proceed."],
+      "required_documents":["application","legal description and exhibit","title and ownership evidence","affected-agency consent","recorded or accepted easement instrument"],
+      "sources":["compass_application_assistant","chapter_88"]
+    },
+    {
+      "id":"planning_appeal","category_prefixes":["Planning - File an Appeal","PMAB - Property Maintenance Appeals Board"],"scope_keys":["change_use_occupancy","alteration","repair"],
+      "rules":["Use the exact appeal, site-review appeal, rehearing, legal-nonconformance appeal, or property-maintenance appeal route and satisfy its filing deadline and standing requirements.","The appeal must identify the challenged final decision, claimed error, requested relief, complete record, and supporting evidence; filing does not itself reverse or stay the decision unless lawfully ordered."],
+      "required_documents":["appeal application","challenged decision and record","grounds and requested relief","standing and timeliness evidence","issued appeal decision"],
+      "sources":["compass_application_assistant","chapter_88"]
+    },
+    {
+      "id":"historic_preservation_plan","category_prefixes":["Planning - Historic Preservation"],"scope_keys":["demolition","addition","alteration","repair","change_use_occupancy"],
+      "rules":["Use the administrative or commission historic-review route that matches the resource and scope; demolition review and landmark/district designation are separate applications.","Confirm local designation, district, contributing status, National Register information, and exterior or demolition scope from official records rather than applicant assumption.","Dependent demolition or exterior work may not proceed until the required Certificate of Appropriateness or demolition review decision and conditions are issued."],
+      "required_documents":["historic application","photographs and existing-condition evidence","scope and design drawings","official designation evidence","issued decision and conditions"],
+      "sources":["compass_application_assistant","historic_preservation","ib110b","chapter_88"]
+    },
+    {
+      "id":"planning_land_use","category_prefixes":["Planning - Land Use Applications"],"scope_keys":["new_construction","change_use_occupancy"],
+      "rules":["Rezoning, overlay zoning, Special Use Permit, legal-nonconforming-use certification, and temporary-use/event registration are distinct applications with distinct findings.","Verify proposed and existing uses, base and overlay zoning, lawful-use history, site plan, ownership, notice, and the criteria applicable to the selected route.","Do not treat an application as approval; every condition, term, expiration, operational limit, and dependent plan requirement remains controlling."],
+      "required_documents":["land-use application","owner authorization","legal description","site or development plan","use and operations narrative","notice evidence","issued ordinance or decision"],
+      "sources":["compass_application_assistant","chapter_88","zoning_verification"]
+    },
+    {
+      "id":"planning_other","category_prefixes":["Planning - Other"],"scope_keys":["new_construction","change_use_occupancy","driveway_sidewalk_row"],
+      "rules":["Annexation, area-plan amendment, lien waiver, and major-street-plan actions are separate workflows and must not be substituted for a development approval.","Identify the exact geography, adopted plan or lien record, affected ownership and agencies, legal authority, and issued legislative or administrative action."],
+      "required_documents":["application","mapped limits and legal description","ownership or lien evidence","supporting analysis","issued action"],
+      "sources":["compass_application_assistant","chapter_88"]
+    },
+    {
+      "id":"development_plan_approval","category_prefixes":["Planning - Plan Approvals"],"scope_keys":["new_construction","addition","alteration","change_use_occupancy","grading_land_disturbance"],
+      "rules":["Use the exact residential/nonresidential development plan, UR/MPD final plan, project plan, amendment, tax-incentive, DAT meeting, or UR/MPD rezoning route.","Verify the required plan level and approval sequence, complete site/architectural/civil/landscape/utility information, ownership, legal description, notice, and findings.","Retrieve every approved sheet, ordinance, stipulation, deviation, amendment, development agreement, and expiration; those project-specific values control downstream zoning and permit checks."],
+      "required_documents":["complete development plan","legal description and ownership","site architectural civil landscape and utility information","notice and findings evidence","approved plan ordinance and conditions"],
+      "sources":["compass_application_assistant","chapter_88","ib110a"]
+    },
+    {
+      "id":"planning_sign_plan","category_prefixes":["Planning - Sign Applications"],"scope_keys":["signs"],
+      "rules":["A City Council-approved signage plan must show the coordinated sign program, sign types, dimensions, locations, illumination, materials, deviations, ownership, and site context.","The approved signage plan and conditions must be linked to and agree with each dependent sign permit."],
+      "required_documents":["signage plan application","coordinated sign drawings and schedule","site and facade context","deviation justification","Council-approved plan and conditions"],
+      "sources":["compass_application_assistant","chapter_88","ib127"]
+    },
+    {
+      "id":"planning_street_action","category_prefixes":["Planning - Street Related Applications"],"scope_keys":["driveway_sidewalk_row","new_construction"],
+      "rules":["Honorary naming, street-name plans, and street or plat vacations are separate legislative or administrative actions.","Verify affected right-of-way, legal description, ownership, utilities, access, emergency response, notice, agency comments, and issued ordinance or decision before changing records or beginning dependent work."],
+      "required_documents":["street action application","legal description and exhibit","utility and agency consents","access and notice evidence","issued ordinance or decision"],
+      "sources":["compass_application_assistant","chapter_88","chapter_64"]
+    },
+    {
+      "id":"platting_plan","category_prefixes":["Planning - Subdivide, Combine or Plat Land"],"scope_keys":["new_construction","grading_land_disturbance","driveway_sidewalk_row"],
+      "rules":["Select the exact condominium, final, preliminary, revised-preliminary, or minor-subdivision route; these application types are not interchangeable.","Verify surveyor-prepared boundaries and legal descriptions, ownership, lots, tracts, easements, dedications, access, utilities, drainage, monuments, certificates, and approval conditions.","Required plat approval and recording must occur before permits or conveyances that depend on the new lot configuration."],
+      "required_documents":["plat application","sealed survey and plat","title and ownership evidence","easement and dedication documents","civil and utility support","recorded approved plat"],
+      "sources":["compass_application_assistant","chapter_88"]
+    },
+    {
+      "id":"zoning_adjustment","category_prefixes":["Planning - Zoning Adjustments"],"scope_keys":["new_construction","addition","alteration","signs","change_use_occupancy","grading_land_disturbance"],
+      "rules":["Use the exact special exception, variance, or alternative-compliance route for the standard at issue; approval under one standard does not waive another.","The application must identify the controlling standard, requested relief, site-specific facts, criteria and hardship or alternative findings, plans, notice, and supporting analysis.","Only the issued decision and stated conditions modify the base rule; absent approval, the unmodified code standard remains controlling."],
+      "required_documents":["adjustment application","controlling-code citation","site and design plans","criteria response and supporting analysis","notice evidence","issued decision and conditions"],
+      "sources":["compass_application_assistant","chapter_88"]
+    }
+  ],
   "electrical_application_rules": {
     "576":{"building_type":"commercial_or_multifamily","filing_rule":"Approved parent plan, or minor scope; otherwise file plan 653.","ib160_trigger":"service_amps >= 400"},
     "767":{"building_type":"irc_townhouse","filing_rule":"Use parent record sub-record when related.","ib160_trigger":"service_amps >= 400 or generator or battery","solar_plan_id":923},

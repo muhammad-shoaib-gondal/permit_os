@@ -5,6 +5,9 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from shared.analysis.rule_execution import execution_contract
+from shared.analysis.rule_coverage import rule_implementation
+
 
 R_SOURCE = "KCMO Zoning and Development Code section 88-110-06"
 OB_SOURCE = "KCMO Zoning and Development Code section 88-120-04"
@@ -54,6 +57,11 @@ M_STANDARDS = {
 
 OVERLAY_COMPONENTS = {"ICO", "PO", "HO", "US", "SRO"}
 
+CHAPTER_88_URL = "https://library.municode.com/mo/kansas_city/codes/zoning_and_development_code"
+ZONING_VERIFICATION_URL = (
+    "https://www.kcmo.gov/city-hall/departments/city-planning-development/zoning-verification"
+)
+
 
 def _rule(
     component: str,
@@ -62,8 +70,16 @@ def _rule(
     condition: str,
     source: str,
     severity: str = "major",
+    check_type: str = "value_match",
 ) -> dict[str, Any]:
-    return {
+    source_id = "zoning_verification" if "official zoning map" in source.casefold() else "chapter_88"
+    source_title = (
+        "KCMO Zoning Verification"
+        if source_id == "zoning_verification"
+        else "Kansas City Zoning and Development Code Chapter 88"
+    )
+    source_url = ZONING_VERIFICATION_URL if source_id == "zoning_verification" else CHAPTER_88_URL
+    rule = {
         "id": f"kcmo-{component.lower().replace('.', '-')}-{key}",
         "category": "zoning",
         "group": f"{component} zoning standards",
@@ -71,7 +87,14 @@ def _rule(
         "condition": condition,
         "severity": severity,
         "source": source,
+        "sourceIds": [source_id],
+        "sourceLinks": [{"id": source_id, "title": source_title, "url": source_url}],
+        "checkType": check_type,
+        "verifiedAt": "2026-07-21",
+        "permitTypes": ["zoning_verification"],
+        "execution": execution_contract(check_type),
     }
+    return {**rule, "implementation": rule_implementation(rule)}
 
 
 def _residential_rules(component: str) -> list[dict[str, Any]]:
@@ -173,8 +196,8 @@ def _special_rules(component: str, ordinance: str | None) -> list[dict[str, Any]
     }
     label = plan_labels.get(component, "parcel-specific zoning approval")
     return [
-        _rule(component, "governing-plan", "Governing plan standards", f"Apply the {label}{ordinance_text}. Dimensional standards must come from that controlling approval, not from user-entered values.", SPECIAL_SOURCE, "critical"),
-        _rule(component, "plan-consistency", "Plan consistency", f"Compare the proposed use, site plan, height, setbacks, density, access, and conditions against the {label}; if the controlling record cannot be retrieved, report insufficient source data rather than requesting thresholds from the user.", SPECIAL_SOURCE),
+        _rule(component, "governing-plan", "Governing plan standards", f"Apply the {label}{ordinance_text}. Dimensional standards must come from that controlling approval, not from user-entered values.", SPECIAL_SOURCE, "critical", "document_presence"),
+        _rule(component, "plan-consistency", "Plan consistency", f"Compare the proposed use, site plan, height, setbacks, density, access, and conditions against the {label}; if the controlling record cannot be retrieved, report insufficient source data rather than requesting thresholds from the user.", SPECIAL_SOURCE, "major", "cross_document"),
     ]
 
 

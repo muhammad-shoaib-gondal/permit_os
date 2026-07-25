@@ -251,3 +251,36 @@ def run_sqlite_migrations(conn: Connection) -> None:
             "recommendation_evidence",
             "ALTER TABLE project_permits ADD COLUMN recommendation_evidence JSON",
         )
+        conn.execute(
+            text(
+                """
+                DELETE FROM project_permits
+                WHERE permit_id IN (
+                    SELECT permit_id
+                    FROM (
+                        SELECT
+                            permit_id,
+                            ROW_NUMBER() OVER (
+                                PARTITION BY project_id, permit_type
+                                ORDER BY
+                                    CASE WHEN origin = 'manual' THEN 1 ELSE 0 END DESC,
+                                    CASE WHEN requirement_status IN ('manual', 'removed_by_user') THEN 1 ELSE 0 END DESC,
+                                    CASE WHEN lifecycle_status <> 'not_started' THEN 1 ELSE 0 END DESC,
+                                    CASE WHEN application_number IS NOT NULL OR issued_number IS NOT NULL THEN 1 ELSE 0 END DESC,
+                                    updated_at DESC,
+                                    created_at DESC,
+                                    permit_id DESC
+                            ) AS duplicate_rank
+                        FROM project_permits
+                    ) ranked
+                    WHERE duplicate_rank > 1
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_project_permits_project_type "
+                "ON project_permits (project_id, permit_type)"
+            )
+        )

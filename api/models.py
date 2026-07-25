@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -63,6 +63,9 @@ class ProjectFile(Base):
 
 class ProjectPermit(Base):
     __tablename__ = "project_permits"
+    __table_args__ = (
+        UniqueConstraint("project_id", "permit_type", name="uq_project_permits_project_type"),
+    )
 
     permit_id: Mapped[str] = mapped_column(String(36), primary_key=True)
     project_id: Mapped[str] = mapped_column(String(36), ForeignKey("projects.project_id"), index=True)

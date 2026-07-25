@@ -12,6 +12,8 @@ JURISDICTION_PATHS: dict[str, Path] = {
     "austin_tx": KNOWLEDGE_BASE / "austin",
     "kansas_city_mo": KNOWLEDGE_BASE / "missouri" / "kansas_city",
     "kansas_city_ks": KNOWLEDGE_BASE / "kansas" / "kansas_city",
+    "lenexa_ks": KNOWLEDGE_BASE / "kansas" / "lenexa",
+    "overland_park_ks": KNOWLEDGE_BASE / "kansas" / "overland_park",
     "manhattan_ks": KNOWLEDGE_BASE / "kansas" / "manhattan",
     "seattle_wa": KNOWLEDGE_BASE / "washington" / "seattle",
 }

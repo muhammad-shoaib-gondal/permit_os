@@ -42,6 +42,7 @@ async def start_case_async(
     module_requirements: dict[str, Any] | None = None,
     document_context: list[dict[str, Any]] | None = None,
     target_permit_types: list[str] | None = None,
+    authoritative_context: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Create a case row and run analysis in the background."""
     import asyncio
@@ -68,6 +69,7 @@ async def start_case_async(
             module_requirements=module_requirements,
             document_context=document_context,
             target_permit_types=target_permit_types,
+            authoritative_context=authoritative_context,
         )
     )
     return {
@@ -111,6 +113,7 @@ async def _run_case_background(
     module_requirements: dict[str, Any] | None = None,
     document_context: list[dict[str, Any]] | None = None,
     target_permit_types: list[str] | None = None,
+    authoritative_context: dict[str, Any] | None = None,
 ) -> None:
     case_id = str(brief.case_id)
     try:
@@ -125,11 +128,11 @@ async def _run_case_background(
             module_requirements=module_requirements,
             document_context=document_context,
             target_permit_types=target_permit_types,
+            authoritative_context=authoritative_context,
         )
         await _save_case_results(brief, results)
-    except Exception as exc:
+    except Exception:
         logger.exception("Pipeline failed for case %s", case_id)
-        err_detail = f"{type(exc).__name__}: {exc}"[:500]
         async with SessionLocal() as session:
             result = await session.execute(select(PermitCase).where(PermitCase.case_id == case_id))
             case = result.scalar_one_or_none()
@@ -138,7 +141,6 @@ async def _run_case_background(
                 merged.update(
                     {
                         "error": orchestration_hint(),
-                        "error_detail": err_detail,
                         "stalled": True,
                         "stall_reason": orchestration_hint(),
                         "last_progress_at": datetime.now(timezone.utc).isoformat(),

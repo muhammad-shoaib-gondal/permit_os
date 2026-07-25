@@ -1,0 +1,10 @@
+{
+  "jurisdiction_id": "overland_park_ks",
+  "city": "Overland Park",
+  "state": "KS",
+  "county": "Johnson",
+  "coverage_status": "official_sources_normalized_2026_07_23",
+  "portal_name": "Overland Park ePlace",
+  "portal_url": "https://energov.opkansas.org/EnerGov_Prod/SelfService#/home",
+  "last_verified": "2026-07-23"
+}

@@ -8,7 +8,11 @@ from urllib.parse import urlencode
 
 import httpx
 
+from api.services.kcmo_controlling_records import resolve_ur_controlling_record
 from api.services.kcmo_zoning_rules import has_kcmo_rule_coverage
+from api.services.kck_zoning_rules import has_kck_rule_coverage
+from api.services.lenexa_zoning_rules import has_lenexa_rule_coverage
+from api.services.overland_park_zoning_rules import has_overland_park_rule_coverage
 from api.services.manhattan_zoning_rules import has_manhattan_rule_coverage
 from shared.tools.knowledge import load_json
 
@@ -18,6 +22,36 @@ GEOCODER_URL = (
 )
 
 JURISDICTION_ZONING = {
+    "overland_park_ks": {
+        "city": "Overland Park",
+        "city_aliases": {"overland park"},
+        "regions": {"Kansas", "KS"},
+        "source_name": "City of Overland Park Official Zoning GIS",
+        "source_url": "https://www.opkansas.gov/zoning-map",
+        "query_url": "https://maps.opkansas.org/mapping/rest/services/WHMN/MapServer/13/query",
+        "out_fields": "CaseNumber,District,DistrictName,Category,AppDate,Ordinance,PriorCase,ZoningCode,enCodeLink,Calc_Acres",
+        "district_field": "District",
+        "district_name_field": "DistrictName",
+        "land_use_field": "Category",
+        "ordinance_field": "Ordinance",
+        "extra_fields": ["CaseNumber", "AppDate", "PriorCase", "ZoningCode", "enCodeLink", "Calc_Acres"],
+        "advisory": "The official GIS classification is paired with the controlling UDO, county-carried code, ordinance, and approved development records.",
+    },
+    "lenexa_ks": {
+        "city": "Lenexa",
+        "city_aliases": {"lenexa"},
+        "regions": {"Kansas", "KS"},
+        "source_name": "City of Lenexa Zoning and Future Land Use GIS",
+        "source_url": "https://experience.arcgis.com/experience/9b4c537bb4fb49398d9c7d4305399ae1/page/zoningFLU",
+        "query_url": "https://utility.arcgis.com/usrsvcs/servers/389c3e477cd4437abbea521846b181b2/rest/services/Base_Layers/Zoning/MapServer/0/query",
+        "out_fields": "ZONING,DISTRICT_NAME,DESCRIPTION,ORDINANCE,SUBZONE,RZ,DISTRICT_LINK",
+        "district_field": "ZONING",
+        "district_name_field": "DISTRICT_NAME",
+        "land_use_field": "DESCRIPTION",
+        "ordinance_field": "ORDINANCE",
+        "extra_fields": ["SUBZONE", "RZ", "DISTRICT_LINK"],
+        "advisory": "Lenexa's GIS is the address-derived zoning source; binding approved plans, deviations, and ordinances remain controlling.",
+    },
     "manhattan_ks": {
         "city": "Manhattan",
         "city_aliases": {"manhattan"},
@@ -209,12 +243,11 @@ async def _arcgis_get(url: str, params: dict[str, Any]) -> dict[str, Any]:
 
 
 def _address_looks_complete(address: str, config: dict[str, Any]) -> bool:
-    normalized = " ".join(address.casefold().replace(",", " ").split())
+    del config
     has_street_number = bool(re.search(r"\b\d+[A-Za-z]?\b", address))
     has_zip = bool(re.search(r"\b\d{5}(?:-\d{4})?\b", address))
-    has_city = any(alias.casefold() in normalized for alias in config["city_aliases"])
-    has_region = any(re.search(rf"\b{re.escape(region.casefold())}\b", normalized) for region in config["regions"])
-    return has_street_number and has_zip and has_city and has_region
+    has_words = len(re.findall(r"[A-Za-z]{2,}", address)) >= 3
+    return has_street_number and has_zip and has_words
 
 
 def has_zoning_rule_coverage(jurisdiction: str, district: str | None) -> bool:
@@ -222,6 +255,12 @@ def has_zoning_rule_coverage(jurisdiction: str, district: str | None) -> bool:
         return False
     if jurisdiction == "kansas_city_mo":
         return has_kcmo_rule_coverage(district)
+    if jurisdiction == "kansas_city_ks":
+        return has_kck_rule_coverage(district)
+    if jurisdiction == "lenexa_ks":
+        return has_lenexa_rule_coverage(district)
+    if jurisdiction == "overland_park_ks":
+        return has_overland_park_rule_coverage(district)
     if jurisdiction == "manhattan_ks":
         return has_manhattan_rule_coverage(district)
     try:
@@ -261,8 +300,8 @@ async def resolve_zoning(address: str, jurisdiction: str) -> dict[str, Any]:
             "warnings": [
                 _warning(
                     "unsupported_jurisdiction",
-                    "Automatic zoning is not configured for this city.",
-                    "Choose Kansas City, Kansas; Kansas City, Missouri; Manhattan; or Seattle.",
+                    "Automatic zoning is unavailable for this jurisdiction.",
+                    "Select a supported jurisdiction or contact the local zoning authority.",
                     "error",
                 )
             ],
@@ -293,15 +332,15 @@ async def resolve_zoning(address: str, jurisdiction: str) -> dict[str, Any]:
                 "maxLocations": 3,
             },
         )
-    except Exception as exc:
+    except Exception:
         return {
             "status": "service_unavailable",
             "profile": {"resolvedAt": resolved_at},
             "warnings": [
                 _warning(
                     "geocoder_unavailable",
-                    f"The address lookup service could not be reached: {exc}",
-                    "Retry zoning resolution. Permit recommendations remain preliminary until the address is resolved.",
+                    "The address could not be checked right now.",
+                    "Try again. Permit recommendations remain preliminary until the address is resolved.",
                     "error",
                 )
             ],
@@ -377,12 +416,12 @@ async def resolve_zoning(address: str, jurisdiction: str) -> dict[str, Any]:
                 "returnGeometry": "false",
             },
         )
-    except Exception as exc:
+    except Exception:
         warnings.append(
             _warning(
                 "zoning_service_unavailable",
-                f"The city zoning service could not be reached: {exc}",
-                "Retry zoning resolution. Permit recommendations remain preliminary until zoning is resolved.",
+                "The zoning district could not be checked right now.",
+                "Try again. Permit recommendations remain preliminary until zoning is resolved.",
                 "error",
             )
         )
@@ -428,6 +467,62 @@ async def resolve_zoning(address: str, jurisdiction: str) -> dict[str, Any]:
 
     if jurisdiction == "kansas_city_mo":
         await _enrich_kcmo_permit_context(address, location, profile)
+        district_tokens = {
+            token.strip().upper()
+            for token in re.split(r"[/,]", district)
+            if token.strip()
+        }
+        if "UR" in district_tokens:
+            try:
+                controlling_record = await resolve_ur_controlling_record(profile.get("ordinance"))
+                profile["controllingRecord"] = controlling_record
+                lookup_status = controlling_record.get("lookupStatus")
+                if lookup_status == "missing_ordinance":
+                    warnings.append(
+                        _warning(
+                            "ur_ordinance_missing",
+                            "The parcel is zoned UR, but the zoning GIS did not return its controlling ordinance.",
+                            "EstatePermit cannot verify plan-controlled standards until the city record is identified.",
+                            "error",
+                        )
+                    )
+                elif lookup_status == "not_found":
+                    warnings.append(
+                        _warning(
+                            "ur_record_not_found",
+                            f"The parcel is zoned UR, but ordinance {profile.get('ordinance') or 'unknown'} was not found in the city legislative record.",
+                            "Obtain the approved UR development plan from KCMO records before relying on plan-controlled checks.",
+                            "error",
+                        )
+                    )
+                elif not controlling_record.get("hasPublicApprovedPlan"):
+                    warnings.append(
+                        _warning(
+                            "ur_approved_plan_not_public",
+                            f"EstatePermit found ordinance {controlling_record.get('ordinance')} and case {controlling_record.get('caseNumber') or 'metadata'}, but the stamped approved UR development plan is not attached to the public legislative record.",
+                            "Upload the approved UR development plan obtained from CompassKC or KCMO records. FAR, height, setbacks, parking, and other plan-controlled checks will remain unverified until it is available.",
+                        )
+                    )
+                if (
+                    controlling_record.get("extractionStatus") == "no_values_found"
+                    and not controlling_record.get("standards")
+                ):
+                    warnings.append(
+                        _warning(
+                            "ur_values_not_extracted",
+                            "The public UR attachments were reviewed, but no authoritative numeric development standards were found.",
+                            "Upload the stamped approved UR development plan; plan-controlled checks will remain unverified without it.",
+                        )
+                    )
+            except Exception:
+                warnings.append(
+                    _warning(
+                        "ur_record_lookup_failed",
+                        "The controlling UR record could not be checked right now.",
+                        "Try again. Plan-controlled checks will remain unverified while the record is unavailable.",
+                        "error",
+                    )
+                )
 
     advisory = config.get("advisory")
     if advisory:

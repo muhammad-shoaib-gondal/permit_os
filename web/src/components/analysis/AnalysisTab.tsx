@@ -16,6 +16,13 @@ const SEC_PER_REVIEW_STAGE = 120;
 const TOTAL_REVIEW_STAGES = 4;
 
 const REQUIREMENT_TYPE_HINTS: Array<[string[], string[]]> = [
+  [["approved plan", "approved development", "entitlement"], ["approved_plan"]],
+  [["permit record", "permit status", "issued permit"], ["permit_record"]],
+  [["inspection", "final approval"], ["inspection_record", "agency_approval"]],
+  [["license", "licensed", "credential", "registration"], ["license_record"]],
+  [["agency approval", "approval letter", "decision"], ["agency_approval"]],
+  [["calculation", "hydraulic", "load calculation"], ["calculation"]],
+  [["specification", "product data"], ["specification"]],
   [["fire", "sprinkler", "alarm", "life safety"], ["fire_protection_plan", "fire_plan"]],
   [["mechanical", "hvac"], ["mechanical_plan"]],
   [["plumbing"], ["plumbing_plan"]],
@@ -269,7 +276,7 @@ export function AnalysisTab({ project, onAnalysisComplete }: AnalysisTabProps) {
                   </ul>
                 </details>
               ) : (
-                <p className="text-xs text-[var(--color-muted)]">No required-document checklist is configured.</p>
+                <p className="text-xs text-[var(--color-muted)]">No required-document checklist is available for this review.</p>
               )}
               {!documentState.canRun && (
                 <p className="mt-3 rounded-lg bg-[#f00000] px-3 py-2 text-xs font-semibold text-white">

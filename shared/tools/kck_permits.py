@@ -10,15 +10,37 @@ DIRECT_SCOPE_APPLICATIONS = {
     "mechanical_hvac_work": {"mechanical"},
     "plumbing_work": {"plumbing"},
     "demolition": {"demolition"},
-    "fire_alarm_sprinkler_work": {"fire_sprinkler", "fire_alarm"},
-    "signs": {"sign_incidental", "sign_flag", "sign_attached", "sign_detached", "billboard_under_300", "billboard_300_or_more"},
     "grading_land_disturbance": {"land_disturbance"},
     "driveway_sidewalk_row": {"right_of_way"},
 }
 
 
 def load_kck_application_catalog() -> dict[str, Any]:
-    return load_json("application_catalog.json", "kansas_city_ks")  # type: ignore[return-value]
+    base = load_json("application_catalog.json", "kansas_city_ks")
+    supplement = load_json("supplemental_application_catalog.json", "kansas_city_ks")
+    overrides = {item["id"]: item for item in supplement.get("application_overrides", [])}
+    applications = [
+        {**item, **overrides.get(item["id"], {})}
+        for item in base.get("applications", [])
+    ]
+    applications.extend(supplement.get("applications", []))
+    return {
+        **base,
+        "snapshot_date": supplement.get("snapshot_date", base.get("snapshot_date")),
+        "applications": applications,
+    }
+
+
+def load_kck_source_registry() -> dict[str, Any]:
+    base = load_json("source_registry.json", "kansas_city_ks")
+    supplement = load_json("supplemental_source_registry.json", "kansas_city_ks")
+    sources = {item["id"]: item for item in base.get("sources", [])}
+    sources.update({item["id"]: item for item in supplement.get("sources", [])})
+    return {
+        **base,
+        "last_verified": supplement.get("last_verified", base.get("last_verified")),
+        "sources": list(sources.values()),
+    }
 
 
 def load_kck_permit_rules() -> dict[str, Any]:
@@ -32,16 +54,30 @@ def all_kck_applications() -> list[dict[str, Any]]:
 def rules_for_application(application: dict[str, Any]) -> list[dict[str, Any]]:
     app_id = application["id"]
     category = application["category"]
-    return [
+    matched = [
         rule
         for rule in load_kck_permit_rules().get("rules", [])
         if app_id in rule.get("applies_to", []) or category in rule.get("applies_to", [])
+    ]
+    if matched:
+        return matched
+    return [
+        {
+            "id": f"{app_id}_applicability",
+            "applies_to": [app_id],
+            "rule": (
+                f"Resolve whether {application['name']} applies from the cited authority, "
+                "project facts, and uploaded project documents."
+            ),
+            "source_ids": [application["source_id"]],
+        }
     ]
 
 
 def match_kck_applications(
     scope: dict[str, bool] | None,
     project_type: str | None = None,
+    answers: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     """Return every official KCK workflow touched by each selected scope flag.
 
@@ -49,11 +85,16 @@ def match_kck_applications(
     Conditional sibling workflows stay visible as needs_confirmation instead of being discarded.
     """
     active = {key for key, enabled in (scope or {}).items() if enabled}
+    answers = answers or {}
     normalized_type = " ".join(str(project_type or "").replace("_", " ").casefold().split())
-    residential = any(
+    explicitly_residential = any(
         marker in normalized_type
-        for marker in ("single family", "multifamily residential", "residential")
-    )
+        for marker in ("single family", "multifamily residential", "residential only")
+    ) and "mixed" not in normalized_type
+    explicitly_commercial = any(
+        marker in normalized_type
+        for marker in ("commercial", "industrial", "office", "retail", "warehouse")
+    ) and "mixed" not in normalized_type
     incompatible_for_commercial = {
         "residential_building",
         "variance_carport",
@@ -74,30 +115,60 @@ def match_kck_applications(
         if not triggered_by:
             continue
         incompatible = (
-            not residential and application["id"] in incompatible_for_commercial
+            explicitly_commercial and application["id"] in incompatible_for_commercial
         ) or (
-            residential and application["id"] in incompatible_for_residential
+            explicitly_residential and application["id"] in incompatible_for_residential
         )
         direct = any(
             application["id"] in DIRECT_SCOPE_APPLICATIONS.get(scope_key, set())
             for scope_key in triggered_by
         )
+        trigger_keys = list(application.get("trigger_any", []))
+        explicit_key = f"kck_{application['id']}_applies"
+        explicit_answer = answers.get(explicit_key)
+        trigger_answers = [answers.get(key) for key in trigger_keys]
+        triggered = any(value is True for value in trigger_answers)
+        all_triggers_excluded = bool(trigger_keys) and all(
+            value is False for value in trigger_answers
+        )
         rules = rules_for_application(application)
+        questions = list(application.get("questions", []))
+        if not direct and not questions:
+            questions.append(
+                {
+                    "key": explicit_key,
+                    "type": "boolean",
+                    "label": f"Does the project require {application['name']}?",
+                    "help": (
+                        "Use the cited official workflow and uploaded project documents. "
+                        "Choose no only when the project facts exclude it."
+                    ),
+                }
+            )
+        status = "needs_confirmation"
+        if incompatible or explicit_answer is False or all_triggers_excluded:
+            status = "not_required"
+        elif direct or explicit_answer is True or triggered:
+            status = "required"
         output.append(
             {
                 **application,
-                "requirement_status": (
-                    "not_required" if incompatible else "required" if direct else "needs_confirmation"
-                ),
+                "requirement_status": status,
                 "reason": (
                     "Application use conflicts with the selected project type: "
                     if incompatible
+                    else "Excluded by confirmed project facts: "
+                    if status == "not_required"
                     else "Direct match for selected scope: "
-                    if direct
+                    if status == "required"
                     else "Complete conditional candidate for selected scope: "
                 ) + ", ".join(key.replace("_", " ") for key in triggered_by),
                 "rule_ids": [rule["id"] for rule in rules],
                 "source_ids": sorted({source for rule in rules for source in rule.get("source_ids", [])} | {application["source_id"]}),
+                "questions": [
+                    {**question, "answer": answers.get(question["key"])}
+                    for question in questions
+                ],
             }
         )
     return sorted(output, key=lambda item: (item["category"], item["name"], item["id"]))

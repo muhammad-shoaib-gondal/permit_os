@@ -40,8 +40,14 @@ class CustomRuleBody(BaseModel):
     area: str | None = None
     permitType: str | None = None
     source: str | None = None
+    sourceLinks: list[dict[str, str]] = Field(default_factory=list)
+    sourceIds: list[str] = Field(default_factory=list)
+    checkType: str | None = None
+    verifiedAt: str | None = None
     builtinRuleId: str | None = None
     systemManaged: bool = False
+    execution: dict[str, Any] | None = None
+    implementation: dict[str, Any] | None = None
 
 
 class CreateProjectBody(BaseModel):

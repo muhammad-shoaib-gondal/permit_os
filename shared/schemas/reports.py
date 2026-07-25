@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Optional
+from typing import Any, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -18,11 +18,17 @@ class ReadinessImpact(str, Enum):
 
 
 class CheckResult(BaseModel):
+    rule_id: Optional[str] = None
+    permit_type: Optional[str] = None
+    permit_name: Optional[str] = None
     rule: str
     status: CheckStatus
     citation: str
     detail: str
     category: Optional[str] = None
+    evaluator: Optional[str] = None
+    evidence: list[dict[str, Any]] = Field(default_factory=list)
+    missing_inputs: list[str] = Field(default_factory=list)
 
 
 class JurisdictionInfo(BaseModel):
