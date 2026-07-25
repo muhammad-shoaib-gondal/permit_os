@@ -1,0 +1,22 @@
+{
+  "snippets": [
+    {
+      "id": "ibc_adoption",
+      "topic": "building_code",
+      "text": "City of Manhattan regulates buildings through Code of Ordinances Chapter 8 (Buildings and Building Regulations), which adopts International Building Code and International Residential Code with local amendments. All construction must comply with applicable building codes in addition to MDC zoning and site standards.",
+      "citation": "Code Ch. 8"
+    },
+    {
+      "id": "fire_review",
+      "topic": "fire",
+      "text": "Fire Official coordinates with Zoning Administrator and Building Official on permit compliance and inspections per MDC Sec. 26-8A-2.",
+      "citation": "MDC Sec. 26-8A-2"
+    },
+    {
+      "id": "ada",
+      "topic": "accessibility",
+      "text": "Commercial and multifamily projects must comply with federal ADA and applicable Kansas accessibility requirements in addition to local building code.",
+      "citation": "Federal ADA; IBC Chapter 11"
+    }
+  ]
+}

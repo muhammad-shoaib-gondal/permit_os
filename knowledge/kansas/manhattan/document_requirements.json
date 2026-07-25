@@ -1,0 +1,72 @@
+{
+  "building_permit": [
+    "Building permit application",
+    "Construction drawings",
+    "Site plan when exterior/site work is included",
+    "Valuation or construction cost information",
+    "Contractor information"
+  ],
+  "electrical": [
+    "Electrical permit application",
+    "Electrical plans or scope description",
+    "Contractor license information",
+    "Product specifications when applicable"
+  ],
+  "plumbing": [
+    "Plumbing permit application",
+    "Plumbing plans or scope description",
+    "Fixture schedule when applicable",
+    "Contractor license information"
+  ],
+  "mechanical": [
+    "Mechanical permit application",
+    "Mechanical/HVAC plans or scope description",
+    "Equipment schedule",
+    "Contractor license information"
+  ],
+  "sign_permit": [
+    "Sign permit application",
+    "Sign drawings",
+    "Site plan or elevation showing sign location",
+    "Contractor information"
+  ],
+  "floodplain_development": [
+    "Floodplain development permit application",
+    "Site plan",
+    "Floodplain determination or FEMA map information",
+    "Elevation or engineering information when required"
+  ],
+  "conditional_use": [
+    "Conditional use application",
+    "Narrative describing proposed use",
+    "Site plan",
+    "Owner authorization",
+    "Public hearing materials when required"
+  ],
+  "variance": [
+    "Variance application",
+    "Narrative describing requested relief",
+    "Site plan or survey",
+    "Owner authorization",
+    "Public hearing materials when required"
+  ],
+  "rezoning": [
+    "Rezoning application",
+    "Legal description",
+    "Concept or site plan when required",
+    "Owner authorization",
+    "Public hearing materials"
+  ],
+  "preliminary_plat": [
+    "Preliminary plat application",
+    "Preliminary plat drawings",
+    "Utility and access information",
+    "Owner authorization"
+  ],
+  "final_plat": [
+    "Final plat application",
+    "Final plat drawings",
+    "Utility easements when required",
+    "Owner authorization"
+  ]
+}

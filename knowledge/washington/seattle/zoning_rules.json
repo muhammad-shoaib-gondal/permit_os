@@ -1,0 +1,20 @@
+{
+  "demo_addresses": {
+    "100 Pine St, Seattle, WA 98101": {
+      "district": "SM-85"
+    }
+  },
+  "districts": {
+    "SM-85": {
+      "allowed_uses": [
+        "office",
+        "retail",
+        "restaurant"
+      ],
+      "notes": "Simplified downtown Seattle mixed commercial demo district."
+    }
+  },
+  "citations": {
+    "side_setback": "Seattle TI MVP uses permit checklist review rather than setback logic."
+  }
+}

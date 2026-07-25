@@ -1,4 +1,4 @@
-"""LangChain tools — Austin knowledge exposed to Band agents."""
+"""LangChain tools for deterministic permitting checks."""
 
 from __future__ import annotations
 
@@ -90,12 +90,3 @@ JURISDICTION_TOOLS = [lookup_jurisdiction, get_zoning_rules, calculate_setbacks]
 BUILDING_TOOLS = [check_egress, check_sprinklers, check_accessibility]
 SITE_TOOLS = [lookup_flood_zone, get_utility_requirements]
 PACKAGER_TOOLS = [get_fee_schedule, get_permit_catalog]
-CONDUCTOR_TOOLS: list = []
-
-TOOLS_BY_ROLE = {
-    "conductor": CONDUCTOR_TOOLS,
-    "jurisdiction": JURISDICTION_TOOLS,
-    "building": BUILDING_TOOLS,
-    "site": SITE_TOOLS,
-    "packager": PACKAGER_TOOLS,
-}

@@ -1,0 +1,12 @@
+{
+  "jurisdiction_id":"kansas_city_ks",
+  "source":"Unified Government Code of Ordinances Chapter 27 and official KCK zoning GIS",
+  "source_url":"https://library.municode.com/ks/wyandotte_county_-_unified_government/codes/code_of_ordinances?nodeId=CH27PLDE",
+  "districts":{},
+  "universal_rules":[
+    {"rule":"Use the zoning GIS result as a planning reference and verify the official zoning map and applicable schedule of district regulations before filing."},
+    {"rule":"Historic and environs GIS flags trigger Historic Preservation review and may require a Certificate of Appropriateness."},
+    {"rule":"A split-zone GIS flag requires parcel-specific confirmation of every applicable district boundary."},
+    {"rule":"Development in the regulatory floodplain requires the floodplain approval before grading, fill, or construction."}
+  ]
+}

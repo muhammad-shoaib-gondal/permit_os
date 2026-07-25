@@ -1,0 +1,37 @@
+{
+  "utility_providers": [
+    {
+      "name": "City of Manhattan — Water & Wastewater",
+      "department": "Public Works",
+      "services": ["water", "wastewater", "stormwater"],
+      "note": "New development must coordinate utility capacity and tap fees with Public Works",
+      "contact": "City of Manhattan Public Works"
+    },
+    {
+      "name": "Evergy (formerly Westar)",
+      "services": ["electric"],
+      "note": "Electric service for new multifamily and commercial — coordinate early in site plan",
+      "region": "Northeast Kansas"
+    },
+    {
+      "name": "Kansas Gas Service",
+      "services": ["natural_gas"],
+      "region": "Manhattan area"
+    }
+  ],
+  "requirements": [
+    {
+      "id": "utility_tap",
+      "trigger": "new_construction_or_subdivision",
+      "action": "Coordinate water, sewer, and storm connections with city Public Works before final plat or building permit",
+      "citation": "MDC site development review; City utility ordinances"
+    },
+    {
+      "id": "easements",
+      "trigger": "subdivision_or_multifamily",
+      "action": "Utility easements required per subdivision standards",
+      "citation": "MDC Division 26-9B"
+    }
+  ],
+  "note": "Manhattan-specific utility fee schedules not yet extracted — verify with Public Works for pilot projects"
+}

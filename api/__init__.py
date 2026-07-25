@@ -1,1 +1,1 @@
-"""PermitOS FastAPI backend."""
+"""EstatePermit FastAPI backend."""

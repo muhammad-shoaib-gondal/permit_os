@@ -1,0 +1,7 @@
+{
+  "jurisdiction_id":"lenexa_ks",
+  "snapshot_date":"2026-07-23",
+  "selection_policy":"Every workflow touched by selected scope is returned deterministically. Unknown controlling facts remain needs_confirmation and may not be silently excluded.",
+  "coverage_contract":{"total_exact_workflows":83,"evidence_gated_review_checks":1485},
+  "quality_gates":["Every workflow has an official source","Every workflow is reachable from supported project scope","Every conditional fact has a user-facing question","Every workflow has at least 10 substantive executable checks","Every required document has an executable evidence check","Every rule is evidence-gated","Every selected rule receives exactly one traceable result","No vector or LLM applicability filtering","Unknown facts never produce not_required"]
+}

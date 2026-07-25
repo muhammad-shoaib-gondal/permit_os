@@ -1,0 +1,81 @@
+{
+  "building_construction": [
+    {
+      "key": "plan_set",
+      "label": "Plan set",
+      "required": true,
+      "notes": "SDCI TI guidance calls for plans and drawings for the proposed work."
+    },
+    {
+      "key": "code_analysis",
+      "label": "Code analysis",
+      "required": true,
+      "notes": "Commercial TI screening standards call for building and land use code analysis."
+    },
+    {
+      "key": "egress_plan",
+      "label": "Means of egress / existing plan",
+      "required": true
+    },
+    {
+      "key": "site_or_tenant_plan",
+      "label": "Schematic property or tenant plan",
+      "required": true
+    }
+  ],
+  "mechanical": [
+    {
+      "key": "mechanical_plan",
+      "label": "Mechanical / HVAC plan",
+      "required": true
+    },
+    {
+      "key": "equipment_schedule",
+      "label": "Mechanical equipment schedule",
+      "required": true
+    }
+  ],
+  "plumbing": [
+    {
+      "key": "plumbing_plan",
+      "label": "Plumbing plan",
+      "required": true
+    },
+    {
+      "key": "fixture_schedule",
+      "label": "Fixture schedule",
+      "required": true
+    }
+  ],
+  "electrical": [
+    {
+      "key": "electrical_plan",
+      "label": "Electrical plan",
+      "required": true
+    },
+    {
+      "key": "panel_schedule",
+      "label": "Panel schedule / load information",
+      "required": true
+    }
+  ],
+  "fire_alarm_suppression": [
+    {
+      "key": "fire_alarm_plan",
+      "label": "Fire alarm or suppression plan",
+      "required": true
+    },
+    {
+      "key": "device_schedule",
+      "label": "Device / head schedule",
+      "required": false
+    }
+  ],
+  "street_use": [
+    {
+      "key": "staging_plan",
+      "label": "Construction staging or right-of-way impact plan",
+      "required": true
+    }
+  ]
+}

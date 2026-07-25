@@ -1,4 +1,4 @@
-# Stop PermitOS API, web dev server, and Band agents (no windows)
+# Stop the EstatePermit API and web development server.
 $root = (Get-Item $PSScriptRoot).Parent.FullName
 
 foreach ($port in @(8000, 5173)) {
@@ -7,11 +7,11 @@ foreach ($port in @(8000, 5173)) {
 }
 
 Get-CimInstance Win32_Process -Filter "Name='python.exe'" |
-    Where-Object { $_.CommandLine -match 'permitos|uvicorn api\.main|agents\.(conductor|jurisdiction|building|site_environmental|packager)' } |
+    Where-Object { $_.CommandLine -match 'EstatePermit|uvicorn api\.main' } |
     ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
 
 Get-CimInstance Win32_Process -Filter "Name='node.exe'" |
-    Where-Object { $_.CommandLine -match 'permitos\\web|vite' } |
+    Where-Object { $_.CommandLine -match 'EstatePermit\\web|vite' } |
     ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
 
-Write-Host "Stopped PermitOS services."
+Write-Host "Stopped EstatePermit services."

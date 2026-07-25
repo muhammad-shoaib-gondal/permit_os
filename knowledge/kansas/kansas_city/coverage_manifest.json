@@ -1,0 +1,19 @@
+{
+  "jurisdiction_id": "kansas_city_ks",
+  "snapshot_date": "2026-07-22",
+  "selection_policy": "Every application in every selected scope category is returned deterministically; no vector or LLM filtering is allowed.",
+  "authorities": ["UG Building Inspection","UG Planning + Urban Design","UG Public Works","Kansas City Kansas Fire Prevention","Kansas City Board of Public Utilities","UG Water Pollution Control","Unified Government Public Health","Kansas Department of Health and Environment","Kansas State Fire Marshal","Kansas Department of Agriculture","Kansas Department of Transportation","U.S. Army Corps of Engineers"],
+  "required_files": ["application_catalog.json","supplemental_application_catalog.json","permit_catalog.json","permit_rules.json","permit_exemptions.json","document_requirements.json","source_registry.json","supplemental_source_registry.json","zoning_rules.json"],
+  "coverage_contract": {
+    "building_and_trade": 20,
+    "planning_and_land_use": 31,
+    "public_works_and_utilities": 17,
+    "fire_prevention": 11,
+    "health_and_environmental": 5,
+    "state_and_federal": 7,
+    "total_exact_workflows": 91,
+    "evidence_gated_review_checks": 1490
+  },
+  "quality_gates": ["Every workflow has a registered official source","Every workflow has at least 10 executable, substantive, evidence-gated checks","Every check returns not verified when evidence is unavailable","Every permit-specific check targets the exact kck_* permit type","State and federal construction approvals remain visible until project facts resolve applicability","All detected zoning classifications receive fail-closed district checks","Every selected rule receives exactly one traceable result"],
+  "notes": "The UG publishes forms and department workflows rather than one enumerable self-service catalog. EstatePermit normalizes municipal, utility, Kansas state, and federal construction workflows without treating semantic retrieval or an LLM as an applicability decision. Separate municipal jurisdictions outside Kansas City, Kansas remain outside this jurisdiction pack."
+}

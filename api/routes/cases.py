@@ -10,9 +10,8 @@ from pydantic import BaseModel
 
 from api.services.case_service import approve_case, create_case, get_case, start_case_async
 from api.services.intake import parse_intake_upload
-from shared.agent_logic.errors import AgentPipelineError, AgentQuotaError
-from shared.band_client.orchestrator import BandOrchestrationError
 from shared.schemas.project_brief import ProjectBrief, ProjectType
+from shared.tools.knowledge import JURISDICTION_PATHS
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +19,7 @@ router = APIRouter(prefix="/cases", tags=["cases"])
 
 
 def _is_case_stale(case) -> bool:
-    """True when analysis has had no progress for too long (Band room likely silent)."""
+    """True when analysis has not reported progress within the expected window."""
     if case.status != "ANALYZING":
         return False
     results = case.results or {}
@@ -38,14 +37,8 @@ def _is_case_stale(case) -> bool:
 
 
 def _handle_pipeline_error(exc: Exception) -> None:
-    if isinstance(exc, BandOrchestrationError):
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
-    if isinstance(exc, AgentQuotaError):
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
-    if isinstance(exc, AgentPipelineError):
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
     logger.exception("Case pipeline failed")
-    raise HTTPException(status_code=500, detail=str(exc)) from exc
+    raise HTTPException(status_code=500, detail="The review could not be completed. Try again.") from exc
 
 
 class CreateCaseRequest(BaseModel):
@@ -83,9 +76,9 @@ async def post_case(body: CreateCaseRequest):
         )
     try:
         results = await create_case(brief, demo=body.use_demo)
-    except (BandOrchestrationError, AgentQuotaError, AgentPipelineError, RuntimeError) as exc:
+    except Exception as exc:
         _handle_pipeline_error(exc)
-    return {"case_id": str(brief.case_id), "band_room_id": results["case_summary"].get("band_room_id"), **results}
+    return {"case_id": str(brief.case_id), **results}
 
 
 @router.post("/analyze")
@@ -94,10 +87,14 @@ async def analyze_intake(
     project_type: ProjectType = Form(ProjectType.MULTIFAMILY_RESIDENTIAL),
     jurisdiction: str = Form("austin_tx"),
 ):
-    """Upload project brief (.json) or package (.zip) and start Band analysis."""
-    if jurisdiction != "austin_tx":
-        raise HTTPException(status_code=400, detail="Only Austin, TX is supported in this MVP.")
+    """Upload a project brief or package and start analysis."""
+    if jurisdiction not in JURISDICTION_PATHS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported jurisdiction: {jurisdiction}. Available: {', '.join(JURISDICTION_PATHS)}",
+        )
     brief, _ = await parse_intake_upload(file, project_type)
+    brief.jurisdiction = jurisdiction
     return await start_case_async(brief)
 
 
@@ -114,7 +111,7 @@ async def demo_riverside():
     brief = ProjectBrief.riverside_residences_demo()
     try:
         results = await create_case(brief, demo=True)
-    except (BandOrchestrationError, AgentQuotaError, AgentPipelineError, RuntimeError) as exc:
+    except Exception as exc:
         _handle_pipeline_error(exc)
     return {"case_id": str(brief.case_id), **results}
 
@@ -125,20 +122,20 @@ async def get_case_by_id(case_id: UUID):
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
     results = case.results or {}
+    public_results = dict(results)
+    public_results.pop("error_detail", None)
     return {
         "case_id": case.case_id,
         "project_name": case.project_name,
         "status": case.status,
-        "band_room_id": case.band_room_id,
         "audit_hash": case.audit_hash,
         "approved_by": case.approved_by,
         "approved_at": case.approved_at.isoformat() if case.approved_at else None,
-        "results": results,
+        "results": public_results,
         "is_stale": _is_case_stale(case),
         "stalled": bool(results.get("stalled")),
         "stall_reason": results.get("stall_reason"),
         "error": results.get("error") if case.status == "FAILED" else None,
-        "error_detail": results.get("error_detail") if case.status == "FAILED" else None,
     }
 
 

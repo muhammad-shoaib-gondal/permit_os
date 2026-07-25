@@ -1,0 +1,10 @@
+{
+  "jurisdiction_id": "lenexa_ks",
+  "city": "Lenexa",
+  "state": "KS",
+  "county": "Johnson",
+  "coverage_status": "official_sources_normalized_2026_07_23",
+  "portal_name": "Lenexa Application and Permitting Portal",
+  "portal_url": "https://aca-prod.accela.com/LENEXA/Default.aspx",
+  "last_verified": "2026-07-23"
+}

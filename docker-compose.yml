@@ -6,70 +6,9 @@ services:
     env_file:
       - .env
     volumes:
-      - ./agent_config.yaml:/app/agent_config.yaml:ro
-      - permitos-data:/app/data
+      - EstatePermit-data:/app/data
     environment:
-      - DATABASE_URL=sqlite+aiosqlite:///./data/permitos.db
-
-  conductor:
-    build:
-      context: .
-      dockerfile: Dockerfile.agents
-    command: python -m agents.conductor.agent
-    env_file:
-      - .env
-    volumes:
-      - ./agent_config.yaml:/app/agent_config.yaml:ro
-    profiles:
-      - agents
-
-  jurisdiction:
-    build:
-      context: .
-      dockerfile: Dockerfile.agents
-    command: python -m agents.jurisdiction.agent
-    env_file:
-      - .env
-    volumes:
-      - ./agent_config.yaml:/app/agent_config.yaml:ro
-    profiles:
-      - agents
-
-  building:
-    build:
-      context: .
-      dockerfile: Dockerfile.agents
-    command: python -m agents.building.agent
-    env_file:
-      - .env
-    volumes:
-      - ./agent_config.yaml:/app/agent_config.yaml:ro
-    profiles:
-      - agents
-
-  site:
-    build:
-      context: .
-      dockerfile: Dockerfile.agents
-    command: python -m agents.site_environmental.agent
-    env_file:
-      - .env
-    volumes:
-      - ./agent_config.yaml:/app/agent_config.yaml:ro
-    profiles:
-      - agents
-
-  packager:
-    build:
-      context: .
-      dockerfile: Dockerfile.agents
-    command: python -m agents.packager.agent
-    env_file:
-      - .env
-    volumes:
-      - ./agent_config.yaml:/app/agent_config.yaml:ro
-    profiles:
-      - agents
+      - DATABASE_URL=sqlite+aiosqlite:///./data/EstatePermit.db
 
 volumes:
-  permitos-data:
+  EstatePermit-data:

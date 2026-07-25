@@ -1,0 +1,287 @@
+{
+  "jurisdiction_id": "kansas_city_mo",
+  "verified_at": "2026-07-18",
+  "decision_policy": {
+    "authoritative_engine": "deterministic",
+    "vector_search_role": "retrieval and explanation only",
+    "llm_role": "optional narrative only; never decides applicability",
+    "unknown_fact_policy": "return every application in the selected category as a candidate and ask targeted questions before filing"
+  },
+  "global_rules": [
+    {"id":"G-001","rule":"Use the project address to confirm that the work is inside Kansas City, Missouri; Kansas City, Kansas is a different jurisdiction.","sources":["compass_application_assistant"]},
+    {"id":"G-002","rule":"A permit application and a plan application are distinct CompassKC records. Work needing formal plan review requires the applicable approved plan before or together with its permit workflow.","sources":["compass_application_assistant","ib100","ib110a"]},
+    {"id":"G-003","rule":"Commercial and multifamily trade permits must be obtained by appropriately licensed contractors. A qualifying owner-occupant of a single-family residence may perform eligible work only through the homeowner-affidavit process.","sources":["trade_permits","ib146","chapter_18"]},
+    {"id":"G-004","rule":"Permit-exempt work does not waive compliance with the adopted codes, zoning rules, utility rules, or other approvals.","sources":["permit_exempt_work","chapter_18"]},
+    {"id":"G-005","rule":"When work is connected to an existing plan or building permit, create the trade permit from that record's sub-record tab when CompassKC directs it.","sources":["compass_application_assistant"]}
+  ],
+  "category_rules": [
+    {
+      "id":"commercial_building","category_prefixes":["Building - Commercial"],"scope_keys":["new_construction","addition","alteration","repair","structural_work"],
+      "rules":[
+        "Formal commercial plan review is required when the work is not minor enough for the miscellaneous-renovation permit route.",
+        "Fast-track metal-stud work is at risk, is limited to metal studs, requires the IB151 Statement of Understanding, and does not replace full plan approval.",
+        "New commercial elevator installations must be linked to an approved building permit; work on existing systems must identify each CVEL number and the exact work.",
+        "Commercial plans must include the administrative, architectural, engineering, and special-inspection content applicable under IB110 Parts A-D."
+      ],
+      "exemptions":["Building exemptions listed in the official Building Permit Exempt Work page, including qualifying accessory structures, low retaining walls, low decks/platforms, and qualifying reroof work."],
+      "required_documents":["detailed scope","construction plans when formal review applies","contractor/business license information","IB151 Statement of Understanding for fast-track metal studs"],
+      "sources":["compass_application_assistant","chapter_18","permit_exempt_work","ib110a","ib110b","ib110c","ib110d","ib151"]
+    },
+    {
+      "id":"electrical","category_prefixes":["Building - Electrical"],"scope_keys":["electrical_work","solar_battery_generator_ev","fire_alarm_sprinkler_work"],
+      "rules":[
+        "Use Electrical General - Commercial for commercial buildings, apartments, and commercial security-alarm installations when plans are already approved or the scope is minor enough not to need full plan review.",
+        "Use Electrical General - Residential for detached single-family houses, duplexes, and their detached accessory structures; use Electrical General - Townhouse for IRC townhouses.",
+        "Any residential or commercial service of 400 amps or larger requires the completed IB160 submission identified by CompassKC.",
+        "Service equipment rated 800 through 1199 amps requires a sealed one-line drawing plan case; for one- and two-family work, the line drawing may be submitted with the permit case as allowed by IB160.",
+        "Service equipment rated 1200 amps or more, and every system over 600 volts, requires complete engineered drawings sealed by a Missouri professional engineer.",
+        "Transformers, generators, battery systems, fire pumps, wind turbines, and automatic transfer switches require the IB160 plan/line-drawing path; residential generators and home battery systems also require IB160 documentation.",
+        "An addition is evaluated using the total resulting electrical service size, not only the added load.",
+        "Residential solar must use the Residential Solar Plan application before the associated electrical permit workflow.",
+        "Electrical Limited Service - Residential is only for the limited scopes in IB108 and licensed electrical contractors; examples include one new circuit serving no more than two devices, extending circuits to no more than two devices, and hard-wired smoke detectors.",
+        "Electrical reconnect permits are inspection-only. They authorize no upgrade, alteration, or new electrical work; discovered work requires a separate licensed electrical permit.",
+        "Fire Alarm - Commercial is for minor work not requiring full plans. If plans are required and no building work is involved, file Miscellaneous Trade Work Only Commercial (Includes Fire Alarm).",
+        "A hard-wired residential security alarm uses Install Security Alarms - Residential. Wi-Fi and plug-in systems are permit-exempt, but alarm monitoring still requires the separate KCPD monitoring permit.",
+        "Floodplain development review may apply to electrical service equipment located in a regulated floodplain."
+      ],
+      "exemptions":[
+        "Minor repair and maintenance such as replacing lamps and connecting approved portable plug-in equipment.",
+        "Temporary wiring and equipment used only for testing or servicing electrical equipment.",
+        "Replacement of snap switches, receptacles, and lighting fixtures when the circuit is not altered; ceiling fans are excluded from this exemption.",
+        "Qualifying utility generation, transmission, distribution, metering, and utility-owned equipment.",
+        "Wi-Fi and plug-in residential security systems are exempt from the residential security-alarm construction permit."
+      ],
+      "required_documents":["detailed electrical scope","approved parent plan or trade-only plan when required","electrical contractor license","business license","IB160 and one-line/engineered drawings when triggered","equipment specifications","solar plan approval when applicable"],
+      "sources":["compass_application_assistant","chapter_18","permit_exempt_work","trade_permits","ib108","ib146","ib160","solar_permits"]
+    },
+    {
+      "id":"fire_protection","category_prefixes":["Building - Fire Protection"],"scope_keys":["fire_alarm_sprinkler_work","mechanical_hvac_work"],
+      "rules":[
+        "Fast-track sprinkler permits authorize at-risk sprinkler work before full plan approval, require the IB116 Statement of Understanding, and do not replace full sprinkler plan review.",
+        "Kitchen hood suppression work requires a fire-protection permit and licensed fire-protection contractor; link it to the building permit when one exists.",
+        "Construction or modification of a fire-sprinkler system has a separate commercial plan application in CompassKC."
+      ],
+      "required_documents":["sprinkler or hood-suppression design","product specifications","fire-protection contractor license","IB116 Statement of Understanding for fast-track work","parent building permit reference"],
+      "sources":["compass_application_assistant","chapter_18","ib116"]
+    },
+    {
+      "id":"mechanical","category_prefixes":["Building - Mechanical"],"scope_keys":["mechanical_hvac_work"],
+      "rules":[
+        "Select the commercial, residential, or townhouse general application from building type.",
+        "Commercial work requires an approved related plan unless the scope is minor enough not to require full plans; trade-only work needing plans uses Miscellaneous Trade Work Only Commercial.",
+        "Limited Service - Residential is restricted to the scopes listed in IB108 and licensed mechanical contractors.",
+        "Residential air-conditioner and furnace applications are equipment-specific routes."
+      ],
+      "exemptions":["Portable heating, ventilation, cooling and evaporative equipment; replacement parts that do not alter approval; certain self-contained refrigeration systems not exceeding 10 pounds of refrigerant or 1 horsepower; grilles and diffusers; qualifying utility work."],
+      "required_documents":["detailed scope","approved parent plan when applicable","mechanical contractor license","equipment schedule/specifications"],
+      "sources":["compass_application_assistant","chapter_18","permit_exempt_work","trade_permits","ib108"]
+    },
+    {
+      "id":"plumbing","category_prefixes":["Building - Plumbing"],"scope_keys":["plumbing_work","water_sewer_connections"],
+      "rules":[
+        "Select the commercial, residential, or townhouse general application from building type.",
+        "Commercial work requires an approved related plan unless the scope is minor enough not to require full plans; trade-only work needing plans uses Miscellaneous Trade Work Only Commercial.",
+        "Limited Service - Residential is restricted to the scopes listed in IB108 and licensed plumbing contractors.",
+        "Gas test/reconnect, residential water heater, and residential-service backflow device are separate application routes.",
+        "Private sewage disposal systems follow IB105 in addition to the plumbing permit workflow."
+      ],
+      "exemptions":["Repair of faucets or valves; clearing stoppages; replacement of defective fixtures or valves without piping extension or rearrangement; replacement of sink or lavatory traps; qualifying utility work."],
+      "required_documents":["detailed scope","approved parent plan when applicable","plumbing contractor license","fixture/equipment schedule","backflow or gas-test documentation when applicable"],
+      "sources":["compass_application_assistant","chapter_18","permit_exempt_work","trade_permits","ib105","ib108"]
+    },
+    {
+      "id":"residential_building","category_prefixes":["Building - Residential"],"scope_keys":["new_construction","addition","alteration","structural_work"],
+      "rules":[
+        "Interior-remodel permits are separated into duplex, single-family, and townhouse routes.",
+        "Structural remodels, additions, new dwellings, detached accessory buildings, residential miscellaneous structures, and solar use separate plan applications.",
+        "Residential plans must contain the applicable IB100 site, architectural, structural, energy, and administrative information.",
+        "Residential swimming pools follow IB119 and the dedicated pool permit route.",
+        "Open/uncovered decks have a dedicated permit; qualifying platforms/decks not more than 30 inches above grade and not over a basement or story are exempt.",
+        "Residential elevator work has a dedicated permit; exempt devices are limited to the official elevator exemption list."
+      ],
+      "exemptions":["The complete building and elevator exemptions listed on the official Building Permit Exempt Work page."],
+      "required_documents":["IB100 plan package when plan review applies","site plan","construction drawings","energy-code documentation","contractor or homeowner-affidavit information","pool/barrier documents when applicable"],
+      "sources":["compass_application_assistant","chapter_18","permit_exempt_work","ib100","ib119","ib146","ib171_residential","ib172"]
+    },
+    {
+      "id":"signs","category_prefixes":["Building - Signs"],"scope_keys":["signs"],
+      "rules":[
+        "Use the exact freestanding/monument, marquee, special-event/temporary, or wall/projecting sign application.",
+        "Outdoor advertising signs are subject to IB127 and Chapter 88 location/design rules.",
+        "A Council-approved signage plan is a separate plan application when that approval path applies."
+      ],
+      "exemptions":["Copy/message changes; painting and cleaning; signs inside buildings or on vehicles; qualifying wall-painted lettering; municipal, danger and public-service signs; emergency non-advertising signs; and qualifying real-estate signs up to 32 square feet per frontage, as listed by the City."],
+      "required_documents":["sign drawings and dimensions","site plan or elevation","attachment/structural details","electrical details when illuminated","contractor information"],
+      "sources":["compass_application_assistant","chapter_88","permit_exempt_work","ib127"]
+    },
+    {
+      "id":"demolition","category_prefixes":["Demolition"],"scope_keys":["demolition"],
+      "rules":[
+        "Commercial and residential work each have complete, interior, partial, and pre-demolition-inspection application routes.",
+        "Complete or partial demolition requires the applicable pre-demolition and utility-disconnection steps described by IB107 and the portal.",
+        "Historic-resource review is a separate planning record and may be administrative or regular."
+      ],
+      "required_documents":["demolition scope/site plan","ownership/contractor information","utility disconnect evidence","waste and site-protection plan","historic review when applicable"],
+      "sources":["compass_application_assistant","chapter_56","ib107"]
+    },
+    {
+      "id":"street_and_row","category_prefixes":["Street - Construction","Street - Curbs","Street - Dumpster","Street - Encroachments","Street - Excavation","Street - Hauling","Street - Loading","Street - Parking","Street - Pole","Street - Traffic","Street - Trees","Streetcar Zone Access"],"scope_keys":["driveway_sidewalk_row","grading_land_disturbance"],
+      "rules":[
+        "Choose the application matching the activity, asset, applicant type, and whether the location is under Parks/Parkways/Boulevards jurisdiction.",
+        "Excavation type is separated by utility/purpose; traffic control, street plates, hauling, dumpsters, encroachments, pole attachments, loading, and streetcar access are separate approvals.",
+        "The minor-infrastructure permit is remove-and-replace repair only. New driveway entrances require zoning approval; ADA ramps require engineered major-infrastructure review.",
+        "Minor infrastructure submittals require the address, detailed scope, quantities, a drawing, and liability-insurance evidence.",
+        "Streetcar Track Access applies inside the stated track, overhead-contact-wire, or safety envelope and commonly also requires traffic control."
+      ],
+      "required_documents":["site/location drawing","traffic-control plan when applicable","insurance","contractor/applicant information","quantities and restoration details","related plan/agency approval"],
+      "sources":["compass_application_assistant","chapter_64","public_works_permits","minor_infrastructure"]
+    },
+    {
+      "id":"major_infrastructure","category_prefixes":["Street - Infrastructure"],"scope_keys":["grading_land_disturbance","driveway_sidewalk_row","water_sewer_connections"],
+      "rules":[
+        "Public infrastructure work requires separate plan review and permits for the infrastructure disciplines involved.",
+        "Major infrastructure includes sanitary sewers, storm sewers, site disturbance, streets/pedestrian facilities, streetlights/signals, and stream buffers.",
+        "Site disturbance of one acre or more must be permitted before other infrastructure permits; plans, specifications, calculations, soils/drainage information, and cost estimates must be sealed by a Missouri professional engineer when required by IB159.",
+        "Site-disturbance inspections occur at least every 14 days and after qualifying 0.5-inch rain events; the permit remains issued until vegetation is established."
+      ],
+      "required_documents":["sealed plans/specifications/calculations","soils and drainage information","engineer's cost estimate","response-to-comments/resubmittal forms","inspection requests"],
+      "sources":["compass_application_assistant","major_infrastructure","infrastructure_inspections","ib159"]
+    },
+    {
+      "id":"water_service","category_prefixes":["Water - Service Lines","Water - Sewer-Storm - Service Lines","Water - Transfer Water Connections"],"scope_keys":["water_sewer_connections"],
+      "rules":[
+        "New water service, service-line repair, service kills, sanitary sewer, storm sewer, SAC meters, and water-main transfers are distinct applications.",
+        "A water-main transfer requires an approved Water Main Extension plan on file before permit issuance.",
+        "Sanitary/storm new or repair work must use its dedicated service-line application; abandonment requires disconnection at the location directed by Water Services.",
+        "Water-main extensions and relocations use the separate Water Main Extension-Relocation plan application."
+      ],
+      "required_documents":["service-line scope and drawing","licensed plumber/contractor information","approved water-main plans when applicable","SAC authorization when applicable","account clearance when required"],
+      "sources":["compass_application_assistant","major_infrastructure","ib105","ib159"]
+    },
+    {
+      "id":"zoning","category_prefixes":["Zoning"],"scope_keys":["change_use_occupancy"],
+      "rules":[
+        "Zoning Clearance for Business License is the operational clearance route for businesses; a Zoning Compliance Letter is an informational parcel record and is not a business-license clearance.",
+        "Land-use approvals, development plans, special uses, rezonings, plats, historic review, variances, alternatives, and legal-nonconformance certificates are separate plan applications.",
+        "A change of occupancy classification may require both the building plan application and zoning/occupancy approvals."
+      ],
+      "required_documents":["address/parcel","proposed use","site or development plan when applicable","owner/agent authorization","legal description and notices when applicable"],
+      "sources":["compass_application_assistant","chapter_88","ib137","ib139","ib147","ib165"]
+    },
+    {
+      "id":"certificate_of_occupancy","category_prefixes":[],"scope_keys":["change_use_occupancy","new_construction"],
+      "rules":[
+        "The proposed use and occupancy classification must match the approved building and zoning records before occupancy.",
+        "All required building, electrical, plumbing, mechanical, and fire/life-safety final inspections must be approved before the Certificate of Occupancy is issued.",
+        "Outstanding correction notices, permit holds, and required plan revisions must be resolved before occupancy approval.",
+        "A change in use or occupancy classification requires the applicable building and zoning review even when the tenant work is limited.",
+        "The occupant load, exits, accessibility, restroom facilities, and fire-protection systems must match the approved plans and the actual commercial use."
+      ],
+      "required_documents":["approved building permit record","final inspection approvals","approved life-safety and accessibility information","zoning/use approval","fire final when applicable"],
+      "sources":["ib165","chapter_18","chapter_88"]
+    }
+  ],
+  "plan_category_rules": [
+    {
+      "id":"building_administrative","category_prefixes":["Building - Administrative Reviews"],"scope_keys":["new_construction","addition","alteration","repair","demolition","structural_work","change_use_occupancy"],
+      "rules":["Use the exact address, appeal, code-modification, floodplain, or preliminary-review route; none substitutes for the underlying construction permit.","A code modification or appeal must identify the code provision, proposed alternative, supporting technical evidence, and authorized decision before dependent work proceeds.","Floodplain Development review requires the parcel flood-hazard record, proposed elevations and work limits, and the applicable engineering evidence."],
+      "required_documents":["complete administrative application","project and related-record identity","code or floodplain basis","supporting technical evidence","issued decision"],
+      "sources":["compass_application_assistant","chapter_18","ib110a"]
+    },
+    {
+      "id":"commercial_plan_application","category_prefixes":["Building - Commercial Application"],"scope_keys":["new_construction","addition","alteration","structural_work","change_use_occupancy"],
+      "rules":["Select the exact new-building, addition, change-of-occupancy, tenant-finish, structural, site-improvement, communication-tower, grading, sprinkler, or trade-only plan route.","Commercial plan documents must satisfy the applicable IB110 administrative, architectural, structural, MEP, accessibility, energy, fire/life-safety, civil, and special-inspection requirements.","The approved plan record must be linked to every dependent construction and trade permit; unresolved comments or deferred issuance holds remain blockers."],
+      "required_documents":["IB110-compliant sealed plan package","code analysis","site or survey information when applicable","discipline calculations and specifications","response to comments and approval"],
+      "sources":["compass_application_assistant","ib110a","ib110b","ib110c","ib110d","chapter_18"]
+    },
+    {
+      "id":"residential_plan_application","category_prefixes":["Building - Residential Application"],"scope_keys":["new_construction","addition","alteration","structural_work","solar_battery_generator_ev"],
+      "rules":["Select the exact single-family, duplex, townhouse, accessory-building, miscellaneous-structure, solar, rehabilitation, addition, new-construction, or structural-remodel route.","Residential plans must contain the applicable IB100 site, architectural, structural, energy, utility, and administrative information.","The approved residential plan must match the building type and scope on the dependent permit; townhouse, duplex, and single-family routes are not interchangeable."],
+      "required_documents":["IB100-compliant plan package","site plan","structural information","energy documentation","contractor or homeowner authorization","approved plan record"],
+      "sources":["compass_application_assistant","ib100","chapter_18","ib146","ib171_residential"]
+    },
+    {
+      "id":"private_infrastructure_plan","category_prefixes":["City Infrastructure"],"scope_keys":["grading_land_disturbance","driveway_sidewalk_row","water_sewer_connections","new_construction"],
+      "rules":["Use the exact general, TIF, Public Works/Water Services, stream-buffer-waiver, or water-main-extension infrastructure review route.","Plans, specifications, calculations, drainage and soils information, easements, cost estimates, and responsible professional seals must cover every infrastructure discipline in the project.","No dependent infrastructure permit may proceed until the corresponding plan and required outside-agency approvals are accepted."],
+      "required_documents":["sealed infrastructure plans and specifications","calculations and reports","easement information","cost estimate","agency approvals and accepted plan record"],
+      "sources":["compass_application_assistant","major_infrastructure","ib159"]
+    },
+    {
+      "id":"planning_easement","category_prefixes":["Planning - Easement Processing"],"scope_keys":["new_construction","grading_land_disturbance","driveway_sidewalk_row","water_sewer_connections"],
+      "rules":["Public-improvement easement acceptance or release must identify the exact easement, legal description, exhibit, ownership, beneficiary, infrastructure purpose, and authorization.","The recorded or formally accepted easement action must agree with civil plans, plats, title evidence, and the work limits before dependent permits proceed."],
+      "required_documents":["application","legal description and exhibit","title and ownership evidence","affected-agency consent","recorded or accepted easement instrument"],
+      "sources":["compass_application_assistant","chapter_88"]
+    },
+    {
+      "id":"planning_appeal","category_prefixes":["Planning - File an Appeal","PMAB - Property Maintenance Appeals Board"],"scope_keys":["change_use_occupancy","alteration","repair"],
+      "rules":["Use the exact appeal, site-review appeal, rehearing, legal-nonconformance appeal, or property-maintenance appeal route and satisfy its filing deadline and standing requirements.","The appeal must identify the challenged final decision, claimed error, requested relief, complete record, and supporting evidence; filing does not itself reverse or stay the decision unless lawfully ordered."],
+      "required_documents":["appeal application","challenged decision and record","grounds and requested relief","standing and timeliness evidence","issued appeal decision"],
+      "sources":["compass_application_assistant","chapter_88"]
+    },
+    {
+      "id":"historic_preservation_plan","category_prefixes":["Planning - Historic Preservation"],"scope_keys":["demolition","addition","alteration","repair","change_use_occupancy"],
+      "rules":["Use the administrative or commission historic-review route that matches the resource and scope; demolition review and landmark/district designation are separate applications.","Confirm local designation, district, contributing status, National Register information, and exterior or demolition scope from official records rather than applicant assumption.","Dependent demolition or exterior work may not proceed until the required Certificate of Appropriateness or demolition review decision and conditions are issued."],
+      "required_documents":["historic application","photographs and existing-condition evidence","scope and design drawings","official designation evidence","issued decision and conditions"],
+      "sources":["compass_application_assistant","historic_preservation","ib110b","chapter_88"]
+    },
+    {
+      "id":"planning_land_use","category_prefixes":["Planning - Land Use Applications"],"scope_keys":["new_construction","change_use_occupancy"],
+      "rules":["Rezoning, overlay zoning, Special Use Permit, legal-nonconforming-use certification, and temporary-use/event registration are distinct applications with distinct findings.","Verify proposed and existing uses, base and overlay zoning, lawful-use history, site plan, ownership, notice, and the criteria applicable to the selected route.","Do not treat an application as approval; every condition, term, expiration, operational limit, and dependent plan requirement remains controlling."],
+      "required_documents":["land-use application","owner authorization","legal description","site or development plan","use and operations narrative","notice evidence","issued ordinance or decision"],
+      "sources":["compass_application_assistant","chapter_88","zoning_verification"]
+    },
+    {
+      "id":"planning_other","category_prefixes":["Planning - Other"],"scope_keys":["new_construction","change_use_occupancy","driveway_sidewalk_row"],
+      "rules":["Annexation, area-plan amendment, lien waiver, and major-street-plan actions are separate workflows and must not be substituted for a development approval.","Identify the exact geography, adopted plan or lien record, affected ownership and agencies, legal authority, and issued legislative or administrative action."],
+      "required_documents":["application","mapped limits and legal description","ownership or lien evidence","supporting analysis","issued action"],
+      "sources":["compass_application_assistant","chapter_88"]
+    },
+    {
+      "id":"development_plan_approval","category_prefixes":["Planning - Plan Approvals"],"scope_keys":["new_construction","addition","alteration","change_use_occupancy","grading_land_disturbance"],
+      "rules":["Use the exact residential/nonresidential development plan, UR/MPD final plan, project plan, amendment, tax-incentive, DAT meeting, or UR/MPD rezoning route.","Verify the required plan level and approval sequence, complete site/architectural/civil/landscape/utility information, ownership, legal description, notice, and findings.","Retrieve every approved sheet, ordinance, stipulation, deviation, amendment, development agreement, and expiration; those project-specific values control downstream zoning and permit checks."],
+      "required_documents":["complete development plan","legal description and ownership","site architectural civil landscape and utility information","notice and findings evidence","approved plan ordinance and conditions"],
+      "sources":["compass_application_assistant","chapter_88","ib110a"]
+    },
+    {
+      "id":"planning_sign_plan","category_prefixes":["Planning - Sign Applications"],"scope_keys":["signs"],
+      "rules":["A City Council-approved signage plan must show the coordinated sign program, sign types, dimensions, locations, illumination, materials, deviations, ownership, and site context.","The approved signage plan and conditions must be linked to and agree with each dependent sign permit."],
+      "required_documents":["signage plan application","coordinated sign drawings and schedule","site and facade context","deviation justification","Council-approved plan and conditions"],
+      "sources":["compass_application_assistant","chapter_88","ib127"]
+    },
+    {
+      "id":"planning_street_action","category_prefixes":["Planning - Street Related Applications"],"scope_keys":["driveway_sidewalk_row","new_construction"],
+      "rules":["Honorary naming, street-name plans, and street or plat vacations are separate legislative or administrative actions.","Verify affected right-of-way, legal description, ownership, utilities, access, emergency response, notice, agency comments, and issued ordinance or decision before changing records or beginning dependent work."],
+      "required_documents":["street action application","legal description and exhibit","utility and agency consents","access and notice evidence","issued ordinance or decision"],
+      "sources":["compass_application_assistant","chapter_88","chapter_64"]
+    },
+    {
+      "id":"platting_plan","category_prefixes":["Planning - Subdivide, Combine or Plat Land"],"scope_keys":["new_construction","grading_land_disturbance","driveway_sidewalk_row"],
+      "rules":["Select the exact condominium, final, preliminary, revised-preliminary, or minor-subdivision route; these application types are not interchangeable.","Verify surveyor-prepared boundaries and legal descriptions, ownership, lots, tracts, easements, dedications, access, utilities, drainage, monuments, certificates, and approval conditions.","Required plat approval and recording must occur before permits or conveyances that depend on the new lot configuration."],
+      "required_documents":["plat application","sealed survey and plat","title and ownership evidence","easement and dedication documents","civil and utility support","recorded approved plat"],
+      "sources":["compass_application_assistant","chapter_88"]
+    },
+    {
+      "id":"zoning_adjustment","category_prefixes":["Planning - Zoning Adjustments"],"scope_keys":["new_construction","addition","alteration","signs","change_use_occupancy","grading_land_disturbance"],
+      "rules":["Use the exact special exception, variance, or alternative-compliance route for the standard at issue; approval under one standard does not waive another.","The application must identify the controlling standard, requested relief, site-specific facts, criteria and hardship or alternative findings, plans, notice, and supporting analysis.","Only the issued decision and stated conditions modify the base rule; absent approval, the unmodified code standard remains controlling."],
+      "required_documents":["adjustment application","controlling-code citation","site and design plans","criteria response and supporting analysis","notice evidence","issued decision and conditions"],
+      "sources":["compass_application_assistant","chapter_88"]
+    }
+  ],
+  "electrical_application_rules": {
+    "576":{"building_type":"commercial_or_multifamily","filing_rule":"Approved parent plan, or minor scope; otherwise file plan 653.","ib160_trigger":"service_amps >= 400"},
+    "767":{"building_type":"irc_townhouse","filing_rule":"Use parent record sub-record when related.","ib160_trigger":"service_amps >= 400 or generator or battery","solar_plan_id":923},
+    "583":{"building_type":"single_family_duplex_or_accessory","filing_rule":"Use parent record sub-record when related.","ib160_trigger":"service_amps >= 400 or generator or battery","solar_plan_id":923},
+    "434":{"building_type":"irc_residential","filing_rule":"Licensed contractor only; scope must satisfy IB108 limited-service limits."},
+    "430":{"building_type":"commercial_or_multifamily","filing_rule":"Inspection-only reconnect; no work authorized.","license_required":false},
+    "431":{"building_type":"irc_residential","filing_rule":"Inspection-only reconnect; no work authorized.","license_required":false},
+    "772":{"building_type":"commercial_or_multifamily","filing_rule":"Minor fire-alarm scope only; use plan 653 when plans are required."},
+    "432":{"building_type":"irc_residential","filing_rule":"Hard-wired security alarm only; Wi-Fi/plug-in exempt; separate KCPD monitoring permit applies."}
+  },
+  "electrical_plan_dependencies": [
+    {"condition":"residential_solar","plan_application_id":923,"name":"Residential Solar Plan application"},
+    {"condition":"commercial_trade_work_requires_plans","plan_application_id":653,"name":"Miscellaneous Trade Work Only Commercial (Includes Fire Alarm)"},
+    {"condition":"service_amps >= 800 and service_amps <= 1199","requirement":"sealed one-line drawing plan case under IB160"},
+    {"condition":"service_amps >= 1200 or voltage > 600","requirement":"complete engineered drawings sealed by a Missouri professional engineer under IB160"},
+    {"condition":"transformer or generator or battery or fire_pump or wind_turbine or automatic_transfer_switch","requirement":"IB160 plan/line-drawing submission"}
+  ]
+}

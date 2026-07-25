@@ -23,7 +23,7 @@ class CaseStatus(str, Enum):
 
 
 class Conflict(BaseModel):
-    agents: list[str]
+    sections: list[str]
     issue: str
     severity: str
     suggested_fix: str
@@ -37,7 +37,7 @@ class HumanAction(BaseModel):
 
 class AuditEvent(BaseModel):
     timestamp: str
-    agent_id: str
+    source: str
     event_type: str
     message_id: Optional[str] = None
     payload_hash: Optional[str] = None
@@ -54,4 +54,3 @@ class PermitCaseSummary(BaseModel):
     human_actions_required: list[HumanAction] = Field(default_factory=list)
     audit_events: list[AuditEvent] = Field(default_factory=list)
     executive_summary: Optional[str] = None
-    band_room_id: Optional[str] = None

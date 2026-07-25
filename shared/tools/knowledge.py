@@ -1,14 +1,85 @@
 from __future__ import annotations
 
 import json
+from contextlib import contextmanager
+from contextvars import ContextVar
 from functools import lru_cache
 from pathlib import Path
 
-KNOWLEDGE_ROOT = Path(__file__).resolve().parents[2] / "knowledge" / "austin"
+KNOWLEDGE_BASE = Path(__file__).resolve().parents[2] / "knowledge"
+
+JURISDICTION_PATHS: dict[str, Path] = {
+    "austin_tx": KNOWLEDGE_BASE / "austin",
+    "kansas_city_mo": KNOWLEDGE_BASE / "missouri" / "kansas_city",
+    "kansas_city_ks": KNOWLEDGE_BASE / "kansas" / "kansas_city",
+    "lenexa_ks": KNOWLEDGE_BASE / "kansas" / "lenexa",
+    "overland_park_ks": KNOWLEDGE_BASE / "kansas" / "overland_park",
+    "manhattan_ks": KNOWLEDGE_BASE / "kansas" / "manhattan",
+    "seattle_wa": KNOWLEDGE_BASE / "washington" / "seattle",
+}
+
+_current_jurisdiction: ContextVar[str] = ContextVar("jurisdiction", default="austin_tx")
 
 
-@lru_cache
-def load_json(name: str) -> dict | list:
-    path = KNOWLEDGE_ROOT / name
+def resolve_knowledge_root(jurisdiction: str | None = None) -> Path:
+    jid = jurisdiction or _current_jurisdiction.get()
+    root = JURISDICTION_PATHS.get(jid)
+    if root is None or not root.is_dir():
+        raise ValueError(f"Unknown or missing knowledge pack for jurisdiction: {jid}")
+    return root
+
+
+@contextmanager
+def jurisdiction_context(jurisdiction: str):
+    token = _current_jurisdiction.set(jurisdiction)
+    try:
+        yield
+    finally:
+        _current_jurisdiction.reset(token)
+
+
+def list_jurisdictions() -> list[dict]:
+    """List city packs supported by the address-to-zoning project flow."""
+    results: list[dict] = []
+
+    for state_dir in sorted(KNOWLEDGE_BASE.glob("*/")):
+        if not state_dir.is_dir() or state_dir.name == "austin":
+            continue
+        for city_dir in sorted(state_dir.glob("*/")):
+            if not city_dir.is_dir() or city_dir.name == "state":
+                continue
+            meta_path = city_dir / "metadata.json"
+            meta: dict = {}
+            if meta_path.is_file():
+                with meta_path.open(encoding="utf-8") as f:
+                    meta = json.load(f)
+            jid = meta.get("jurisdiction_id", f"{city_dir.name}-{state_dir.name}").replace("-", "_")
+            if jid == "manhattan_ks" or city_dir.name == "manhattan":
+                jid = "manhattan_ks"
+            label = {
+                "kansas_city_mo": "Kansas City, Missouri",
+                "kansas_city_ks": "Kansas City, Kansas",
+            }.get(jid, f"{meta.get('city', city_dir.name.title())}, {meta.get('state', state_dir.name.upper())}")
+            results.append(
+                {
+                    "id": jid,
+                    "label": label,
+                    "state": meta.get("state", state_dir.name.upper()),
+                    "city": meta.get("city", city_dir.name.title()),
+                    "coverage_status": meta.get("coverage_status", "available"),
+                }
+            )
+
+    return results
+
+
+@lru_cache(maxsize=32)
+def _load_json_cached(root_str: str, name: str) -> dict | list:
+    path = Path(root_str) / name
     with path.open(encoding="utf-8") as f:
         return json.load(f)
+
+
+def load_json(name: str, jurisdiction: str | None = None) -> dict | list:
+    root = resolve_knowledge_root(jurisdiction)
+    return _load_json_cached(str(root), name)

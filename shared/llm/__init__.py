@@ -1,15 +1,15 @@
-"""LLM provider routing — AI/ML API + Featherless."""
+"""ZenMux-only LLM integration."""
 
-from shared.llm.providers import (
-    Provider,
+from shared.llm.zenmux import (
     chat_completion,
+    create_chat_model,
     extract_pdf_text,
-    get_model_for_agent,
+    resolve_zenmux_config,
 )
 
 __all__ = [
-    "Provider",
     "chat_completion",
+    "create_chat_model",
     "extract_pdf_text",
-    "get_model_for_agent",
+    "resolve_zenmux_config",
 ]
